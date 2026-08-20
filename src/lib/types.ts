@@ -88,6 +88,18 @@ export type Database = {
         Update: Partial<{ customer_name: string; phone: string | null; note: string | null }>;
         Relationships: [];
       };
+      delivery_partners: {
+        Row: Timestamped & { name_ar: string; phone: string | null; is_active: boolean; sort: number; note: string | null };
+        Insert: { id?: string; name_ar: string; phone?: string | null; is_active?: boolean; sort?: number; note?: string | null; created_at?: string };
+        Update: Partial<{ name_ar: string; phone: string | null; is_active: boolean; sort: number; note: string | null }>;
+        Relationships: [];
+      };
+      partner_settlements: {
+        Row: Timestamped & { partner_id: string; amount: number; method: "cash" | "transfer" | "other"; note: string | null; created_by: string | null; business_day: string };
+        Insert: { id?: string; partner_id: string; amount: number; method?: "cash" | "transfer" | "other"; note?: string | null; created_by?: string | null; business_day?: string; created_at?: string };
+        Update: Partial<{ amount: number; method: "cash" | "transfer" | "other"; note: string | null }>;
+        Relationships: [];
+      };
       daily_resets: {
         Row: Timestamped & { reset_at: string; by_employee: string | null };
         Insert: { id?: string; reset_at?: string; by_employee?: string | null; created_at?: string };
@@ -276,7 +288,7 @@ export type Database = {
           eta_minutes: number | null; customer_phone: string | null; address_note: string | null;
           updated_at: string; source: "hub" | "cloud";
           order_source: "pos" | "web" | "whatsapp"; customer_name: string | null; notified_at: string | null;
-          payment_method: "cash" | "card" | null; session_id: string | null;
+          payment_method: "cash" | "card" | "partner" | null; session_id: string | null; partner_id: string | null;
         };
         Insert: {
           id?: string; business_day?: string; order_seq: number; channel: OrderChannel; status?: OrderStatus;
@@ -287,12 +299,12 @@ export type Database = {
           eta_minutes?: number | null; customer_phone?: string | null; address_note?: string | null;
           updated_at?: string; source?: "hub" | "cloud";
           order_source?: "pos" | "web" | "whatsapp"; customer_name?: string | null; notified_at?: string | null;
-          payment_method?: "cash" | "card" | null; session_id?: string | null;
+          payment_method?: "cash" | "card" | "partner" | null; session_id?: string | null; partner_id?: string | null;
         };
         Update: Partial<{
           status: OrderStatus; discount: number; extra: number; extra_note: string | null;
           customer_id: string | null; paid_at: string | null;
-          prep_status: PrepStatus; expediter_id: string | null; eta_minutes: number | null; updated_at: string; payment_method: "cash" | "card" | null; session_id: string | null;
+          prep_status: PrepStatus; expediter_id: string | null; eta_minutes: number | null; updated_at: string; payment_method: "cash" | "card" | "partner" | null; session_id: string | null; partner_id: string | null;
         }>;
         Relationships: [];
       };
@@ -377,6 +389,14 @@ export type Database = {
         };
         Relationships: [];
       };
+      partner_balances: {
+        Row: {
+          id: string; name_ar: string; is_active: boolean; phone: string | null;
+          billed: number; settled: number; balance: number; orders_count: number;
+          last_order_at: string | null; last_settled_at: string | null;
+        };
+        Relationships: [];
+      };
       debtor_balances: {
         Row: { customer_name: string; phone: string | null; total_debt: number; total_paid: number; balance: number; last_activity: string };
         Relationships: [];
@@ -396,6 +416,23 @@ export type Database = {
         Returns: number;
       };
       cancel_order: { Args: { p_order: string }; Returns: undefined };
+      // 0045 — delivery aggregators billed postpaid
+      save_partner: {
+        Args: { p_id: string | null; p_name: string; p_phone?: string | null; p_active?: boolean; p_note?: string | null };
+        Returns: string;
+      };
+      settle_partner: {
+        Args: { p_partner: string; p_amount: number; p_method?: "cash" | "transfer" | "other"; p_note?: string | null };
+        Returns: number;
+      };
+      partner_ledger: {
+        Args: { p_partner: string; p_from?: string | null; p_to?: string | null };
+        Returns: { kind: "order" | "settlement"; ref: string; at: string; label: string; amount: number }[];
+      };
+      partner_order_items: {
+        Args: { p_order: string };
+        Returns: { name_ar: string; flavor_ar: string | null; qty: number; line_total: number }[];
+      };
       // 0044 — the Station Hub replaying what it took while the line was down.
       // Service role only: these write an order with an id and a number of the
       // caller's choosing, which no browser session may ever do.

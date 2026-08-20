@@ -58,10 +58,14 @@ export function TabletMenuClient({
   table = null,
   channel = "qr",
   offers = {},
+  initialMode = null,
 }: {
   menu: MenuCategoryView[];
   table?: string | null;
   channel?: "qr" | "kiosk";
+  /** preselected by a deep link (/delivery, /pickup, …); the picker still shows
+   *  so a customer who followed the wrong link is one tap from the right one */
+  initialMode?: FulfilmentMode | null;
   /** item_id → today's offer price (0 = مجاناً) set by management */
   offers?: Record<string, number>;
 }) {
@@ -79,7 +83,7 @@ export function TabletMenuClient({
   // Fulfilment. A table QR (?t=5) already answers "where are you", so that path
   // is pinned to dine-in and never shows the picker.
   const scanned = Boolean(table);
-  const [mode, setMode] = useState<FulfilmentMode | null>(scanned ? "dinein" : null);
+  const [mode, setMode] = useState<FulfilmentMode | null>(scanned ? "dinein" : initialMode);
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const [carNote, setCarNote] = useState("");
@@ -88,7 +92,10 @@ export function TabletMenuClient({
 
   // «البائع الصامت». Session-only, in-memory, no permissions, nothing leaves
   // the device — see use-attention.ts.
-  const [upsell, setUpsell] = useState<Upsell | null>(null);
+  // `addOnly` = the customer already has the focus item in the basket, so the
+  // offer is the add-on alone. Without it the toast says «أضف الاثنين» and puts
+  // a second pizza in the basket of someone who just added one.
+  const [upsell, setUpsell] = useState<{ pick: Upsell; addOnly: boolean } | null>(null);
   const shown = useRef<Set<string>>(new Set());
   const cartIds = useMemo(() => new Set(lines.map((l) => l.itemId)), [lines]);
   const cartIdsRef = useRef(cartIds);
@@ -153,7 +160,7 @@ export function TabletMenuClient({
     const pick = pickUpsell({ menu, focusItemId: itemId, inCart: cartIdsRef.current });
     if (!pick) return;
     shown.current.add(itemId);
-    setUpsell(pick);
+    setUpsell({ pick, addOnly: cartIdsRef.current.has(itemId) });
   }
 
   /**
@@ -173,7 +180,8 @@ export function TabletMenuClient({
     // only a side/sauce follow-up; never talk someone into a second main
     if (!pick || pick.reason === "main") return;
     shown.current.add(justAdded.id);
-    setUpsell({ ...pick, focus: justAdded, total: pick.item.price });
+    // they just added it, so it is in the basket by definition
+    setUpsell({ pick: { ...pick, focus: justAdded }, addOnly: true });
   }
 
   const attention = useAttention({ onIntent });
@@ -487,16 +495,17 @@ export function TabletMenuClient({
 
       {upsell && !cartOpen && !modalItem && (
         <UpsellToast
-          upsell={upsell}
+          upsell={upsell.pick}
+          addOnly={upsell.addOnly}
           onAddBoth={() => {
             // the focus item first, so the basket reads in the order the
             // customer thought about it
-            add(upsell.focus, null, priceOf(upsell.focus));
-            add(upsell.item, null, priceOf(upsell.item));
+            add(upsell.pick.focus, null, priceOf(upsell.pick.focus));
+            add(upsell.pick.item, null, priceOf(upsell.pick.item));
             setUpsell(null);
           }}
           onAddSideOnly={() => {
-            add(upsell.item, null, priceOf(upsell.item));
+            add(upsell.pick.item, null, priceOf(upsell.pick.item));
             setUpsell(null);
           }}
           onClose={() => {

@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "r
 import { Check, Minus, Plus, Printer, QrCode, Trash2 } from "lucide-react";
 import type { MenuCategoryView, MenuItemView } from "@/lib/cafe/menu-data";
 import { formatIqdLabel } from "@/lib/cafe/money";
-import { cashierCheckout } from "@/lib/cafe/cashier-actions";
+import { cashierCheckout, type PayMethod } from "@/lib/cafe/cashier-actions";
+import type { Partner } from "@/lib/cafe/partner-actions";
 import { buildOrderJobs } from "@/lib/cafe/printer-actions";
 import { printJobs, kickDrawer as kickDrawerAgent } from "@/lib/cafe/print-client";
 import { findCard, redeemReward, type Card } from "@/lib/cafe/loyalty-actions";
@@ -55,11 +56,14 @@ function cartReducer(state: Cart, action: CartAction): Cart {
 export function CashierClient({
   menu,
   tables,
+  partners = [],
   cashierName = null,
   expediterName = null,
 }: {
   menu: MenuCategoryView[];
   tables: string[];
+  /** شركات التوصيل النشطة — an empty list hides the whole postpaid option */
+  partners?: Partner[];
   /** كابتن الطلب — printed on every slip */
   cashierName?: string | null;
   /** اسم المجهّز — whoever holds the expediter shift right now */
@@ -77,7 +81,8 @@ export function CashierClient({
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
   const [success, setSuccess] = useState<{ orderNumber: string; awarded: number } | null>(null);
   // cash opens the drawer; Qi-card payments happen on the Qi device — no drawer.
-  const [payMethod, setPayMethod] = useState<"cash" | "card">("cash");
+  const [payMethod, setPayMethod] = useState<PayMethod>("cash");
+  const [partnerId, setPartnerId] = useState<string>("");
   // dine-in orders carry a table number → they show on the live tables screen
   const [orderType, setOrderType] = useState<"takeaway" | "dinein">("takeaway");
   const [tableNo, setTableNo] = useState("");
@@ -202,7 +207,7 @@ export function CashierClient({
       const table = orderType === "dinein" ? tableNo : null;
       const extraNote = extras.map((x) => `${x.name} (${formatIqdLabel(x.price)})`).join("، ") || null;
       const payload = lines.map((l) => ({ item_id: l.itemId, variant_id: l.variantId, flavor: l.flavor, qty: l.qty }));
-      const res = await cashierCheckout({ lines: payload, discount, extra: extraTotal, extraNote, payMethod, customerId: customer?.id ?? null, table, note: orderNote.trim() || null });
+      const res = await cashierCheckout({ lines: payload, discount, extra: extraTotal, extraNote, payMethod, partnerId: payMethod === "partner" ? partnerId : null, customerId: customer?.id ?? null, table, note: orderNote.trim() || null });
       if (!res.ok) {
         setErr(res.error);
         return;
@@ -453,7 +458,7 @@ export function CashierClient({
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-1.5 rounded-xl bg-secondary/60 p-1.5">
+        <div className={`grid gap-1.5 rounded-xl bg-secondary/60 p-1.5 ${partners.length ? "grid-cols-3" : "grid-cols-2"}`}>
           <button
             onClick={() => setPayMethod("cash")}
             className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${payMethod === "cash" ? "bg-primary text-primary-foreground" : "hover:bg-background"}`}
@@ -466,13 +471,51 @@ export function CashierClient({
           >
             💳 كي كارد
           </button>
+          {/* only offered when management has actually set a company up */}
+          {partners.length > 0 && (
+            <button
+              onClick={() => setPayMethod("partner")}
+              className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${payMethod === "partner" ? "bg-primary text-primary-foreground" : "hover:bg-background"}`}
+            >
+              🛵 شركة
+            </button>
+          )}
         </div>
+
+        {payMethod === "partner" && (
+          <div className="rounded-xl border border-amber-300 bg-amber-50 p-2 dark:border-amber-700 dark:bg-amber-950/40">
+            <select
+              value={partnerId}
+              onChange={(e) => setPartnerId(e.target.value)}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-semibold"
+            >
+              <option value="">— اختر شركة التوصيل —</option>
+              {partners.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name_ar}
+                </option>
+              ))}
+            </select>
+            {/* said plainly, because the cashier is the one who gets blamed if
+                the drawer does not match at handover */}
+            <p className="mt-1.5 text-xs font-bold text-amber-800 dark:text-amber-300">
+              بالآجل — لا يدخل صندوق الكاشير ولا يُحتسب عليك في نهاية الوردية.
+            </p>
+          </div>
+        )}
+
         <button
           onClick={checkout}
-          disabled={busy || lines.length === 0}
+          disabled={busy || lines.length === 0 || (payMethod === "partner" && !partnerId)}
           className="w-full rounded-xl bg-primary px-4 py-3 font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
         >
-          {busy ? "جارٍ التنفيذ…" : payMethod === "cash" ? "دفع نقدي وإصدار الطلب" : "دفع كي كارد وإصدار الطلب"}
+          {busy
+            ? "جارٍ التنفيذ…"
+            : payMethod === "cash"
+              ? "دفع نقدي وإصدار الطلب"
+              : payMethod === "card"
+                ? "دفع كي كارد وإصدار الطلب"
+                : "تسجيل على الشركة وإصدار الطلب"}
         </button>
       </aside>
 

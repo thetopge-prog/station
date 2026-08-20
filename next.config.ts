@@ -14,6 +14,19 @@ const nextConfig: NextConfig = {
   // open the bare domain to /menu instead of their dashboard).
   // /img/* → storage (same path the netlify.toml edge proxy serves in prod);
   // this rewrite covers local dev and any Node host.
+  // Short links for WhatsApp and printed material. A customer who taps
+  // «اطلب توصيل» in a message should land on the menu already set to delivery,
+  // not on a chooser that asks a question the link already answered.
+  //
+  // Config redirects run BEFORE the proxy, so these reach /menu — which is
+  // public — without tripping the staff auth gate.
+  async redirects() {
+    return [
+      { source: "/delivery", destination: "/menu?mode=delivery", permanent: false },
+      { source: "/pickup", destination: "/menu?mode=pickup", permanent: false },
+      { source: "/car", destination: "/menu?mode=curbside", permanent: false },
+    ];
+  },
   async rewrites() {
     const supa = process.env.NEXT_PUBLIC_SUPABASE_URL;
     return supa

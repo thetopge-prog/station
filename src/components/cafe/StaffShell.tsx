@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  Bike,
   Armchair,
   Bell,
   Boxes,
@@ -97,6 +98,7 @@ const NAV: NavItem[] = [
   { href: "/loyalty", label: "الولاء", short: "الولاء", allow: ["cashier"], icon: CreditCard },
   { href: "/pastries", label: "العروض", short: "العروض", allow: ["cashier"], icon: Percent },
   { href: "/debts", label: "سجل الديون", short: "الديون", allow: ["cashier"], icon: HandCoins },
+  { href: "/partners", label: "شركات التوصيل", short: "الشركات", allow: [], icon: Bike },
   { href: "/menu-admin", label: "المنيو", short: "المنيو", allow: [], icon: UtensilsCrossed },
   { href: "/expenses", label: "المصروفات", short: "المصروفات", allow: ["cashier"], icon: Wallet },
   { href: "/employees", label: "الموظفون", short: "الموظفون", allow: [], icon: Users },

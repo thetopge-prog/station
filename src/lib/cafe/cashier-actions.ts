@@ -10,6 +10,10 @@ import { loyaltyConfig } from "./config";
 import { earnPoints } from "./points";
 import type { OrderLineInput } from "./order-actions";
 
+/** How the counter was settled. "partner" = billed to a delivery company and
+ *  collected later, so it never reaches the drawer. */
+export type PayMethod = "cash" | "card" | "partner";
+
 export type PendingItem = { name_ar: string; flavor_ar: string | null; qty: number; unit_price: number; line_total: number };
 export type PendingOrder = {
   id: string;
@@ -102,11 +106,19 @@ export async function cashierCheckout(input: {
   customerId?: string | null;
   table?: string | null;
   note?: string | null;
-  /** cash or Qi card — recorded, not just used to decide the drawer kick */
-  payMethod?: "cash" | "card";
+  /** cash, Qi card, or billed to a delivery company — recorded, not just used
+   *  to decide the drawer kick */
+  payMethod?: PayMethod;
+  /** required when payMethod is "partner": which company is being billed */
+  partnerId?: string | null;
 }): Promise<CheckoutResult> {
   const staff = await requireStaff();
   if (!input.lines?.length) return { ok: false, error: "لا توجد أصناف في الطلب." };
+  // A partner sale with no partner is an untraceable receivable: revenue booked,
+  // nobody to invoice. Refuse it here rather than discover it at settlement.
+  if (input.payMethod === "partner" && !input.partnerId) {
+    return { ok: false, error: "اختر شركة التوصيل." };
+  }
 
   const supabase = await createSupabaseServerClient();
   const { data: placed, error } = await supabase.rpc("place_order", {
@@ -128,7 +140,10 @@ export async function cashierCheckout(input: {
     .from("orders")
     .update({
       payment_method: input.payMethod ?? "cash",
+      // The order still belongs to the shift that took it — a partner order
+      // appears in the shift's order count, just never in its cash.
       session_id: await openSessionIdFor(staff.employeeId),
+      partner_id: input.payMethod === "partner" ? input.partnerId ?? null : null,
     })
     .eq("id", placed[0].order_id);
 
@@ -145,12 +160,34 @@ export async function cashierCheckout(input: {
   };
 }
 
-/** Accept & pay an existing pending self-order from the queue. */
-export async function payPendingOrder(orderId: string, discount = 0, customerId: string | null = null) {
-  await requireStaff();
+/**
+ * Accept & pay an existing pending self-order from the queue.
+ *
+ * Stamps the same two money facts cashierCheckout does. It did not before, so
+ * a self-order paid at the counter counted toward NO payment method and NO
+ * session: its cash was invisible to the Z-report, and the drawer expected
+ * less than it held. A shortage hiding inside a surplus is still a shortage.
+ */
+export async function payPendingOrder(
+  orderId: string,
+  discount = 0,
+  customerId: string | null = null,
+  payMethod: PayMethod = "cash",
+  partnerId: string | null = null,
+) {
+  const staff = await requireStaff();
+  if (payMethod === "partner" && !partnerId) return { ok: false as const, error: "اختر شركة التوصيل." };
   const supabase = await createSupabaseServerClient();
   const paid = await payOrder(supabase, orderId, discount, customerId);
   if (!paid.ok) return paid;
+  await supabase
+    .from("orders")
+    .update({
+      payment_method: payMethod,
+      session_id: await openSessionIdFor(staff.employeeId),
+      partner_id: payMethod === "partner" ? partnerId : null,
+    })
+    .eq("id", orderId);
   revalidatePath("/cashier");
   revalidatePath("/dashboard");
   return { ok: true as const, awarded: paid.awarded };

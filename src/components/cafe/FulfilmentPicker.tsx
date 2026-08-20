@@ -1,7 +1,11 @@
 "use client";
 
 import { Bike, Car, ShoppingBag, UtensilsCrossed } from "lucide-react";
-import type { Fulfilment } from "@/lib/cafe/order-actions";
+import { CHANNEL_OF, type FulfilmentMode } from "@/lib/cafe/fulfilment";
+
+// re-exported so the existing imports from this file keep working; the data
+// itself lives in lib/cafe/fulfilment.ts, which a server component can read
+export { CHANNEL_OF, type FulfilmentMode };
 
 /**
  * «كيف تريد طلبك؟» — the four ways to receive an order.
@@ -15,17 +19,6 @@ import type { Fulfilment } from "@/lib/cafe/order-actions";
  * without an address, curbside cannot work without a phone, and dine-in needs
  * nothing but a headcount because the server picks the table.
  */
-
-export type FulfilmentMode = "delivery" | "pickup" | "dinein" | "curbside";
-
-/** dine-in rides the existing `qr` channel — it IS a QR-menu order, just one
- *  where the customer told us they are staying rather than the sticker doing it */
-export const CHANNEL_OF: Record<FulfilmentMode, Fulfilment> = {
-  delivery: "delivery",
-  pickup: "pickup",
-  dinein: "qr",
-  curbside: "curbside",
-};
 
 type Spec = {
   mode: FulfilmentMode;
