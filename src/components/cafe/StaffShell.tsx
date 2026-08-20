@@ -96,7 +96,7 @@ const NAV: NavItem[] = [
   { href: "/orders", label: "الطلبات الواردة", short: "الطلبات", allow: ["cashier", "expediter"], icon: ClipboardList },
   { href: "/tables", label: "الطاولات", short: "الطاولات", allow: ["cashier", "cleaner"], icon: Armchair },
   { href: "/loyalty", label: "الولاء", short: "الولاء", allow: ["cashier"], icon: CreditCard },
-  { href: "/pastries", label: "العروض", short: "العروض", allow: ["cashier"], icon: Percent },
+  { href: "/offers", label: "العروض", short: "العروض", allow: ["cashier"], icon: Percent },
   { href: "/debts", label: "سجل الديون", short: "الديون", allow: ["cashier"], icon: HandCoins },
   { href: "/partners", label: "شركات التوصيل", short: "الشركات", allow: [], icon: Bike },
   { href: "/menu-admin", label: "المنيو", short: "المنيو", allow: [], icon: UtensilsCrossed },
@@ -112,13 +112,11 @@ export function StaffShell({
   role,
   name,
   pushKey = null,
-  pastryAlert = 0,
   children,
 }: {
   role: StaffRole | null;
   name: string;
   pushKey?: string | null;
-  pastryAlert?: number;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -254,9 +252,9 @@ export function StaffShell({
                   }`}
                 >
                   {l.label}
-                  {((l.href === "/orders" && pendingCount > 0) || (l.href === "/pastries" && pastryAlert > 0)) && (
+                  {l.href === "/orders" && pendingCount > 0 && (
                     <span className="absolute -left-1 -top-1 flex size-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
-                      {l.href === "/orders" ? pendingCount : pastryAlert}
+                      {pendingCount}
                     </span>
                   )}
                 </Link>
@@ -338,11 +336,6 @@ export function StaffShell({
         >
           <MoreHorizontal className="size-5" />
           المزيد
-          {pastryAlert > 0 && (
-            <span className="absolute right-1/2 top-1 translate-x-4 rounded-full bg-destructive px-1.5 text-[9px] font-bold text-destructive-foreground">
-              {pastryAlert}
-            </span>
-          )}
         </button>
       </nav>
 
@@ -372,11 +365,6 @@ export function StaffShell({
                   >
                     <Icon className="size-6" />
                     {l.label}
-                    {l.href === "/pastries" && pastryAlert > 0 && (
-                      <span className="absolute right-2 top-2 flex size-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
-                        {pastryAlert}
-                      </span>
-                    )}
                   </Link>
                 );
               })}

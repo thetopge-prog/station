@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { getStaff } from "@/lib/cafe/auth";
 import { isDemoServer } from "@/lib/cafe/demo";
-import { getPastryAlertCount } from "@/lib/cafe/pastry-actions";
 import { StaffShell } from "@/components/cafe/StaffShell";
 
 // Auth + role are resolved per request (runtime env, session cookie).
@@ -23,9 +22,8 @@ export default async function StaffLayout({ children }: { children: React.ReactN
   }
   const staff = await getStaff();
   if (!staff) redirect("/sign-in");
-  const pastryAlert = await getPastryAlertCount().catch(() => 0);
   return (
-    <StaffShell role={staff.role} name={staff.name} pushKey={pushKey} pastryAlert={pastryAlert}>
+    <StaffShell role={staff.role} name={staff.name} pushKey={pushKey}>
       {children}
     </StaffShell>
   );

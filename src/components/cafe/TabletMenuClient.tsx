@@ -205,7 +205,7 @@ export function TabletMenuClient({
 
   /**
    * Today's price for an item — management can set a per-item offer from
-   * /pastries («عروض اليوم»), and it must beat the menu price everywhere the
+   * /offers («سعر اليوم»), and it must beat the menu price everywhere the
    * customer sees a number. Previously this only reached the cross-sell strip,
    * so an advertised offer never actually showed on the grid it advertised.
    */

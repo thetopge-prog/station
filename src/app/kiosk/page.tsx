@@ -1,5 +1,5 @@
 import { getPublicMenu } from "@/lib/cafe/menu-data";
-import { getActiveOffers } from "@/lib/cafe/pastry-actions";
+import { getActiveOffers } from "@/lib/cafe/offer-actions";
 import { isDemoServer } from "@/lib/cafe/demo";
 import { ModernMenuClient } from "@/components/cafe/ModernMenuClient";
 

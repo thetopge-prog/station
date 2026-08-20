@@ -1,5 +1,5 @@
 import { getPublicMenu } from "@/lib/cafe/menu-data";
-import { getActiveItemOffers } from "@/lib/cafe/pastry-actions";
+import { getActiveItemOffers } from "@/lib/cafe/offer-actions";
 import { TabletMenuClient } from "@/components/cafe/TabletMenuClient";
 
 export const dynamic = "force-dynamic";

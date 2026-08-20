@@ -267,14 +267,6 @@ async function viewDailyFinal() {
   const sold = (await aggregateSold(today)).filter(([, q]) => q > 0);
   const guests = sold.reduce((s, [, q]) => s + q, 0); // one item ≈ one guest
   const closure = (await rest(`register_closures?business_day=eq.${today}&select=remaining,note`))[0];
-  // pastries expiring within 1 day (shelf life from deposit date)
-  const batches = await rest(`pastry_batches?active=eq.true&select=item_name,deposited_on,shelf_days`);
-  const todayMs = new Date(`${today}T00:00:00Z`).getTime();
-  const expiring = (batches as Row[]).filter((b) => {
-    const exp = new Date(`${b.deposited_on}T00:00:00Z`);
-    exp.setUTCDate(exp.getUTCDate() + (b.shelf_days ?? 6));
-    return (exp.getTime() - todayMs) / 86_400_000 <= 1;
-  });
   const lines = [
     `🌙 <b>التقرير اليومي النهائي — ${today}</b>`, "",
     `🧾 عدد الطلبات: <b>${t.c}</b>`,
@@ -286,7 +278,6 @@ async function viewDailyFinal() {
     closure
       ? `🏦 المتبقي في الصندوق: <b>${fmt(closure.remaining)} د.ع</b>${closure.note ? ` — ${esc(closure.note)}` : ""}`
       : `🏦 المتبقي في الصندوق: لم يُسجَّل (يُدخل من صفحة المصروفات)`,
-    ...(expiring.length ? [`🎁 عروض: <b>${expiring.map((b) => esc(b.item_name)).join("، ")}</b> — قدّمها كعرض اليوم`] : []),
     "",
     `🍔 <b>الأصناف المباعة اليوم (${sold.reduce((s, [, q]) => s + q, 0)} قطعة):</b>`,
   ];

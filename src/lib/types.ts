@@ -112,12 +112,6 @@ export type Database = {
         Update: Partial<{ offer_price: number; note: string | null }>;
         Relationships: [];
       };
-      pastry_batches: {
-        Row: Timestamped & { item_name: string; quantity: number; deposited_on: string; shelf_days: number; active: boolean; note: string | null };
-        Insert: { id?: string; item_name: string; quantity?: number; deposited_on?: string; shelf_days?: number; active?: boolean; note?: string | null; created_at?: string };
-        Update: Partial<{ item_name: string; quantity: number; deposited_on: string; shelf_days: number; active: boolean; note: string | null }>;
-        Relationships: [];
-      };
       offers: {
         Row: Timestamped & { title: string; description: string | null; active: boolean; auto: boolean; batch_id: string | null; ends_on: string | null };
         Insert: { id?: string; title: string; description?: string | null; active?: boolean; auto?: boolean; batch_id?: string | null; ends_on?: string | null; created_at?: string };
