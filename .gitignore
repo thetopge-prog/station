@@ -22,3 +22,6 @@ Thumbs.db
 
 # designer drop zone (raw product images — uploaded to Supabase, not committed)
 /menu/
+
+# Station Hub — the shop's local database (never leaves the mini PC)
+.hub/

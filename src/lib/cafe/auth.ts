@@ -1,5 +1,8 @@
-import { getServerUser, createSupabaseServiceClient } from "@/lib/supabase/server";
+import { getServerUser, createSupabaseServiceClient, currentAccessToken } from "@/lib/supabase/server";
 import { toRole, type StaffRole } from "./roles";
+import { hubEnabled } from "@/lib/hub/store";
+import { cloudReachable } from "@/lib/hub/net";
+import { rememberSession, recallSession } from "@/lib/hub/session";
 
 // Re-exported so existing server-side imports of StaffRole/canAccess from this
 // module keep working. The definitions live in ./roles because that file has no
@@ -20,8 +23,15 @@ export type Staff = {
 /** The current signed-in staff member, or null. Uses the service client to read
  *  the employees/roles tables reliably (after the auth token is validated). */
 export async function getStaff(): Promise<Staff | null> {
+  const token = hubEnabled() ? await currentAccessToken() : null;
   const user = await getServerUser();
-  if (!user) return null;
+  if (!user) {
+    // On the shop hub with the line down, fall back to the identity Supabase
+    // already confirmed for this exact token. Everywhere else, and whenever the
+    // cloud is reachable, a failed check stays a failed check.
+    if (token && !(await cloudReachable())) return recallSession(token);
+    return null;
+  }
 
   const svc = createSupabaseServiceClient();
   const { data: emp } = await svc
@@ -37,7 +47,7 @@ export async function getStaff(): Promise<Staff | null> {
     const { data: r } = await svc.from("roles").select("name_en").eq("id", emp.role_id).maybeSingle();
     role = toRole(r?.name_en);
   }
-  return {
+  const staff: Staff = {
     userId: user.id,
     employeeId: emp.id,
     name: emp.name_ar,
@@ -45,6 +55,8 @@ export async function getStaff(): Promise<Staff | null> {
     role,
     stationId: emp.station_id ?? null,
   };
+  await rememberSession(token, staff);
+  return staff;
 }
 
 export async function requireStaff(): Promise<Staff> {

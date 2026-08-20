@@ -2,6 +2,8 @@
 
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { getStaff } from "./auth";
+import { hubEnabled, liveLocalOrders } from "@/lib/hub/store";
+import { cloudReachable } from "@/lib/hub/net";
 
 /**
  * The ceiling display authenticates with a KEY, not a session.
@@ -68,11 +70,33 @@ export async function listQueue(displayKey?: string | null): Promise<QueueRow[]>
   // a key-authenticated screen has no Supabase session, so it reads through the
   // service client; the view it reads is money-free either way
   const supabase = viaKey ? createSupabaseServiceClient() : await createSupabaseServerClient();
+  const local: QueueRow[] = hubEnabled()
+    ? (await liveLocalOrders())
+        .filter((o) => o.prep_status === "preparing" || o.prep_status === "ready")
+        .map((o) => ({
+          id: o.id,
+          order_seq: o.seq,
+          // «تحت التحضير» and «جاهز» are the only two columns the waiting area
+          // has; a locally-taken order that is still 'new' belongs in the first
+          prep_status: o.prep_status === "ready" ? "ready" : "preparing",
+          pickup_code: o.display.pickup_code,
+          table_no: o.display.table_no,
+          channel: o.display.channel,
+          created_at: o.created_at,
+          cashier_name: o.display.cashier_name,
+          expediter_name: o.display.expediter_name,
+        }))
+    : [];
+
+  if (hubEnabled() && !(await cloudReachable())) return local;
+
   const { data, error } = await supabase
     .from("queue_public")
     .select("id, order_seq, pickup_code, prep_status, table_no, channel, created_at, cashier_name, expediter_name");
-  if (error) return [];
-  return (data ?? []) as QueueRow[];
+  if (error) return local;
+
+  const localIds = new Set(local.map((o) => o.id));
+  return [...local, ...((data ?? []) as QueueRow[]).filter((o) => !localIds.has(o.id))];
 }
 
 export type DisplayAd = { id: string; title: string | null; src: string; duration_s: number };

@@ -51,6 +51,18 @@ export function createSupabaseServiceClient(): SupabaseClient<Database> {
   });
 }
 
+/**
+ * The raw access token on this request, if any.
+ *
+ * The hub needs it as a cache key for the offline identity it remembers, and
+ * nothing else should: it is a live credential, so it is read here rather than
+ * passed around.
+ */
+export async function currentAccessToken(): Promise<string | null> {
+  const cookieStore = await cookies();
+  return parseSessionCookie(cookieStore.get(AUTH_STORAGE_KEY)?.value)?.accessToken ?? null;
+}
+
 /** Returns the authenticated user (validated against Supabase Auth) or null. */
 export async function getServerUser(): Promise<User | null> {
   const cookieStore = await cookies();

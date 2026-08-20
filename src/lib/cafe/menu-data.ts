@@ -1,6 +1,9 @@
 import { isDemoServer } from "./demo";
 import { DEMO_MENU } from "./demo-menu";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { cacheMenu, cachedMenu } from "@/lib/hub/snapshot";
+import { hubEnabled } from "@/lib/hub/store";
+import { cloudReachable } from "@/lib/hub/net";
 
 export type MenuVariantView = { id: string; name_ar: string; price: number };
 export type MenuItemView = {
@@ -26,6 +29,15 @@ const MENU_TTL_MS = 30_000;
 export async function getPublicMenu(): Promise<MenuCategoryView[]> {
   if (isDemoServer()) return DEMO_MENU;
   if (_menuCache && Date.now() - _menuCache.at < MENU_TTL_MS) return _menuCache.data;
+
+  // Ask the shop's own copy first when the line is known to be down. Not just
+  // an optimisation: an ISP that drops packets silently makes a fetch hang for
+  // as long as it likes, and a customer staring at a spinner has already
+  // decided about us. The probe is bounded at 1.5s and cached.
+  if (hubEnabled() && !(await cloudReachable())) {
+    const offline = await cachedMenu();
+    if (offline?.length) return offline;
+  }
 
   const supabase = await createSupabaseServerClient();
   const [{ data: rows }, { data: vars }] = await Promise.all([
@@ -59,6 +71,13 @@ export async function getPublicMenu(): Promise<MenuCategoryView[]> {
   }
   const result = [...cats.values()];
   // only cache a real menu — never a transient empty/failed fetch
-  if (result.length > 0) _menuCache = { at: Date.now(), data: result };
-  return result;
+  if (result.length > 0) {
+    _menuCache = { at: Date.now(), data: result };
+    void cacheMenu(result);
+    return result;
+  }
+  // Empty means the fetch failed (the menu is never actually empty). On the
+  // shop hub that is an outage, and a tablet showing an empty menu is a
+  // customer who leaves — serve the last menu we saw instead.
+  return (hubEnabled() ? await cachedMenu() : null) ?? result;
 }

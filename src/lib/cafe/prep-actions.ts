@@ -3,6 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { requireRole, requireStaff } from "./auth";
+import { hubEnabled, isLocalOrder, liveLocalOrders, queuePrep, setLocalPrep } from "@/lib/hub/store";
+import { forStation } from "@/lib/hub/local";
+import { cloudReachable } from "@/lib/hub/net";
 
 /**
  * The kitchen side of an order: what the chefs cook, what the expediter
@@ -58,6 +61,17 @@ export async function listPrepOrders(stationId: string | null = null): Promise<P
   await requireRole("chef", "expediter", "cashier");
   const svc = createSupabaseServiceClient();
 
+  // Orders this shop took itself. On the hub these are the truth: the local row
+  // is the shop's own copy, the cloud row is the archive it syncs into. During
+  // an outage they are the ONLY thing the kitchen can see.
+  const local = hubEnabled()
+    ? (await liveLocalOrders()).map((o) => forStation(o.display, stationId)).filter((o): o is PrepOrder => o !== null)
+    : [];
+
+  // no line → the local board is the whole board, and we do not sit on a
+  // socket waiting to be told so
+  if (hubEnabled() && !(await cloudReachable())) return local;
+
   const { data: orders } = await svc
     .from("orders")
     .select("id, order_seq, pickup_code, prep_status, status, channel, table_no, note, eta_minutes, created_at, cashier_id, expediter_id, customer_phone, customer_name, notified_at")
@@ -65,7 +79,9 @@ export async function listPrepOrders(stationId: string | null = null): Promise<P
     .neq("status", "cancelled")
     .order("created_at", { ascending: true })
     .limit(60);
-  if (!orders?.length) return [];
+  // No cloud answer at all (the line is down, or nothing is open) — the local
+  // board still stands. Returning [] here is what used to blank the kitchen.
+  if (!orders?.length) return local;
 
   const ids = orders.map((o) => o.id);
   const { data: rawItems } = await svc
@@ -110,7 +126,7 @@ export async function listPrepOrders(stationId: string | null = null): Promise<P
     byOrder.set(it.order_id, arr);
   }
 
-  return orders
+  const cloud = orders
     .map((o) => {
       const all = byOrder.get(o.id) ?? [];
       // a chef sees only their station's items — and only orders that have any
@@ -135,6 +151,34 @@ export async function listPrepOrders(stationId: string | null = null): Promise<P
       };
     })
     .filter((o) => o.items.length > 0);
+
+  if (!local.length) return cloud;
+  // one row per order: a synced local order appears in both lists under the
+  // same uuid (the hub minted it), and the local copy is the newer one
+  const localIds = new Set(local.map((o) => o.id));
+  return [...local, ...cloud.filter((o) => !localIds.has(o.id))].sort((a, b) =>
+    a.created_at.localeCompare(b.created_at),
+  );
+}
+
+/**
+ * Move a locally-taken order, whether or not there is a line.
+ *
+ * Returns null when this is not one of ours, so the caller falls through to the
+ * normal cloud path. When it IS ours the local row is authoritative and the
+ * transition goes into the outbox — sync_hub_prep applies it later, and 0025
+ * settled that prep_status is last-writer-wins, so a late replay cannot undo a
+ * newer state.
+ */
+async function localPrep(orderId: string, status: "preparing" | "ready" | "handed") {
+  if (!hubEnabled() || !(await isLocalOrder(orderId))) return null;
+  const at = new Date().toISOString();
+  await setLocalPrep(orderId, status, at);
+  await queuePrep(orderId, status, at);
+  revalidatePath("/queue");
+  revalidatePath("/expediter");
+  revalidatePath("/kds");
+  return { ok: true as const };
 }
 
 async function rpc(fn: "claim_expediter" | "confirm_assembled", orderId: string) {
@@ -150,7 +194,7 @@ async function rpc(fn: "claim_expediter" | "confirm_assembled", orderId: string)
 /** Expediter picks up an order — stamps their name and moves it to «قيد التجهيز». */
 export async function claimOrder(orderId: string) {
   await requireRole("expediter", "cashier");
-  return rpc("claim_expediter", orderId);
+  return (await localPrep(orderId, "preparing")) ?? rpc("claim_expediter", orderId);
 }
 
 /**
@@ -162,12 +206,14 @@ export async function claimOrder(orderId: string) {
  */
 export async function confirmAssembled(orderId: string) {
   await requireRole("expediter", "cashier");
-  return rpc("confirm_assembled", orderId);
+  return (await localPrep(orderId, "ready")) ?? rpc("confirm_assembled", orderId);
 }
 
 /** Handed to the customer — drops off every screen. */
 export async function markOrderHanded(orderId: string) {
   await requireRole("expediter", "cashier");
+  const localDone = await localPrep(orderId, "handed");
+  if (localDone) return localDone;
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("set_prep_status", { p_order: orderId, p_status: "handed" });
   if (error) return { ok: false as const, error: error.message };

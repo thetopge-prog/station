@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { requireStaff } from "./auth";
 import { businessDay } from "./time";
+import { hubEnabled } from "@/lib/hub/store";
+import { cloudReachable } from "@/lib/hub/net";
 
 export type BatchState = "fresh" | "soon" | "expired";
 export type PastryBatch = {
@@ -158,6 +160,10 @@ export type ItemOffer = { item_id: string; name_ar: string; price: number; offer
 
 /** Today's per-item offers as { item_id: offer_price }. Public (menu reads it). */
 export async function getActiveItemOffers(): Promise<Record<string, number>> {
+  // The customer menu awaits this alongside the menu itself, so on a hub with
+  // no line it is the call that decides how long a tablet shows a blank screen.
+  // Today's offers are a nicety; the menu is the product.
+  if (hubEnabled() && !(await cloudReachable())) return {};
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase.from("active_item_offers").select("item_id, offer_price");
   const map: Record<string, number> = {};

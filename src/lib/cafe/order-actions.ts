@@ -3,6 +3,11 @@
 import { isDemoServer } from "./demo";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { sendNewOrderPush } from "./push";
+import { hubEnabled, noteCloudSeq } from "@/lib/hub/store";
+import { cloudReachable, isNetworkError, markCloudDown } from "@/lib/hub/net";
+import { placeLocalOrder } from "@/lib/hub/place";
+import { getStaff } from "./auth";
+import { businessDay } from "./time";
 import type { Json } from "@/lib/types";
 
 export type OrderLineInput = {
@@ -59,6 +64,14 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
     return { ok: true, orderNumber: String(n).padStart(3, "0") };
   }
 
+  // On the shop hub with no line, take the order locally and print it. This is
+  // checked BEFORE any Supabase call: a till that waits out five DNS timeouts
+  // in front of a queue has already failed, whatever it does afterwards.
+  const onHub = hubEnabled();
+  if (onHub && !(await cloudReachable())) {
+    return placeLocalOrder(input, (await getStaff())?.employeeId ?? null);
+  }
+
   const supabase = await createSupabaseServerClient();
 
   let customerId: string | null = null;
@@ -91,9 +104,21 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
     p_source: "web",
     p_customer_name: input.name?.trim() || null,
   });
-  if (error || !data?.[0]) return { ok: false, error: "تعذّر إرسال الطلب، حاول مجدداً." };
+  if (error || !data?.[0]) {
+    // The line died between the reachability probe and this call. Never lose a
+    // basket to that race — the shop takes it and it syncs later.
+    if (onHub && isNetworkError(error)) {
+      markCloudDown();
+      return placeLocalOrder(input, (await getStaff())?.employeeId ?? null);
+    }
+    return { ok: false, error: "تعذّر إرسال الطلب، حاول مجدداً." };
+  }
 
   const placed = data[0];
+  // Remember the number the cloud just handed out, so if the line drops the
+  // hub carries on from here instead of restarting at 1 and reprinting a
+  // number that is already on somebody's receipt.
+  if (onHub) await noteCloudSeq(businessDay(), placed.order_seq);
   // alert subscribed staff devices even when the app is closed (never throws)
   await sendNewOrderPush({
     seq: placed.order_seq,

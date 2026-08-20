@@ -33,6 +33,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { HubBadge } from "./HubBadge";
 import { useCafeUI } from "@/components/CafeUIProvider";
 import { canAccess, type StaffRole } from "@/lib/cafe/roles";
 import { listPendingOrders } from "@/lib/cafe/cashier-actions";
@@ -261,6 +262,7 @@ export function StaffShell({
             </nav>
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            <HubBadge />
             <span className="hidden text-sm text-muted-foreground sm:inline">{name}</span>
             <button
               onClick={() => setTheme(document.documentElement.classList.contains("dark") ? "Light" : "Dark")}

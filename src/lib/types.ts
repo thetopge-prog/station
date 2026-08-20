@@ -396,6 +396,19 @@ export type Database = {
         Returns: number;
       };
       cancel_order: { Args: { p_order: string }; Returns: undefined };
+      // 0044 — the Station Hub replaying what it took while the line was down.
+      // Service role only: these write an order with an id and a number of the
+      // caller's choosing, which no browser session may ever do.
+      sync_hub_order: {
+        Args: {
+          p_id: string; p_seq: number; p_day: string; p_channel: OrderChannel; p_lines: Json;
+          p_created: string; p_table?: string | null; p_note?: string | null; p_phone?: string | null;
+          p_address?: string | null; p_customer_name?: string | null; p_code?: string | null;
+          p_cashier?: string | null; p_expediter?: string | null; p_prep_status?: PrepStatus;
+        };
+        Returns: { order_id: string; order_seq: number; already: boolean }[];
+      };
+      sync_hub_prep: { Args: { p_id: string; p_status: PrepStatus; p_at: string }; Returns: boolean };
       set_prep_status: { Args: { p_order: string; p_status: PrepStatus }; Returns: undefined };
       claim_expediter: { Args: { p_order: string }; Returns: undefined };
       mark_ready: { Args: { p_order: string }; Returns: undefined };
