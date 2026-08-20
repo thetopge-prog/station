@@ -1,0 +1,25 @@
+# Render Blueprint — one-click deploy of the Pizzara cafe system.
+# In Render: New + → Blueprint → pick this repo → fill the 3 secret values.
+services:
+  - type: web
+    name: pizzaraiq
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /menu
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: POINTS_PER_IQD
+        value: "250"
+      - key: POINTS_PER_REWARD
+        value: "100"
+      - key: REWARD_VALUE_IQD
+        value: "3000"

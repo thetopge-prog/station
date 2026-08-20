@@ -1,0 +1,160 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
+import { requireRole, requireStaff } from "./auth";
+
+/**
+ * Cashier sessions — الورديات المالية.
+ *
+ * A session is one cashier, one drawer, from the moment they count the opening
+ * float to the moment they hand it on. Every sale, expense and debt written
+ * while it is open belongs to it, which is what turns "the till is short" into
+ * "the till was short on Ahmed's evening shift by 12,000".
+ *
+ * The reconciliation is deliberately one-way: the app computes what SHOULD be
+ * in the drawer and asks the human for what IS. It never shows the expected
+ * figure before the count is entered — a cashier who can see the target will
+ * type the target.
+ */
+
+export type SessionReport = {
+  opening_float: number;
+  cash_sales: number;
+  card_sales: number;
+  orders_count: number;
+  expenses_total: number;
+  deposited: number;
+  debts_issued: number;
+  expected_cash: number;
+};
+
+export type OpenSession = {
+  id: string;
+  cashier_id: string;
+  cashier_name: string;
+  opened_at: string;
+  opening_float: number;
+};
+
+export type PendingHandover = {
+  session_id: string;
+  from_name: string;
+  amount: number;
+  closed_at: string;
+};
+
+/** The signed-in cashier's open session, if any. */
+export async function myOpenSession(): Promise<OpenSession | null> {
+  const staff = await requireStaff();
+  const svc = createSupabaseServiceClient();
+  const { data } = await svc
+    .from("cashier_sessions")
+    .select("id, cashier_id, opened_at, opening_float")
+    .eq("cashier_id", staff.employeeId)
+    .is("closed_at", null)
+    .maybeSingle();
+  if (!data) return null;
+  return { ...data, cashier_name: staff.name };
+}
+
+/** A closed drawer nobody has accepted yet — the thing that blocks the till. */
+export async function pendingHandover(): Promise<PendingHandover | null> {
+  await requireStaff();
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase.rpc("pending_handover");
+  return (data?.[0] as PendingHandover | undefined) ?? null;
+}
+
+/**
+ * Start a shift.
+ *
+ * Two ways in: a fresh float agreed with management, or taking over the drawer
+ * a colleague left. `counted` is what the incoming cashier physically counted —
+ * stored alongside what the outgoing cashier said they left, because the gap
+ * between those two numbers is the only place a handover loss can show up.
+ */
+export async function openSession(input: { float: number; fromSession?: string | null; counted?: number | null }) {
+  await requireRole("cashier");
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("open_cashier_session", {
+    p_float: Math.max(0, Math.round(input.float) || 0),
+    p_from_session: input.fromSession ?? null,
+    p_counted: input.counted ?? null,
+  });
+  if (error) return { ok: false as const, error: error.message };
+  revalidatePath("/cashier");
+  return { ok: true as const, sessionId: data as unknown as string };
+}
+
+/** Live Z-report for an open session — recomputed on every read. */
+export async function sessionReport(sessionId: string): Promise<SessionReport | null> {
+  await requireStaff();
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("session_report", { p_session: sessionId });
+  if (error) return null;
+  return (data?.[0] as SessionReport | undefined) ?? null;
+}
+
+/**
+ * End the shift.
+ *
+ * `counted` is the physical count. `deposited` is what goes upstairs to
+ * management and therefore leaves the drawer. Whatever remains is what the next
+ * cashier will be asked to confirm.
+ */
+export async function closeSession(input: {
+  sessionId: string;
+  counted: number;
+  deposited?: number;
+  note?: string | null;
+}) {
+  await requireRole("cashier");
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("close_cashier_session", {
+    p_session: input.sessionId,
+    p_counted: Math.max(0, Math.round(input.counted) || 0),
+    p_deposited: Math.max(0, Math.round(input.deposited ?? 0)),
+    p_handover_to: null,
+    p_note: input.note?.trim() || null,
+  });
+  if (error) return { ok: false as const, error: error.message };
+  const row = data?.[0] as { expected_cash: number; variance: number } | undefined;
+  revalidatePath("/cashier");
+  revalidatePath("/dashboard");
+  return { ok: true as const, expected: row?.expected_cash ?? 0, variance: row?.variance ?? 0 };
+}
+
+/** Owner view: every session for a business day, with its variance. */
+export type SessionRow = {
+  id: string;
+  cashier_name: string;
+  opened_at: string;
+  closed_at: string | null;
+  opening_float: number;
+  counted_cash: number | null;
+  deposited: number;
+  expected_cash: number | null;
+  variance: number | null;
+  close_note: string | null;
+  handover_confirmed_at: string | null;
+  handover_counted: number | null;
+  handover_amount: number | null;
+};
+
+export async function listSessions(businessDay: string): Promise<SessionRow[]> {
+  await requireRole("cashier");
+  const svc = createSupabaseServiceClient();
+  const { data } = await svc
+    .from("cashier_sessions")
+    .select("id, cashier_id, opened_at, closed_at, opening_float, counted_cash, deposited, expected_cash, variance, close_note, handover_confirmed_at, handover_counted, handover_amount")
+    .eq("business_day", businessDay)
+    .order("opened_at", { ascending: true });
+  if (!data?.length) return [];
+
+  const ids = [...new Set(data.map((s) => s.cashier_id))];
+  const { data: emps } = await svc.from("employees").select("id, name_ar").in("id", ids);
+  const name = new Map((emps ?? []).map((e) => [e.id, e.name_ar]));
+
+  return data.map((s) => ({ ...s, cashier_name: name.get(s.cashier_id) ?? "—" }));
+}

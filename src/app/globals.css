@@ -1,0 +1,248 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ── Station brand palette (ستيشن) ─────────────────────────────────────────
+   Taken from the packaging and the ad set: vibrant orange dominates, pure
+   white carries the contrast, kraft brown is the paper the fries come in, and
+   a deep cocoa brown is the text/dark-surface colour.
+   Hex, not oklch: these are exact brand values from the owner, and a designer
+   comparing a screen to a printed box should find the same numbers here. */
+:root {
+  --radius: 1rem; /* friendly, rounded-2xl by default */
+
+  --station-orange: #ff6b00;
+  --station-kraft: #d4a373;
+  --station-cocoa: #2c1e16;
+
+  --background: #fffdfb;
+  --foreground: #2c1e16;
+
+  --card: #ffffff;
+  --card-foreground: #2c1e16;
+
+  --popover: #ffffff;
+  --popover-foreground: #2c1e16;
+
+  --primary: #ff6b00;
+  --primary-foreground: #ffffff;
+
+  --secondary: #fff2e7; /* palest orange wash for chips and rails */
+  --secondary-foreground: #2c1e16;
+
+  --muted: #f7f1eb;
+  --muted-foreground: #7a6558;
+
+  --accent: #d4a373; /* kraft */
+  --accent-foreground: #2c1e16;
+
+  --destructive: #d92d20;
+  --destructive-foreground: #ffffff;
+
+  --success: #128a4b; /* «جاهز» on the queue screen */
+  --success-foreground: #ffffff;
+
+  --border: #f0e4d8;
+  --input: #e8d9cb;
+  --ring: #ff6b00;
+
+  /* Warm, orange-tinted depth — never a grey/black drop shadow. */
+  --shadow-station: 0 8px 24px -6px rgb(255 107 0 / 0.28);
+  --shadow-station-lg: 0 18px 48px -12px rgb(255 107 0 / 0.35);
+}
+
+.dark {
+  --background: #1a1109;
+  --foreground: #fdf6f0;
+
+  --card: #241811;
+  --card-foreground: #fdf6f0;
+
+  --popover: #241811;
+  --popover-foreground: #fdf6f0;
+
+  --primary: #ff7d1f; /* lifted so it still glows on cocoa */
+  --primary-foreground: #1a1109;
+
+  --secondary: #33241a;
+  --secondary-foreground: #fdf6f0;
+
+  --muted: #33241a;
+  --muted-foreground: #bda694;
+
+  --accent: #d4a373;
+  --accent-foreground: #1a1109;
+
+  --destructive: #f0533f;
+  --destructive-foreground: #1a1109;
+
+  --success: #2fbb6c;
+  --success-foreground: #10240f;
+
+  --border: #3d2c20;
+  --input: #3d2c20;
+  --ring: #ff7d1f;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* brand aliases so components can say bg-kraft / text-cocoa directly */
+  --color-kraft: var(--station-kraft);
+  --color-cocoa: var(--station-cocoa);
+
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 3px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 6px);
+
+  --shadow-station: var(--shadow-station);
+  --shadow-station-lg: var(--shadow-station-lg);
+
+  --font-sans: var(--font-tajawal), "Tajawal", ui-sans-serif, system-ui, sans-serif;
+  /* the Latin word "Station" only — Pacifico has no Arabic coverage */
+  --font-script: var(--font-pacifico), "Pacifico", cursive;
+}
+
+* {
+  border-color: var(--border);
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* ── Brand helpers ────────────────────────────────────────────────────────── */
+
+/* The Station wordmark, as on the boxes. */
+.station-script {
+  font-family: var(--font-script);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+/* Ad-style display headings: heavy Arabic with a white outline and a soft
+   orange shadow, the way «قرمشة ماكس» is set on the posters. */
+.station-display {
+  font-weight: 900;
+  color: var(--primary);
+  -webkit-text-stroke: 3px #ffffff;
+  paint-order: stroke fill;
+  text-shadow: 0 6px 0 rgb(255 107 0 / 0.18);
+}
+
+/* Touchscreen POS: kill the 300ms double-tap delay and stray text selection
+   when a cashier taps fast. */
+.touch-pos {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+/* ── Card entrance for the interactive menu ────────────────────────────────
+   The steam / frost / droplet / float keyframes that used to sit here served the
+   cafe's hot-vs-iced effect switch. That switch is gone — its default rained
+   condensation on burgers — so the keyframes went with it. Per-item motion now
+   lives in MenuIcon: st-ico-heat / st-ico-sizzle / st-ico-drip, below. */
+@keyframes st-card-in {
+  from { opacity: 0; transform: translateY(24px) scale(0.96); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ── Menu icon motion (حركة أيقونات الأصناف) ──────────────────────────────
+   Every card on the menu carries one of these. The bob is phase-shifted per
+   item in MenuIcon.tsx, so a grid ripples instead of pulsing in unison — that
+   lockstep is what makes CSS animation read as cheap. */
+@keyframes st-ico-bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-2.5px); }
+}
+@keyframes st-ico-heat {
+  0%   { opacity: 0; transform: translateY(3px) scaleY(0.6); }
+  35%  { opacity: 0.85; }
+  100% { opacity: 0; transform: translateY(-7px) scaleY(1.25); }
+}
+@keyframes st-ico-sizzle {
+  0%   { opacity: 0; transform: translateY(4px) scale(0.5); }
+  40%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-6px) scale(1); }
+}
+@keyframes st-ico-drip {
+  0%   { opacity: 0; transform: translateY(-6px) scale(0.6); }
+  30%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(4px) scale(0.9); }
+}
+
+.st-ico-bob { animation: st-ico-bob 3.2s ease-in-out infinite; transform-origin: 50% 60%; }
+.st-ico-heat > * { animation: st-ico-heat 2.4s ease-out infinite; transform-origin: 50% 100%; }
+.st-ico-sizzle > * { animation: st-ico-sizzle 2s ease-out infinite; transform-origin: 50% 100%; }
+.st-ico-drip > * { animation: st-ico-drip 2.8s ease-in infinite; }
+
+/* ── Customer ready display (شاشة الاستلام) ───────────────────────────────
+   A card that just turned «جاهز» pulses once so a waiting customer catches the
+   change from across the room. */
+@keyframes st-ready-in {
+  0%   { opacity: 0; transform: scale(0.88); }
+  60%  { transform: scale(1.04); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes st-ready-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(255 255 255 / 0); }
+  50%      { box-shadow: 0 0 0 10px rgb(255 255 255 / 0.22); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Thermal receipt printing (80mm) ───────────────────────────────────────
+   Scoped with :has() so ONLY pages that render a receipt hijack printing —
+   other pages (e.g. the QR-sticker sheet) print normally. */
+@media print {
+  @page {
+    margin: 8mm;
+  }
+  body:has(.receipt-print) * {
+    visibility: hidden;
+  }
+  body:has(.receipt-print) .receipt-print,
+  body:has(.receipt-print) .receipt-print * {
+    visibility: visible;
+  }
+  .receipt-print {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-start: 0;
+    width: 80mm;
+    padding: 4mm;
+    color: #000;
+    background: #fff;
+  }
+}
