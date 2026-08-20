@@ -289,6 +289,10 @@ export function renderTicket(ticket: Ticket, opts: RenderOptions = {}): Uint8Arr
     s.rule();
     s.line("شكراً لزيارتكم");
   }
+  // credit line, on every slip — parity with the browser receipt
+  s.rule();
+  s.line("تم تنفيذ وتصميم هذا النظام");
+  s.line("مركز الرؤية للابتكار الرقمي");
 
   s.raw(...CMD.feed(3));
   if (opts.kickDrawer) s.raw(...CMD.kick);

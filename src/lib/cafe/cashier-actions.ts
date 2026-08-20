@@ -89,7 +89,7 @@ async function payOrder(
 
 export type CheckoutResult =
   // orderId is what the POS feeds to buildOrderJobs for the 5-printer split
-  | { ok: true; orderId: string; orderNumber: string; total: number; awarded: number }
+  | { ok: true; orderId: string; orderNumber: string; total: number; awarded: number; pickupCode: string | null }
   | { ok: false; error: string };
 
 /** Cashier: create an order and mark it paid in one step (pay at counter).
@@ -138,6 +138,8 @@ export async function cashierCheckout(input: {
     ok: true,
     orderId: placed[0].order_id,
     orderNumber: String(placed[0].order_seq).padStart(3, "0"),
+    // the 3-character code the customer quotes at handover (0043)
+    pickupCode: placed[0].pickup_code ?? null,
     total: paid.total,
     awarded: paid.awarded,
   };

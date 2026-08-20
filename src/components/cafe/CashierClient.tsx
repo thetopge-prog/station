@@ -52,7 +52,19 @@ function cartReducer(state: Cart, action: CartAction): Cart {
   }
 }
 
-export function CashierClient({ menu, tables }: { menu: MenuCategoryView[]; tables: string[] }) {
+export function CashierClient({
+  menu,
+  tables,
+  cashierName = null,
+  expediterName = null,
+}: {
+  menu: MenuCategoryView[];
+  tables: string[];
+  /** كابتن الطلب — printed on every slip */
+  cashierName?: string | null;
+  /** اسم المجهّز — whoever holds the expediter shift right now */
+  expediterName?: string | null;
+}) {
   const [activeCat, setActiveCat] = useState(menu[0]?.name_ar ?? "");
   const [cart, dispatch] = useReducer(cartReducer, {});
   const [discount, setDiscount] = useState(0);
@@ -197,7 +209,14 @@ export function CashierClient({ menu, tables }: { menu: MenuCategoryView[]; tabl
       }
       setReceipt({
         orderId: res.orderId,
+        // the QR encodes orders.id so the expediter can scan the slip — the
+        // same payload routeOrder puts on the ESC/POS assembly ticket
+        qr: res.orderId,
         orderNumber: res.orderNumber,
+        cashierName,
+        expediterName,
+        channel: "cashier",
+        pickupCode: res.pickupCode ?? null,
         table,
         note: orderNote.trim() || null,
         lines: lines.map((l) => ({ name: l.name, flavor: l.flavor, qty: l.qty, unitPrice: l.unitPrice })),
@@ -489,8 +508,20 @@ export function CashierClient({ menu, tables }: { menu: MenuCategoryView[]; tabl
         </div>
       )}
 
-      {/* print-only checkout receipt */}
-      {receipt && <Receipt data={receipt} />}
+      {/* Print-only slips.
+          With the local print agent running, buildOrderJobs sends the full
+          five-printer split and this never fires. Without it — which is the
+          state until the printers are wired — window.print() is the only output,
+          so BOTH slips are rendered: the customer's receipt and the assembly
+          ticket the expediter scans. One printer, two slips, and the scan
+          workflow works with no hardware at all. */}
+      {receipt && (
+        <>
+          <Receipt data={receipt} />
+          <div style={{ pageBreakBefore: "always" }} className="hidden print:block" />
+          <Receipt data={{ ...receipt, kind: "assembly" }} />
+        </>
+      )}
     </div>
   );
 }
