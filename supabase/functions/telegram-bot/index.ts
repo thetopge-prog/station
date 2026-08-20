@@ -133,6 +133,10 @@ function mainMenu() {
     [{ text: "🔥 الأكثر والأقل مبيعاً", callback_data: "top" }, { text: "📃 مبيعات كل منتج", callback_data: "counts" }],
     [{ text: "📋 المنتجات المتاحة", callback_data: "avail" }, { text: "⚙️ إدارة المنتجات", callback_data: "pcats" }],
     [{ text: "🌙 التقرير اليومي النهائي", callback_data: "final" }, { text: "📉 إضافة مصروف", callback_data: "expadd" }],
+    [{ text: "💵 رصيد الكاشير", callback_data: "drawer" }, { text: "🧾 آخر ١٠ مبيعات", callback_data: "sales" }],
+    [{ text: "💳 آخر ١٠ مدفوعات", callback_data: "pays" }, { text: "📺 شاشة الطلبات", callback_data: "queue" }],
+    [{ text: "📦 المخزون", callback_data: "stock" }, { text: "⚠️ النواقص", callback_data: "short" }],
+    [{ text: "🛒 قائمة المشتريات", callback_data: "po" }, { text: "👨‍🍳 التحكم بالتجهيز", callback_data: "prep" }],
   ];
 }
 
@@ -317,6 +321,219 @@ const itemText = (it: Row) =>
 // ── handlers ───────────────────────────────────────────────────────────────
 const authorized = (chatId: number | string) => !OWNERS.length || OWNERS.includes(String(chatId));
 
+/* ══════════════════════════════════════════════════════════════════════════
+   Operations views — inventory, drawer, sales, and expediting from the phone.
+
+   These all read through PostgREST with the service key. They deliberately do
+   NOT call the SQL RPCs that back the same screens in the app: those are
+   guarded by is_staff(), which reads auth.uid(), and the bot has no signed-in
+   user — every such call would fail. Reading the tables directly is both
+   simpler and the only thing that works here.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/** المبلغ الآن في الكاشير — computed live, the same arithmetic as the Z-report. */
+async function viewDrawer() {
+  const sessions = await rest("cashier_sessions?select=id,cashier_id,opening_float,opened_at,deposited&closed_at=is.null");
+  if (!sessions.length) return "💵 <b>رصيد الكاشير</b>\n\nلا توجد وردية مفتوحة الآن.";
+
+  const lines = ["💵 <b>رصيد الكاشير</b>", ""];
+  for (const s of sessions as Row[]) {
+    const [emp] = await rest(`employees?select=name_ar&id=eq.${s.cashier_id}`);
+    const paid = await rest(
+      `orders?select=subtotal,discount,extra,payment_method&session_id=eq.${s.id}&status=eq.paid`,
+    );
+    const exp = await rest(`expenses?select=amount&session_id=eq.${s.id}`);
+
+    const net = (o: Row) => +o.subtotal - +o.discount + +o.extra;
+    const cash = (paid as Row[]).filter((o) => o.payment_method === "cash").reduce((a, o) => a + net(o), 0);
+    const card = (paid as Row[]).filter((o) => o.payment_method === "card").reduce((a, o) => a + net(o), 0);
+    const spent = (exp as Row[]).reduce((a, e) => a + +e.amount, 0);
+    const expected = +s.opening_float + cash - spent - +s.deposited;
+
+    lines.push(
+      `👤 <b>${esc(emp?.name_ar ?? "—")}</b> — منذ ${agoMin(s.opened_at)} دقيقة`,
+      `الافتتاحي: <b>${fmt(s.opening_float)}</b>`,
+      `مبيعات نقدية: <b>${fmt(cash)}</b>`,
+      `مصروفات: <b>-${fmt(spent)}</b>`,
+      +s.deposited > 0 ? `مودع للإدارة: <b>-${fmt(s.deposited)}</b>` : "",
+      `━━━━━━━━━━━━━━━`,
+      `💰 المتوقّع في الصندوق: <b>${fmt(expected)} د.ع</b>`,
+      `💳 كي كارد (خارج الصندوق): ${fmt(card)}`,
+      `عدد الطلبات: ${(paid as Row[]).length}`,
+      "",
+    );
+  }
+  return lines.filter(Boolean).join("\n");
+}
+
+/** آخر ١٠ عمليات بيع — newest orders, whatever their payment state. */
+async function viewLastSales() {
+  const rows = await rest(
+    "orders?select=order_seq,channel,table_no,subtotal,discount,extra,status,created_at,pickup_code&order=created_at.desc&limit=10",
+  );
+  if (!rows.length) return "🧾 لا توجد مبيعات بعد.";
+  const st: Record<string, string> = { pending: "⏳", paid: "✅", cancelled: "❌", refunded: "↩️" };
+  const lines = ["🧾 <b>آخر ١٠ عمليات بيع</b>", ""];
+  for (const o of rows as Row[]) {
+    const total = +o.subtotal - +o.discount + +o.extra;
+    lines.push(
+      `${st[o.status] ?? ""} #${String(o.order_seq).padStart(3, "0")} — ${CHANNEL_AR[o.channel] ?? o.channel}` +
+        `${o.table_no ? ` (طاولة ${esc(o.table_no)})` : ""} — <b>${fmt(total)}</b> — ${agoMin(o.created_at)}د`,
+    );
+  }
+  return lines.join("\n");
+}
+
+/** آخر ١٠ عمليات دفع — only what was actually collected, and how. */
+async function viewLastPayments() {
+  const rows = await rest(
+    "orders?select=order_seq,subtotal,discount,extra,payment_method,paid_at,cashier_id&status=eq.paid&paid_at=not.is.null&order=paid_at.desc&limit=10",
+  );
+  if (!rows.length) return "💳 لا توجد مدفوعات بعد.";
+
+  const ids = [...new Set((rows as Row[]).map((o) => o.cashier_id).filter(Boolean))];
+  const emps = ids.length ? await rest(`employees?select=id,name_ar&id=in.(${ids.join(",")})`) : [];
+  const name = new Map((emps as Row[]).map((e) => [e.id, e.name_ar]));
+
+  const lines = ["💳 <b>آخر ١٠ عمليات دفع</b>", ""];
+  let cash = 0, card = 0;
+  for (const o of rows as Row[]) {
+    const total = +o.subtotal - +o.discount + +o.extra;
+    if (o.payment_method === "card") card += total; else cash += total;
+    lines.push(
+      `${o.payment_method === "card" ? "💳" : "💵"} #${String(o.order_seq).padStart(3, "0")} — <b>${fmt(total)}</b>` +
+        `${o.cashier_id ? ` — ${esc(name.get(o.cashier_id) ?? "")}` : ""} — ${agoMin(o.paid_at)}د`,
+    );
+  }
+  lines.push("", `المجموع: نقدي <b>${fmt(cash)}</b> · كي كارد <b>${fmt(card)}</b>`);
+  return lines.join("\n");
+}
+
+/** شاشة الطلبات — what the waiting-area TV is showing right now. */
+async function viewQueue() {
+  const rows = await rest(
+    `orders?select=id,order_seq,prep_status,channel,table_no,pickup_code,created_at,expediter_id` +
+      `&business_day=eq.${baghdadDay()}&prep_status=in.(new,preparing,ready)&status=neq.cancelled&order=created_at.asc`,
+  );
+  const prep = (rows as Row[]).filter((o) => o.prep_status !== "ready");
+  const ready = (rows as Row[]).filter((o) => o.prep_status === "ready");
+
+  const line = (o: Row) =>
+    `#${String(o.order_seq).padStart(3, "0")}${o.pickup_code ? ` · <code>${esc(o.pickup_code)}</code>` : ""}` +
+    `${o.table_no ? ` · طاولة ${esc(o.table_no)}` : ` · ${CHANNEL_AR[o.channel] ?? o.channel}`} · ${agoMin(o.created_at)}د`;
+
+  const out = ["📺 <b>شاشة الطلبات</b>", "", `🔵 <b>تحت التحضير (${prep.length})</b>`];
+  out.push(prep.length ? prep.map(line).join("\n") : "—");
+  out.push("", `🟢 <b>جاهز للاستلام (${ready.length})</b>`);
+  out.push(ready.length ? ready.map(line).join("\n") : "—");
+  return out.join("\n");
+}
+
+/** التحكم بالتجهيز — one button per order, tap to mark it ready. */
+async function kbPrep() {
+  const rows = await rest(
+    `orders?select=id,order_seq,prep_status,table_no,channel&business_day=eq.${baghdadDay()}` +
+      `&prep_status=in.(new,preparing)&status=neq.cancelled&order=created_at.asc&limit=12`,
+  );
+  const kb = (rows as Row[]).map((o) => [
+    {
+      text: `✅ #${String(o.order_seq).padStart(3, "0")} ${o.table_no ? `طاولة ${o.table_no}` : CHANNEL_AR[o.channel] ?? ""} — جاهز`,
+      callback_data: `prepok|${o.id}`,
+    },
+  ]);
+  kb.push([{ text: "🔄 تحديث", callback_data: "prep" }]);
+  kb.push(BACK);
+  return kb;
+}
+
+/**
+ * Mark an order ready from the phone.
+ *
+ * A direct PATCH rather than the confirm_assembled RPC: that function is
+ * is_staff()-guarded and the bot has no auth.uid(). The expediter stamped is
+ * whoever holds the open shift, which is the same person the printed ticket
+ * already names.
+ */
+async function markReady(orderId: string) {
+  const [shift] = await rest(
+    `shifts?select=employee_id&closed_at=is.null&role=eq.expediter&business_day=eq.${baghdadDay()}&limit=1`,
+  );
+  const [ord] = await rest(`orders?select=order_seq,expediter_id&id=eq.${orderId}`);
+  if (!ord) return "الطلب غير موجود.";
+  await restWrite(`orders?id=eq.${orderId}`, "PATCH", {
+    prep_status: "ready",
+    expediter_id: ord.expediter_id ?? shift?.employee_id ?? null,
+  });
+  return `✅ الطلب #${String(ord.order_seq).padStart(3, "0")} أصبح <b>جاهزاً</b> — ظهر على شاشة الزبائن.`;
+}
+
+/** المخزون — grouped by category, urgent first. */
+async function viewStock() {
+  const rows = await rest("stock_status?select=name_ar,unit,category,min_qty,on_hand,nearest_expiry,stock_state");
+  if (!rows.length) return "📦 لا توجد مواد في المخزون.";
+
+  const today = new Date(baghdadDay() + "T00:00:00Z").getTime();
+  const days = (d: string | null) => (d ? Math.round((new Date(d + "T00:00:00Z").getTime() - today) / 86400000) : null);
+  const icon = (r: Row) => (r.stock_state === "out" ? "🔴" : r.stock_state === "low" ? "🟡" : "🟢");
+
+  const byCat = new Map<string, Row[]>();
+  for (const r of rows as Row[]) {
+    const k = r.category ?? "أخرى";
+    byCat.set(k, [...(byCat.get(k) ?? []), r]);
+  }
+
+  const lines = ["📦 <b>المخزون</b>", ""];
+  for (const [cat, items] of byCat) {
+    lines.push(`<b>${esc(cat)}</b>`);
+    for (const r of items) {
+      const d = days(r.nearest_expiry);
+      const warn = d === null ? "" : d < 0 ? ` ⛔ منتهية` : d <= 3 ? ` ⏰ ${d}ي` : "";
+      lines.push(`${icon(r)} ${esc(r.name_ar)}: <b>${r.on_hand}</b> ${esc(r.unit)}${warn}`);
+    }
+    lines.push("");
+  }
+  return lines.join("\n");
+}
+
+/** النواقص — only what is at or below its reorder point. */
+async function viewShortages() {
+  const rows = await rest("stock_status?select=name_ar,unit,min_qty,on_hand,stock_state&stock_state=in.(low,out)");
+  if (!rows.length) return "✅ <b>لا توجد نواقص</b> — كل المواد فوق حد الطلب.";
+  const lines = [`⚠️ <b>النواقص (${rows.length})</b>`, ""];
+  for (const r of rows as Row[]) {
+    lines.push(
+      `${r.stock_state === "out" ? "🔴 نفدت" : "🟡 قاربت"} — ${esc(r.name_ar)}: <b>${r.on_hand}</b> / حد الطلب ${r.min_qty} ${esc(r.unit)}`,
+    );
+  }
+  lines.push("", "اضغط «🛒 قائمة المشتريات» لتوليد فاتورة النواقص.");
+  return lines.join("\n");
+}
+
+/**
+ * قائمة المشتريات المطلوبة.
+ *
+ * Computed here rather than by calling generate_shortage_po(): that RPC is
+ * is_staff()-guarded, and it also WRITES a purchase order. Reading a shopping
+ * list on the phone should not create a document every time the owner glances
+ * at it — the app's /inventory screen is where a PO gets recorded.
+ */
+async function viewPurchaseList() {
+  const rows = await rest("stock_status?select=name_ar,unit,min_qty,on_hand,avg_unit_cost&stock_state=in.(low,out)");
+  if (!rows.length) return "✅ لا توجد مشتريات مطلوبة.";
+  const lines = ["🛒 <b>قائمة المشتريات المطلوبة</b>", ""];
+  let total = 0;
+  for (const r of rows as Row[]) {
+    // top up to twice the reorder point so the buyer is not back tomorrow
+    const need = Math.max(+r.min_qty * 2 - +r.on_hand, +r.min_qty, 1);
+    const cost = need * +r.avg_unit_cost;
+    total += cost;
+    lines.push(`• ${esc(r.name_ar)} — <b>${need}</b> ${esc(r.unit)}${cost > 0 ? ` (~${fmt(Math.round(cost))})` : ""}`);
+  }
+  if (total > 0) lines.push("", `التقدير الإجمالي: <b>${fmt(Math.round(total))} د.ع</b>`);
+  lines.push("", "<i>التقدير من متوسط أسعار آخر الدفعات.</i>");
+  return lines.join("\n");
+}
+
 async function onMessage(msg: Row) {
   const chatId = msg.chat.id;
   if (!authorized(chatId)) {
@@ -398,6 +615,15 @@ async function onCallback(cb: Row) {
   if (cmd === "now") return say(chatId, await viewNow(), [[{ text: "🔄 تحديث", callback_data: "now" }], BACK], mid);
   if (cmd === "tables") return say(chatId, await viewTables(), [[{ text: "🔄 تحديث", callback_data: "tables" }], BACK], mid);
   if (cmd === "final") return say(chatId, await viewDailyFinal(), [[{ text: "🔄 تحديث", callback_data: "final" }], BACK], mid);
+  if (cmd === "drawer") return say(chatId, await viewDrawer(), [[{ text: "🔄 تحديث", callback_data: "drawer" }], BACK], mid);
+  if (cmd === "sales") return say(chatId, await viewLastSales(), [[{ text: "🔄 تحديث", callback_data: "sales" }], BACK], mid);
+  if (cmd === "pays") return say(chatId, await viewLastPayments(), [[{ text: "🔄 تحديث", callback_data: "pays" }], BACK], mid);
+  if (cmd === "queue") return say(chatId, await viewQueue(), [[{ text: "🔄 تحديث", callback_data: "queue" }], BACK], mid);
+  if (cmd === "stock") return say(chatId, await viewStock(), [[{ text: "🔄 تحديث", callback_data: "stock" }], BACK], mid);
+  if (cmd === "short") return say(chatId, await viewShortages(), [[{ text: "🛒 قائمة المشتريات", callback_data: "po" }], BACK], mid);
+  if (cmd === "po") return say(chatId, await viewPurchaseList(), [[{ text: "🔄 تحديث", callback_data: "po" }], BACK], mid);
+  if (cmd === "prep") return say(chatId, await viewQueue(), await kbPrep(), mid);
+  if (cmd === "prepok") return say(chatId, await markReady(a), await kbPrep(), mid);
   if (cmd === "top") return say(chatId, await viewTop(), [BACK], mid);
   if (cmd === "counts") return say(chatId, await viewCounts(), [BACK], mid);
   if (cmd === "avail") return say(chatId, await viewAvail(), [BACK], mid);
