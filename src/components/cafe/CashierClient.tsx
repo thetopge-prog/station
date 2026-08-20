@@ -53,6 +53,16 @@ function cartReducer(state: Cart, action: CartAction): Cart {
   }
 }
 
+/**
+ * 44px — the smallest thing a finger hits reliably without looking.
+ *
+ * A cashier at a rush is not aiming; they are glancing at the queue and tapping
+ * from memory. The controls that were 18–22px here are also the ones that cost
+ * the most when missed: the size chip that sets the price, and the qty buttons
+ * that decide how many. Density is worth less than not having to re-ring an order.
+ */
+const TAP = "grid min-h-11 min-w-11 place-items-center";
+
 export function CashierClient({
   menu,
   tables,
@@ -307,12 +317,12 @@ export function CashierClient({
                   <p className="text-xs text-muted-foreground">{formatIqdLabel(l.unitPrice)}</p>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <button onClick={() => dispatch({ type: "dec", key: l.key })} aria-label="إنقاص" className="rounded-full border border-border p-1 hover:bg-secondary">
-                    <Minus className="size-3.5" />
+                  <button onClick={() => dispatch({ type: "dec", key: l.key })} aria-label="إنقاص" className={`rounded-full border border-border hover:bg-secondary ${TAP}`}>
+                    <Minus className="mx-auto size-4" />
                   </button>
                   <span className="w-5 text-center text-sm font-semibold">{l.qty}</span>
-                  <button onClick={() => dispatch({ type: "inc", key: l.key })} aria-label="زيادة" className="rounded-full border border-border p-1 hover:bg-secondary">
-                    <Plus className="size-3.5" />
+                  <button onClick={() => dispatch({ type: "inc", key: l.key })} aria-label="زيادة" className={`rounded-full border border-border hover:bg-secondary ${TAP}`}>
+                    <Plus className="mx-auto size-4" />
                   </button>
                 </div>
               </li>
@@ -330,11 +340,11 @@ export function CashierClient({
                 <p className="text-xs text-muted-foreground">الرصيد: {customer.points} نقطة</p>
               </div>
               <div className="flex gap-1.5">
-                <button onClick={redeem} className="rounded-lg bg-accent px-2.5 py-1.5 text-xs font-semibold text-accent-foreground hover:opacity-90">
+                <button onClick={redeem} className="min-h-11 rounded-lg bg-accent px-3 text-sm font-semibold text-accent-foreground hover:opacity-90">
                   استبدال مكافأة
                 </button>
-                <button onClick={() => setCustomer(null)} aria-label="إزالة" className="rounded-lg border border-border p-1.5 hover:bg-background">
-                  <Trash2 className="size-3.5" />
+                <button onClick={() => setCustomer(null)} aria-label="إزالة" className={`rounded-lg border border-border hover:bg-background ${TAP}`}>
+                  <Trash2 className="mx-auto size-4" />
                 </button>
               </div>
             </div>
@@ -345,9 +355,9 @@ export function CashierClient({
                 onChange={(e) => setSerialInput(e.target.value)}
                 placeholder="رقم البطاقة أو الهاتف"
                 dir="ltr"
-                className="w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring"
+                className="min-h-11 w-full rounded-lg border border-input bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring"
               />
-              <button onClick={() => lookup(serialInput)} className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-background">
+              <button onClick={() => lookup(serialInput)} className="min-h-11 rounded-lg border border-border px-3 text-sm font-medium hover:bg-background">
                 بحث
               </button>
               <button onClick={() => setScanOpen(true)} aria-label="مسح QR" className="rounded-lg bg-primary p-2 text-primary-foreground hover:opacity-90">
@@ -368,8 +378,8 @@ export function CashierClient({
                   <span className="min-w-0 truncate">{x.name}</span>
                   <div className="flex items-center gap-1.5">
                     <span className="font-semibold text-primary">+{formatIqdLabel(x.price)}</span>
-                    <button onClick={() => setExtras((xs) => xs.filter((_, j) => j !== i))} aria-label="حذف" className="rounded-md border border-border p-1 hover:bg-background">
-                      <Trash2 className="size-3.5" />
+                    <button onClick={() => setExtras((xs) => xs.filter((_, j) => j !== i))} aria-label="حذف" className={`rounded-md border border-border hover:bg-background ${TAP}`}>
+                      <Trash2 className="mx-auto size-4" />
                     </button>
                   </div>
                 </li>
@@ -378,7 +388,7 @@ export function CashierClient({
           )}
           <div className="flex flex-wrap items-center gap-1.5">
             <PriceInput value={extraPrice} onChange={setExtraPrice} />
-            <button onClick={addExtra} className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground hover:opacity-90">
+            <button onClick={addExtra} className="min-h-11 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground hover:opacity-90">
               +
             </button>
           </div>
@@ -431,13 +441,13 @@ export function CashierClient({
               setOrderType("takeaway");
               setTableNo("");
             }}
-            className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${orderType === "takeaway" ? "bg-primary text-primary-foreground" : "hover:bg-background"}`}
+            className={`min-h-12 rounded-lg px-3 text-sm font-semibold transition ${orderType === "takeaway" ? "bg-primary text-primary-foreground" : "hover:bg-background"}`}
           >
             🥡 خارجي
           </button>
           <button
             onClick={() => setOrderType("dinein")}
-            className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${orderType === "dinein" ? "bg-primary text-primary-foreground" : "hover:bg-background"}`}
+            className={`min-h-12 rounded-lg px-3 text-sm font-semibold transition ${orderType === "dinein" ? "bg-primary text-primary-foreground" : "hover:bg-background"}`}
           >
             🏠 داخل المحل
           </button>
@@ -448,7 +458,7 @@ export function CashierClient({
               <button
                 key={n}
                 onClick={() => setTableNo(n)}
-                className={`min-w-9 whitespace-nowrap rounded-lg border px-2 py-1.5 text-sm font-bold transition ${
+                className={`${TAP} whitespace-nowrap rounded-lg border px-3 text-sm font-bold transition ${
                   tableNo === n ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-secondary"
                 }`}
               >
@@ -461,13 +471,13 @@ export function CashierClient({
         <div className={`grid gap-1.5 rounded-xl bg-secondary/60 p-1.5 ${partners.length ? "grid-cols-3" : "grid-cols-2"}`}>
           <button
             onClick={() => setPayMethod("cash")}
-            className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${payMethod === "cash" ? "bg-primary text-primary-foreground" : "hover:bg-background"}`}
+            className={`min-h-12 rounded-lg px-3 text-sm font-semibold transition ${payMethod === "cash" ? "bg-primary text-primary-foreground" : "hover:bg-background"}`}
           >
             💵 نقدي
           </button>
           <button
             onClick={() => setPayMethod("card")}
-            className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${payMethod === "card" ? "bg-primary text-primary-foreground" : "hover:bg-background"}`}
+            className={`min-h-12 rounded-lg px-3 text-sm font-semibold transition ${payMethod === "card" ? "bg-primary text-primary-foreground" : "hover:bg-background"}`}
           >
             💳 كي كارد
           </button>
@@ -475,7 +485,7 @@ export function CashierClient({
           {partners.length > 0 && (
             <button
               onClick={() => setPayMethod("partner")}
-              className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${payMethod === "partner" ? "bg-primary text-primary-foreground" : "hover:bg-background"}`}
+              className={`min-h-12 rounded-lg px-3 text-sm font-semibold transition ${payMethod === "partner" ? "bg-primary text-primary-foreground" : "hover:bg-background"}`}
             >
               🛵 شركة
             </button>
@@ -602,7 +612,7 @@ function CashierItem({ item, category, onAdd }: { item: MenuItemView; category?:
             <button
               key={v.id}
               onClick={() => setVariantId(v.id)}
-              className={`rounded-full border px-2 py-0.5 text-[11px] transition ${
+              className={`min-h-11 rounded-full border px-3.5 text-sm font-semibold transition ${
                 v.id === variantId ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-secondary"
               }`}
             >
@@ -617,7 +627,7 @@ function CashierItem({ item, category, onAdd }: { item: MenuItemView; category?:
             <button
               key={f}
               onClick={() => setFlavor(f)}
-              className={`rounded-full border px-2 py-0.5 text-[11px] transition ${
+              className={`min-h-11 rounded-full border px-3.5 text-sm font-semibold transition ${
                 f === flavor ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-secondary"
               }`}
             >
