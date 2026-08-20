@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Tajawal, Pacifico } from "next/font/google";
 import "./globals.css";
 import { CafeUIProvider } from "@/components/CafeUIProvider";
+import { RegisterSW } from "@/components/RegisterSW";
 import { getPublicSupabaseConfig } from "@/lib/supabase/constants";
 import { BRAND, BRAND_TITLE } from "@/lib/brand";
 
@@ -62,6 +63,7 @@ export default async function RootLayout({
             })}`,
           }}
         />
+        <RegisterSW />
         <CafeUIProvider>{children}</CafeUIProvider>
       </body>
     </html>

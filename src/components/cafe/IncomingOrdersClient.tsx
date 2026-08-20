@@ -140,11 +140,11 @@ export function IncomingOrdersClient() {
         </h1>
         <div className="flex flex-wrap items-center gap-3">
           <label className="flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-            <input type="checkbox" checked={autoPrint} onChange={(e) => setAutoPrint(e.target.checked)} className="accent-[#6f4e37]" />
+            <input type="checkbox" checked={autoPrint} onChange={(e) => setAutoPrint(e.target.checked)} className="accent-[var(--accent)]" />
             🖨️ طباعة تلقائية للطلبات الواردة
           </label>
           <label className="flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-            <input type="checkbox" checked={drawerKick} onChange={(e) => setDrawerKick(e.target.checked)} className="accent-[#6f4e37]" />
+            <input type="checkbox" checked={drawerKick} onChange={(e) => setDrawerKick(e.target.checked)} className="accent-[var(--accent)]" />
             💰 فتح القاصة عند الدفع
           </label>
         </div>
