@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { Check, LogIn, Minus, Plus, ShoppingCart, X } from "lucide-react";
@@ -12,6 +12,9 @@ import { MenuIcon } from "./MenuIcon";
 import { StationMark } from "./Logo";
 import { CHANNEL_OF, FulfilmentPicker, missingFields, type FulfilmentMode } from "./FulfilmentPicker";
 import { SurpriseMe } from "./SurpriseMe";
+import { useAttention } from "./use-attention";
+import { UpsellToast } from "./UpsellToast";
+import { pickUpsell, recommendedFor, type Upsell } from "@/lib/cafe/upsell";
 
 /** Primary customer menu — full-screen: category rail on the RIGHT, product grid
  *  on the LEFT, cart + checkout, size picker, and — for anyone who opened the
@@ -66,6 +69,8 @@ export function TabletMenuClient({
   const mainRef = useRef<HTMLElement>(null);
   const { lines, total, count, dispatch } = useCart();
   const [cartOpen, setCartOpen] = useState(false);
+  const cartOpenRef = useRef(false);
+  const modalOpenRef = useRef(false);
   const [busy, setBusy] = useState(false);
   const [phone, setPhone] = useState("");
   const [note, setNote] = useState("");
@@ -80,6 +85,98 @@ export function TabletMenuClient({
   const [carNote, setCarNote] = useState("");
   const [guests, setGuests] = useState(2);
   const [payment, setPayment] = useState<"cash" | "card">("cash");
+
+  // «البائع الصامت». Session-only, in-memory, no permissions, nothing leaves
+  // the device — see use-attention.ts.
+  const [upsell, setUpsell] = useState<Upsell | null>(null);
+  const shown = useRef<Set<string>>(new Set());
+  const cartIds = useMemo(() => new Set(lines.map((l) => l.itemId)), [lines]);
+  const cartIdsRef = useRef(cartIds);
+  useEffect(() => {
+    cartIdsRef.current = cartIds;
+  }, [cartIds]);
+
+  /**
+   * ── When it is acceptable to interrupt ──────────────────────────────────
+   *
+   * A waiter does not suggest fries as you walk in; they suggest them when you
+   * order the burger. Two rules encode that, and between them they remove
+   * almost all of the intrusiveness:
+   *
+   *   1. NEVER interrupt an empty basket. Someone who has committed to nothing
+   *      is still browsing, and a popup mid-browse is an advert. Someone with a
+   *      burger in the basket is assembling a meal, and a side is help.
+   *   2. The dwell path additionally waits out QUIET_MS. A decisive customer
+   *      who orders in forty seconds is never interrupted at all.
+   *
+   * The natural moment — adding a main with no side — needs no timer, because
+   * the customer's own action is the invitation.
+   */
+  const MAX_NUDGES = 1;
+  const QUIET_MS = 120_000;
+  // 0 = not started. Stamped lazily on first read rather than at render (the
+  // clock is impure) or in an effect (a ref written in both an effect and a
+  // handler is what the React compiler refuses).
+  const openedAt = useRef(0);
+  const nudgeDismissed = useRef(false);
+
+  /** ms since the customer opened the menu; starts the clock on first call */
+  function sessionMs() {
+    if (openedAt.current === 0) {
+      openedAt.current = Date.now();
+      return 0;
+    }
+    return Date.now() - openedAt.current;
+  }
+
+  /**
+   * Shared gate for both trigger paths.
+   *
+   * Not memoised on purpose — useAttention already parks onIntent in a ref, and
+   * wrapping a ref-reading function in useCallback is exactly the pattern the
+   * React compiler refuses to preserve.
+   */
+  function canNudge() {
+    if (nudgeDismissed.current) return false; // they said no once — that is an answer
+    if (shown.current.size >= MAX_NUDGES) return false;
+    if (cartOpenRef.current || modalOpenRef.current) return false;
+    return true;
+  }
+
+  /** the dwell path — the slow, speculative one, hence the quiet period */
+  function onIntent(itemId: string) {
+    if (!canNudge() || shown.current.has(itemId)) return;
+    // rule 1: nothing in the basket means they are still browsing
+    if (cartIdsRef.current.size === 0) return;
+    // rule 2: and they have been here long enough that a suggestion is welcome
+    if (sessionMs() < QUIET_MS) return;
+    const pick = pickUpsell({ menu, focusItemId: itemId, inCart: cartIdsRef.current });
+    if (!pick) return;
+    shown.current.add(itemId);
+    setUpsell(pick);
+  }
+
+  /**
+   * The good trigger: they just added a main and have no side.
+   *
+   * No timer, because the customer's own action is the invitation — this is the
+   * exact moment a waiter would ask, and the exact moment the answer is useful.
+   */
+  function suggestAfterAdd(justAdded: MenuItemView) {
+    if (!canNudge()) return;
+    const pick = pickUpsell({
+      menu,
+      focusItemId: justAdded.id,
+      // include what was just added, so we never offer it back
+      inCart: new Set([...cartIdsRef.current, justAdded.id]),
+    });
+    // only a side/sauce follow-up; never talk someone into a second main
+    if (!pick || pick.reason === "main") return;
+    shown.current.add(justAdded.id);
+    setUpsell({ ...pick, focus: justAdded, total: pick.item.price });
+  }
+
+  const attention = useAttention({ onIntent });
 
   /** what the confirmation screen shows — more than a number for a web order */
   const [confirmed, setConfirmed] = useState<
@@ -106,9 +203,18 @@ export function TabletMenuClient({
    */
   const priceOf = (it: MenuItemView) => offers[it.id] ?? it.price;
 
+  useEffect(() => {
+    cartOpenRef.current = cartOpen;
+  }, [cartOpen]);
+  useEffect(() => {
+    modalOpenRef.current = modalItem !== null;
+  }, [modalItem]);
+
   function selectCat(name: string) {
     setActiveCat(name);
     mainRef.current?.scrollTo({ top: 0 });
+    // a repeat visit to a category is a strong "still deciding" signal
+    attention.visitCategory(name);
   }
   function add(it: MenuItemView, variantId: string | null, unitPrice: number) {
     const v = it.variants.find((x) => x.id === variantId);
@@ -117,13 +223,12 @@ export function TabletMenuClient({
     dispatch({ type: "add", line: { key, itemId: it.id, name, variantId, flavor: null, unitPrice } });
   }
   function onPlus(it: MenuItemView) {
-    // a priced size choice opens the modal; everything else goes straight in
-    if (it.variants.length > 0) {
-      setModalItem(it);
-      setModalVariant(it.variants[0]?.id ?? null);
-    } else {
-      add(it, null, priceOf(it));
-    }
+    attention.tap(it.id);
+    // Always open the item. It used to add straight to the basket whenever
+    // there was no size to pick, which meant tapping a photo to look at it
+    // silently ordered it — the opposite of what the customer intended.
+    setModalItem(it);
+    setModalVariant(it.variants[0]?.id ?? null);
   }
   const modalPrice = modalItem ? (modalItem.variants.find((v) => v.id === modalVariant)?.price ?? modalItem.price) : 0;
 
@@ -161,6 +266,12 @@ export function TabletMenuClient({
     setAddress("");
     setCarNote("");
     setCartOpen(false);
+    setUpsell(null);
+    // a second order is a new decision — do not carry the first one's profile
+    attention.reset();
+    shown.current.clear();
+    nudgeDismissed.current = false;
+    openedAt.current = 0;
     setConfirmed({
       orderNumber: res.orderNumber,
       pickupCode: res.pickupCode ?? null,
@@ -207,8 +318,24 @@ export function TabletMenuClient({
             {(cat?.items ?? []).map((it) => {
               const s = imgSrcs(it.image_url);
               return (
-                <article key={it.id} className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--panelsoft)]">
-                  <div className={`relative bg-[var(--panel)] ${compact ? "aspect-square" : "aspect-[4/5]"}`}>
+                <article
+                  key={it.id}
+                  ref={attention.track(it.id, cat?.name_ar ?? "")}
+                  className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--panelsoft)]"
+                >
+                  {/* The whole picture is the tap target. Before this only the
+                      small + button did anything, so a customer who tapped the
+                      photo to enlarge it got no response at all — and the
+                      "tap to enlarge" signal the tracker looks for never fired. */}
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => onPlus(it)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") onPlus(it);
+                    }}
+                    className={`relative cursor-pointer bg-[var(--panel)] ${compact ? "aspect-square" : "aspect-[4/5]"}`}
+                  >
                     <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: GLOW }} />
                     <MenuIcon
                       name={it.name_ar}
@@ -221,7 +348,10 @@ export function TabletMenuClient({
                     )}
                     {/* add button floats on the image → keeps the footer clean + identical on all phones */}
                     <button
-                      onClick={() => onPlus(it)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onPlus(it);
+                      }}
                       aria-label="أضف للسلة"
                       className={`absolute bottom-2 left-2 z-10 flex items-center justify-center rounded-full bg-[var(--accent)] text-[var(--activeink)] shadow-lg transition active:scale-90 ${
                         compact ? "size-8" : "size-10"
@@ -285,7 +415,7 @@ export function TabletMenuClient({
         </button>
       )}
 
-      {/* product modal — size + cross-sell */}
+      {/* product modal — the enlarged photo, size picker, and add */}
       {modalItem && (
         <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/60 sm:items-center" onClick={() => setModalItem(null)}>
           <div style={{ ...(VARS as CSSProperties) }} className="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-[var(--panelsoft)] p-5 text-[var(--text)] sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
@@ -300,6 +430,30 @@ export function TabletMenuClient({
                 <button onClick={() => setModalItem(null)} aria-label="إغلاق" className="rounded-full border border-[var(--line)] p-1.5"><X className="size-5" /></button>
               </div>
             </div>
+
+            {/* the enlarged photo — the reason someone taps a card at all */}
+            {(() => {
+              const ms = imgSrcs(modalItem.image_url);
+              return (
+                <div className="relative mb-4 aspect-[4/3] overflow-hidden rounded-2xl bg-[var(--panel)]">
+                  <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: GLOW }} />
+                  <MenuIcon
+                    name={modalItem.name_ar}
+                    category={cat?.name_ar}
+                    className="absolute inset-0 m-auto size-24 text-[var(--accent)]"
+                  />
+                  {ms && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={ms.full}
+                      alt={modalItem.name_ar}
+                      onError={onImgError}
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                  )}
+                </div>
+              );
+            })()}
 
             {modalItem.variants.length > 0 && (
               <div className="mb-4">
@@ -316,8 +470,12 @@ export function TabletMenuClient({
 
             <button
               onClick={() => {
-                add(modalItem, modalVariant, modalPrice);
+                const added = modalItem;
+                add(added, modalVariant, modalPrice);
                 setModalItem(null);
+                // let the drawer close first; a toast under an open modal is
+                // invisible and would burn the one nudge we allow
+                setTimeout(() => suggestAfterAdd(added), 450);
               }}
               className="w-full rounded-2xl bg-[var(--accent)] py-4 text-lg font-extrabold text-[var(--activeink)] transition active:scale-[0.99]"
             >
@@ -325,6 +483,27 @@ export function TabletMenuClient({
             </button>
           </div>
         </div>
+      )}
+
+      {upsell && !cartOpen && !modalItem && (
+        <UpsellToast
+          upsell={upsell}
+          onAddBoth={() => {
+            // the focus item first, so the basket reads in the order the
+            // customer thought about it
+            add(upsell.focus, null, priceOf(upsell.focus));
+            add(upsell.item, null, priceOf(upsell.item));
+            setUpsell(null);
+          }}
+          onAddSideOnly={() => {
+            add(upsell.item, null, priceOf(upsell.item));
+            setUpsell(null);
+          }}
+          onClose={() => {
+            nudgeDismissed.current = true;
+            setUpsell(null);
+          }}
+        />
       )}
 
       {/* cart drawer */}
@@ -350,6 +529,35 @@ export function TabletMenuClient({
                 </li>
               ))}
             </ul>
+            {/* «مقترح لك» — built from what THIS customer looked at in THIS
+                session, so it is genuinely theirs and not a fixed banner */}
+            {(() => {
+              const recs = recommendedFor({
+                menu,
+                rankedItemIds: attention.ranked().map((r) => r.id),
+                topCategories: attention.topCategories(),
+                inCart: cartIds,
+              });
+              if (!recs.length) return null;
+              return (
+                <div className="mt-4">
+                  <h3 className="mb-2 text-sm font-black text-[var(--muted)]">مقترح لك</h3>
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {recs.map((r) => (
+                      <button
+                        key={r.id}
+                        onClick={() => add(r, null, priceOf(r))}
+                        className="w-28 shrink-0 rounded-xl border-2 border-[var(--line)] bg-[var(--panel)] p-2 text-center transition active:scale-95"
+                      >
+                        <p className="truncate text-xs font-black">{r.name_ar}</p>
+                        <p className="text-xs font-bold text-[var(--accent)]">{formatIqdLabel(priceOf(r))}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
             {!scanned && (
               <div className="mt-4">
                 <FulfilmentPicker value={mode} onChange={setMode} />
