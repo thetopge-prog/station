@@ -453,7 +453,7 @@ async function viewPartners() {
 
 function kbPartners(rows: Row[]) {
   const kb: unknown[][] = rows.map((p) => [{ text: `📄 ${p.name_ar}`, callback_data: `prtl|${p.id}` }]);
-  kb.push([{ text: "🔄 تحديث", callback_data: "prt" }]);
+  kb.push([{ text: "➕ إضافة شركة", callback_data: "prta" }, { text: "🔄 تحديث", callback_data: "prt" }]);
   kb.push(BACK);
   return kb;
 }
@@ -509,9 +509,10 @@ function settleMethod(note: string): "cash" | "transfer" | "other" {
   return "transfer";
 }
 
-function kbLedger(id: string) {
+function kbLedger(id: string, active = true) {
   return [
     [{ text: "💰 تسجيل تسديد", callback_data: `prts|${id}` }],
+    [{ text: active ? "⛔ إيقاف الشركة" : "✅ إعادة التفعيل", callback_data: `prtt|${id}` }],
     [{ text: "🔄 تحديث", callback_data: `prtl|${id}` }, { text: "⬅️ الشركات", callback_data: "prt" }],
     BACK,
   ];
@@ -669,6 +670,29 @@ async function onMessage(msg: Row) {
       await say(chatId, `تم التحديث ✅\n\n${itemText(it)}`, kbItem(it));
       return;
     }
+    if (state.action === "partner") {
+      const parts = text.trim().split(/\s+/);
+      const maybePhone = parts.length > 1 && /^[\d+][\d\s-]{6,}$/.test(parts[parts.length - 1]);
+      const phone = maybePhone ? parts[parts.length - 1] : null;
+      const name = (maybePhone ? parts.slice(0, -1) : parts).join(" ").trim();
+      if (!name) {
+        await say(chatId, "أرسل اسم الشركة، مثال: <code>كريم فود 07701234567</code>", [BACK]);
+        return;
+      }
+      try {
+        await restWrite("delivery_partners", "POST", { name_ar: name, phone, sort: 99 });
+      } catch (e) {
+        // name_ar is unique — the usual cause is the company already exists,
+        // possibly disabled, and re-adding it would split its history in two
+        const dup = String(e).includes("duplicate") || String(e).includes("23505");
+        await say(chatId, dup ? `«${esc(name)}» مسجّلة مسبقاً — افتحها من القائمة.` : `تعذّرت الإضافة: ${esc(String(e).slice(0, 120))}`, [
+          [{ text: "🛵 الشركات", callback_data: "prt" }],
+        ]);
+        return;
+      }
+      await say(chatId, `تمت إضافة <b>${esc(name)}</b> ✅`, kbPartners((await partnerBalances()) as Row[]));
+      return;
+    }
     if (state.action === "settle") {
       const parts = text.split(/\s+/);
       const amount = Math.round(Number(parts[0].replace(/[^\d.]/g, "")));
@@ -687,7 +711,7 @@ async function onMessage(msg: Row) {
       // read the balance back rather than computing it here: the view is the
       // one place that decides what "owed" means, and two answers to that
       // question is how a company ends up arguing with a receipt
-      const [p] = (await rest(`partner_balances?id=eq.${state.partnerId}&select=name_ar,balance`)) as Row[];
+      const [p] = (await rest(`partner_balances?id=eq.${state.partnerId}&select=name_ar,balance,is_active`)) as Row[];
       await say(
         chatId,
         `تم تسجيل التسديد ✅\n💰 <b>${fmt(amount)} د.ع</b> من <b>${esc(p?.name_ar ?? "")}</b>` +
@@ -698,7 +722,7 @@ async function onMessage(msg: Row) {
                 ? `💠 دفعت زيادة بمقدار <b>${fmt(-p.balance)} د.ع</b>`
                 : "🟢 الحساب مسدّد بالكامل"
           }`,
-        kbLedger(String(state.partnerId)),
+        kbLedger(String(state.partnerId), !!p?.is_active),
       );
       return;
     }
@@ -764,7 +788,27 @@ async function onCallback(cb: Row) {
   if (cmd === "short") return say(chatId, await viewShortages(), [[{ text: "🛒 قائمة المشتريات", callback_data: "po" }], BACK], mid);
   if (cmd === "po") return say(chatId, await viewPurchaseList(), [[{ text: "🔄 تحديث", callback_data: "po" }], BACK], mid);
   if (cmd === "prt") return say(chatId, await viewPartners(), kbPartners((await partnerBalances()) as Row[]), mid);
-  if (cmd === "prtl") return say(chatId, await viewPartnerLedger(a), kbLedger(a), mid);
+  if (cmd === "prtl") {
+    const [p] = (await rest(`delivery_partners?id=eq.${a}&select=is_active`)) as Row[];
+    return say(chatId, await viewPartnerLedger(a), kbLedger(a, !!p?.is_active), mid);
+  }
+  if (cmd === "prta") {
+    await setState(chatId, { action: "partner" });
+    return say(
+      chatId,
+      "🛵 أرسل اسم الشركة (ويمكن إضافة رقم الهاتف بعده)\nمثال: <code>كريم فود 07701234567</code>",
+      [[{ text: "إلغاء", callback_data: "prt" }]],
+      mid,
+    );
+  }
+  if (cmd === "prtt") {
+    const [p] = (await rest(`delivery_partners?id=eq.${a}&select=is_active,name_ar`)) as Row[];
+    if (!p) return say(chatId, "الشركة غير موجودة.", [BACK], mid);
+    // disabled, never deleted: a company with a year of orders behind it has to
+    // keep resolving on old receipts and in old reports
+    await restWrite(`delivery_partners?id=eq.${a}`, "PATCH", { is_active: !p.is_active });
+    return say(chatId, await viewPartnerLedger(a), kbLedger(a, !p.is_active), mid);
+  }
   if (cmd === "prts") {
     const [p] = (await rest(`delivery_partners?id=eq.${a}&select=name_ar`)) as Row[];
     await setState(chatId, { action: "settle", partnerId: a });
