@@ -137,6 +137,7 @@ function mainMenu() {
     [{ text: "💳 آخر ١٠ مدفوعات", callback_data: "pays" }, { text: "📺 شاشة الطلبات", callback_data: "queue" }],
     [{ text: "📦 المخزون", callback_data: "stock" }, { text: "⚠️ النواقص", callback_data: "short" }],
     [{ text: "🛒 قائمة المشتريات", callback_data: "po" }, { text: "👨‍🍳 التحكم بالتجهيز", callback_data: "prep" }],
+    [{ text: "🛵 حسابات شركات التوصيل", callback_data: "prt" }],
   ];
 }
 
@@ -267,6 +268,9 @@ async function viewDailyFinal() {
   const sold = (await aggregateSold(today)).filter(([, q]) => q > 0);
   const guests = sold.reduce((s, [, q]) => s + q, 0); // one item ≈ one guest
   const closure = (await rest(`register_closures?business_day=eq.${today}&select=remaining,note`))[0];
+  // money the shop has earned but not received. Only positive balances: a
+  // company that overpaid is holding credit, which is not a receivable.
+  const owed = ((await partnerBalances()) as Row[]).reduce((a, p) => a + Math.max(0, +p.balance), 0);
   const lines = [
     `🌙 <b>التقرير اليومي النهائي — ${today}</b>`, "",
     `🧾 عدد الطلبات: <b>${t.c}</b>`,
@@ -278,6 +282,7 @@ async function viewDailyFinal() {
     closure
       ? `🏦 المتبقي في الصندوق: <b>${fmt(closure.remaining)} د.ع</b>${closure.note ? ` — ${esc(closure.note)}` : ""}`
       : `🏦 المتبقي في الصندوق: لم يُسجَّل (يُدخل من صفحة المصروفات)`,
+    ...(owed ? [`🛵 مستحق على شركات التوصيل: <b>${fmt(owed)} د.ع</b>`] : []),
     "",
     `🍔 <b>الأصناف المباعة اليوم (${sold.reduce((s, [, q]) => s + q, 0)} قطعة):</b>`,
   ];
@@ -387,17 +392,129 @@ async function viewLastPayments() {
   const name = new Map((emps as Row[]).map((e) => [e.id, e.name_ar]));
 
   const lines = ["💳 <b>آخر ١٠ عمليات دفع</b>", ""];
-  let cash = 0, card = 0;
+  let cash = 0, card = 0, billed = 0;
   for (const o of rows as Row[]) {
     const total = +o.subtotal - +o.discount + +o.extra;
-    if (o.payment_method === "card") card += total; else cash += total;
+    // A delivery-company order is revenue, but no money changed hands at the
+    // counter. Counting it as cash would inflate the drawer and accuse a
+    // cashier of a shortage they did not cause.
+    if (o.payment_method === "partner") billed += total;
+    else if (o.payment_method === "card") card += total;
+    else cash += total;
     lines.push(
-      `${o.payment_method === "card" ? "💳" : "💵"} #${String(o.order_seq).padStart(3, "0")} — <b>${fmt(total)}</b>` +
+      `${o.payment_method === "partner" ? "🛵" : o.payment_method === "card" ? "💳" : "💵"} #${String(o.order_seq).padStart(3, "0")} — <b>${fmt(total)}</b>` +
         `${o.cashier_id ? ` — ${esc(name.get(o.cashier_id) ?? "")}` : ""} — ${agoMin(o.paid_at)}د`,
     );
   }
-  lines.push("", `المجموع: نقدي <b>${fmt(cash)}</b> · كي كارد <b>${fmt(card)}</b>`);
+  lines.push(
+    "",
+    `المجموع: نقدي <b>${fmt(cash)}</b> · كي كارد <b>${fmt(card)}</b>` +
+      (billed ? ` · على الشركات <b>${fmt(billed)}</b>` : ""),
+  );
   return lines.join("\n");
+}
+
+/* ── شركات التوصيل ─────────────────────────────────────────────────────────
+   Talabat and the rest take the food now and transfer the money next week, so
+   what matters is not a receipt — it is a running balance per company, and how
+   old it is. Everything below reads partner_balances (0045), which computes
+   billed − settled. There is deliberately no "paid" flag on an order: the
+   companies settle in bulk against a total and never per order, so marking
+   individual orders paid would be inventing a reconciliation nobody sends. */
+
+const partnerBalances = () => rest("partner_balances?select=*&order=balance.desc,name_ar.asc");
+
+async function viewPartners() {
+  const rows = (await partnerBalances()) as Row[];
+  if (!rows.length) {
+    return "🛵 <b>حسابات شركات التوصيل</b>\n\nلا توجد شركات مسجّلة بعد.\nأضِفها من صفحة «شركات التوصيل» في النظام.";
+  }
+
+  const lines = ["🛵 <b>حسابات شركات التوصيل</b>", ""];
+  let owed = 0;
+  for (const p of rows) {
+    const bal = +p.balance;
+    owed += bal;
+    lines.push(
+      `${bal > 0 ? "🔴" : "🟢"} <b>${esc(p.name_ar)}</b>${p.is_active ? "" : " (متوقفة)"}`,
+      bal > 0
+        ? `   المستحق: <b>${fmt(bal)} د.ع</b>`
+        : bal < 0
+          ? `   💠 دفعت زيادة — رصيد لها: <b>${fmt(-bal)} د.ع</b>`
+          : "   لا يوجد مستحق ✅",
+      `   مبيعات: ${fmt(p.billed)} · مسدّد: ${fmt(p.settled)} · ${p.orders_count} طلب`,
+      ...(p.last_order_at ? [`   آخر طلب: قبل ${agoMin(p.last_order_at)} دقيقة`] : []),
+      "",
+    );
+  }
+  lines.push("━━━━━━━━━━━━", `📌 <b>إجمالي المستحق: ${fmt(owed)} د.ع</b>`);
+  return lines.join("\n");
+}
+
+function kbPartners(rows: Row[]) {
+  const kb: unknown[][] = rows.map((p) => [{ text: `📄 ${p.name_ar}`, callback_data: `prtl|${p.id}` }]);
+  kb.push([{ text: "🔄 تحديث", callback_data: "prt" }]);
+  kb.push(BACK);
+  return kb;
+}
+
+/** كشف حساب — the statement a company would ask for over the phone. */
+async function viewPartnerLedger(id: string) {
+  const [p] = (await rest(`partner_balances?id=eq.${id}&select=*`)) as Row[];
+  if (!p) return "الشركة غير موجودة.";
+
+  const orders = (await rest(
+    `orders?partner_id=eq.${id}&status=neq.cancelled&select=order_seq,subtotal,discount,extra,created_at` +
+      `&order=created_at.desc&limit=10`,
+  )) as Row[];
+  const paid = (await rest(
+    `partner_settlements?partner_id=eq.${id}&select=amount,method,note,business_day&order=created_at.desc&limit=5`,
+  )) as Row[];
+
+  const lines = [
+    `📄 <b>كشف حساب — ${esc(p.name_ar)}</b>`,
+    "",
+    +p.balance > 0
+      ? `🔴 المستحق الآن: <b>${fmt(p.balance)} د.ع</b>`
+      : +p.balance < 0
+        ? `💠 دفعت زيادة — رصيد لها عندنا: <b>${fmt(-p.balance)} د.ع</b>`
+        : "🟢 الحساب مسدّد بالكامل ✅",
+    `مبيعات: <b>${fmt(p.billed)}</b> · مسدّد: <b>${fmt(p.settled)}</b> · ${p.orders_count} طلب`,
+    "",
+    "🧾 <b>آخر الطلبات</b>",
+  ];
+  if (!orders.length) lines.push("لا توجد طلبات.");
+  else
+    for (const o of orders) {
+      const total = +o.subtotal - +o.discount + +o.extra;
+      lines.push(`• #${String(o.order_seq).padStart(3, "0")} — <b>${fmt(total)}</b> — ${String(o.created_at).slice(0, 10)}`);
+    }
+
+  lines.push("", "💰 <b>آخر التسديدات</b>");
+  if (!paid.length) lines.push("لم يصل أي تسديد بعد.");
+  else
+    for (const s of paid) {
+      lines.push(`• <b>${fmt(s.amount)}</b> — ${SETTLE_AR[s.method] ?? s.method} — ${s.business_day}${s.note ? ` — ${esc(s.note)}` : ""}`);
+    }
+
+  return lines.join("\n");
+}
+
+const SETTLE_AR: Record<string, string> = { cash: "نقداً", transfer: "حوالة", other: "أخرى" };
+
+/** Which way the money arrived, read off what the owner typed. */
+function settleMethod(note: string): "cash" | "transfer" | "other" {
+  if (/نقد|كاش/.test(note)) return "cash";
+  if (/حوال|تحويل|بنك|زين كاش|اسيا|آسيا/.test(note)) return "transfer";
+  return "transfer";
+}
+
+function kbLedger(id: string) {
+  return [
+    [{ text: "💰 تسجيل تسديد", callback_data: `prts|${id}` }],
+    [{ text: "🔄 تحديث", callback_data: `prtl|${id}` }, { text: "⬅️ الشركات", callback_data: "prt" }],
+    BACK,
+  ];
 }
 
 /** شاشة الطلبات — what the waiting-area TV is showing right now. */
@@ -552,6 +669,39 @@ async function onMessage(msg: Row) {
       await say(chatId, `تم التحديث ✅\n\n${itemText(it)}`, kbItem(it));
       return;
     }
+    if (state.action === "settle") {
+      const parts = text.split(/\s+/);
+      const amount = Math.round(Number(parts[0].replace(/[^\d.]/g, "")));
+      const note = parts.slice(1).join(" ").trim();
+      if (!Number.isFinite(amount) || amount <= 0) {
+        await say(chatId, "الصيغة: <i>المبلغ ثم الوصف</i>\nمثال: <code>250000 حوالة</code>", [BACK]);
+        return;
+      }
+      await restWrite("partner_settlements", "POST", {
+        partner_id: state.partnerId,
+        amount,
+        method: settleMethod(note),
+        note: note || null,
+        business_day: baghdadDay(),
+      });
+      // read the balance back rather than computing it here: the view is the
+      // one place that decides what "owed" means, and two answers to that
+      // question is how a company ends up arguing with a receipt
+      const [p] = (await rest(`partner_balances?id=eq.${state.partnerId}&select=name_ar,balance`)) as Row[];
+      await say(
+        chatId,
+        `تم تسجيل التسديد ✅\n💰 <b>${fmt(amount)} د.ع</b> من <b>${esc(p?.name_ar ?? "")}</b>` +
+          `\n\n${
+            +(p?.balance ?? 0) > 0
+              ? `🔴 المتبقي: <b>${fmt(p.balance)} د.ع</b>`
+              : +(p?.balance ?? 0) < 0
+                ? `💠 دفعت زيادة بمقدار <b>${fmt(-p.balance)} د.ع</b>`
+                : "🟢 الحساب مسدّد بالكامل"
+          }`,
+        kbLedger(String(state.partnerId)),
+      );
+      return;
+    }
     if (state.action === "expense") {
       const parts = text.split(/\s+/);
       const amount = Math.round(Number(parts[0].replace(/[^\d.]/g, "")));
@@ -613,6 +763,18 @@ async function onCallback(cb: Row) {
   if (cmd === "stock") return say(chatId, await viewStock(), [[{ text: "🔄 تحديث", callback_data: "stock" }], BACK], mid);
   if (cmd === "short") return say(chatId, await viewShortages(), [[{ text: "🛒 قائمة المشتريات", callback_data: "po" }], BACK], mid);
   if (cmd === "po") return say(chatId, await viewPurchaseList(), [[{ text: "🔄 تحديث", callback_data: "po" }], BACK], mid);
+  if (cmd === "prt") return say(chatId, await viewPartners(), kbPartners((await partnerBalances()) as Row[]), mid);
+  if (cmd === "prtl") return say(chatId, await viewPartnerLedger(a), kbLedger(a), mid);
+  if (cmd === "prts") {
+    const [p] = (await rest(`delivery_partners?id=eq.${a}&select=name_ar`)) as Row[];
+    await setState(chatId, { action: "settle", partnerId: a });
+    return say(
+      chatId,
+      `💰 تسديد من <b>${esc(p?.name_ar ?? "")}</b>\nأرسل: <i>المبلغ ثم الوصف</i>\nمثال: <code>250000 حوالة</code>`,
+      [[{ text: "إلغاء", callback_data: `prtl|${a}` }]],
+      mid,
+    );
+  }
   if (cmd === "prep") return say(chatId, await viewQueue(), await kbPrep(), mid);
   if (cmd === "prepok") return say(chatId, await markReady(a), await kbPrep(), mid);
   if (cmd === "top") return say(chatId, await viewTop(), [BACK], mid);
