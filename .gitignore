@@ -25,3 +25,6 @@ Thumbs.db
 
 # Station Hub — the shop's local database (never leaves the mini PC)
 .hub/
+
+# local copies of the processed product photos (the originals live in ADS/)
+.photos/

@@ -14,6 +14,7 @@ import { CHANNEL_OF, FulfilmentPicker, missingFields, type FulfilmentMode } from
 import { SurpriseMe } from "./SurpriseMe";
 import { useAttention } from "./use-attention";
 import { UpsellToast } from "./UpsellToast";
+import { MealExtras } from "./MealExtras";
 import { pickUpsell, recommendedFor, type Upsell } from "@/lib/cafe/upsell";
 
 /** Primary customer menu — full-screen: category rail on the RIGHT, product grid
@@ -239,6 +240,22 @@ export function TabletMenuClient({
     setModalVariant(it.variants[0]?.id ?? null);
   }
   const modalPrice = modalItem ? (modalItem.variants.find((v) => v.id === modalVariant)?.price ?? modalItem.price) : 0;
+
+  /**
+   * Is the customer looking at the meal rather than the sandwich alone?
+   *
+   * Decided by PRICE, not by the word «وجبة». Every category words it
+   * differently — ساندويچ/وجبة on a burger, منفرد/وجبة on a pizza — and a menu
+   * that goes quiet because someone typed a synonym is worse than one that
+   * never spoke. The dearer option is the meal; that is what the extra money
+   * is buying, everywhere.
+   */
+  const mealSelected = (() => {
+    const prices = modalItem?.variants.map((v) => v.price) ?? [];
+    if (prices.length < 2) return false;
+    const top = Math.max(...prices);
+    return top > Math.min(...prices) && modalPrice === top;
+  })();
 
   async function checkout() {
     if (!lines.length || busy) return;
@@ -475,6 +492,8 @@ export function TabletMenuClient({
                 </div>
               </div>
             )}
+
+            {mealSelected && <MealExtras />}
 
             <button
               onClick={() => {
