@@ -1,4 +1,4 @@
-# setup-display.ps1 — turn a Windows PC into the ceiling-mounted customer screen.
+﻿# setup-display.ps1 — turn a Windows PC into the ceiling-mounted customer screen.
 #
 # The screen is bolted to the ceiling: nobody is going to reach it to dismiss a
 # dialog, click "restore session", or log back in. So this script removes every

@@ -1,4 +1,4 @@
-# print-agent.ps1 — Station local print agent.
+﻿# print-agent.ps1 — Station local print agent.
 #
 # The one piece of the system that can actually reach a printer. The POS runs in
 # a browser (no TCP sockets) against a Netlify-hosted server (no route into the

@@ -73,47 +73,39 @@ try {
   Say "تعذّر ضبط الافتراضية تلقائياً — اضبطها من إعدادات الطابعات" $false
 }
 
-# ── 4) تثبيت وكيل القاصة (اسم المشاركة مضمّن تلقائياً) ─────────────────────
+# ── 4) تنزيل وكيل الطباعة ───────────────────────────────────────────────────
+# هذا الوكيل يطبع الفواتير والتذاكر ويفتح الدرج. النسخة القديمة كانت تفتح الدرج
+# فقط، فكان الجهاز يبدو مضبوطاً بينما لا تخرج منه ورقة واحدة.
 $dir = "C:\station"
 New-Item -ItemType Directory -Force -Path $dir | Out-Null
-$agent = @'
-param([string]$PrinterShare = "__SHARE__", [int]$Port = 9977)
-$bytes = [byte[]](27, 112, 0, 25, 250)
-$kickFile = Join-Path $env:TEMP "st-drawer-kick.bin"
-[IO.File]::WriteAllBytes($kickFile, $bytes)
-$listener = New-Object System.Net.HttpListener
-$listener.Prefixes.Add("http://127.0.0.1:$Port/")
-$listener.Start()
-while ($true) {
-  $ctx = $listener.GetContext()
-  $req = $ctx.Request; $res = $ctx.Response
-  $res.Headers.Add("Access-Control-Allow-Origin", "*")
-  $res.Headers.Add("Access-Control-Allow-Methods", "GET, OPTIONS")
-  $res.Headers.Add("Access-Control-Allow-Private-Network", "true")
-  if ($req.HttpMethod -eq "OPTIONS") { $res.StatusCode = 204; $res.Close(); continue }
-  if ($req.Url.AbsolutePath -eq "/kick") {
-    cmd /c "copy /b `"$kickFile`" \\127.0.0.1\$PrinterShare" | Out-Null
-    $buf = [Text.Encoding]::UTF8.GetBytes("ok")
-    $res.OutputStream.Write($buf, 0, $buf.Length)
-  } else { $res.StatusCode = 404 }
-  $res.Close()
+$agentPath = "$dir\print-agent.ps1"
+$agentUrl = "https://raw.githubusercontent.com/thetopge-prog/station/main/scripts/print-agent.ps1"
+try {
+  Invoke-WebRequest $agentUrl -OutFile $agentPath -UseBasicParsing -TimeoutSec 30
+  Say "نُزّل وكيل الطباعة إلى $agentPath"
+} catch {
+  Say "تعذّر تنزيل وكيل الطباعة: $($_.Exception.Message)" $false
+  Say "بدون هذا الملف لن تُطبع أي تذكرة. تأكد من الإنترنت وأعد تشغيل المُثبّت." $false
+  Read-Host "اضغط Enter للإغلاق"
+  exit 1
 }
-'@
-$agent.Replace("__SHARE__", $share) | Set-Content -Path "$dir\drawer-agent.ps1" -Encoding UTF8
-Say "وكيل القاصة مثبت في $dir\drawer-agent.ps1 (المشاركة: $share)"
 
-# ── 5) التشغيل مع إقلاع الجهاز + تشغيله الآن ────────────────────────────────
-$startupDir = "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp"
-"@echo off`r`nstart `"`" /min powershell -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$dir\drawer-agent.ps1`"" |
-  Set-Content -Path "$startupDir\station-drawer.cmd" -Encoding ASCII
-Say "أُضيف لبدء التشغيل التلقائي"
-
+# ── 5) تشغيله مع إقلاع الجهاز، والآن ───────────────────────────────────────
+# نظافة من نسخة سابقة: وكيل الدرج القديم كان يحجز نفس المنفذ 9977، فلو بقي
+# يعمل لأخذ الطلبات وردّ 404 على كل أمر طباعة.
+Remove-Item "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\station-drawer.cmd" -ErrorAction SilentlyContinue
 Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" |
-  Where-Object { $_.CommandLine -like "*drawer-agent.ps1*" } |
+  Where-Object { $_.CommandLine -like "*drawer-agent.ps1*" -or $_.CommandLine -like "*print-agent.ps1*" } |
   ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
-Start-Process powershell -WindowStyle Hidden -ArgumentList "-ExecutionPolicy Bypass -File `"$dir\drawer-agent.ps1`""
-Start-Sleep -Seconds 2
-Say "الوكيل يعمل الآن"
+
+& powershell -NoProfile -ExecutionPolicy Bypass -File $agentPath -Install -DrawerShare $share | Out-Null
+Start-Sleep -Seconds 3
+try {
+  Invoke-WebRequest "http://127.0.0.1:9977/ping" -UseBasicParsing -TimeoutSec 5 | Out-Null
+  Say "وكيل الطباعة يعمل، ويبدأ تلقائياً مع الجهاز (المشاركة: $share)"
+} catch {
+  Say "الوكيل لم يستجب بعد — أعد تشغيل الجهاز، فهو مسجّل للعمل مع الإقلاع" $false
+}
 
 # ── 6) اختبار فتح الدرج ─────────────────────────────────────────────────────
 try {
