@@ -17,6 +17,7 @@
     "seed:menu": "node scripts/generate-menu-seed.mjs",
     "bot": "node scripts/bot.mjs",
     "hub": "node scripts/hub-start.mjs",
+    "backup": "node scripts/backup.mjs",
     "check": "npm run lint && npm run typecheck && npm run build"
   },
   "dependencies": {

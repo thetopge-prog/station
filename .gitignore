@@ -28,3 +28,6 @@ Thumbs.db
 
 # local copies of the processed product photos (the originals live in ADS/)
 .photos/
+
+# database snapshots — data, not code; they must never reach a git remote
+.backups/
