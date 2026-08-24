@@ -109,6 +109,36 @@ while ($listener.IsListening) {
       "/ping" {
         $body = "station-print-agent"
       }
+      "/printers" {
+        # What Windows actually has installed, handed to /setup so nobody has to
+        # read an IP off the back of a printer and retype it into a form. The
+        # two values the system needs are PrinterHostAddress (network) and
+        # ShareName (USB); the rest is for recognising the device on screen.
+        #
+        # Every property is read defensively: a local port (PORTPROMPT:, a PDF
+        # writer) has no PortNumber at all, and reaching for one throws — which
+        # took the whole endpoint down with it.
+        $list = @()
+        foreach ($pr in @(Get-Printer -ErrorAction SilentlyContinue)) {
+          $port = $null
+          try { $port = @(Get-PrinterPort -Name $pr.PortName -ErrorAction SilentlyContinue)[0] } catch { }
+          $hostAddr = $null
+          $portNum = $null
+          if ($port) {
+            if ($port.PSObject.Properties.Match('PrinterHostAddress').Count) { $hostAddr = $port.PrinterHostAddress }
+            if ($port.PSObject.Properties.Match('PortNumber').Count) { $portNum = $port.PortNumber }
+          }
+          $list += [pscustomobject]@{
+            name   = [string]$pr.Name
+            share  = if ($pr.Shared) { [string]$pr.ShareName } else { $null }
+            host   = if ($hostAddr) { [string]$hostAddr } else { $null }
+            port   = if ($portNum) { [string]$portNum } else { $null }
+            driver = [string]$pr.DriverName
+          }
+        }
+        $res.ContentType = "application/json; charset=utf-8"
+        $body = ConvertTo-Json @($list) -Compress -Depth 3
+      }
       "/kick" {
         Send-Share $DrawerShare $DRAWER_PULSE
       }

@@ -15,6 +15,7 @@ import {
   ClipboardList,
   CreditCard,
   Percent,
+  Wrench,
   HelpCircle,
   LayoutDashboard,
   LogOut,
@@ -104,6 +105,7 @@ const NAV: NavItem[] = [
   { href: "/employees", label: "الموظفون", short: "الموظفون", allow: [], icon: Users },
   { href: "/inventory", label: "المخزون", short: "المخزون", allow: ["chef", "cashier", "expediter"], icon: Boxes },
   { href: "/printers", label: "الطابعات", short: "الطابعات", allow: [], icon: Printer },
+  { href: "/setup", label: "التركيب", short: "التركيب", allow: [], icon: Wrench },
   { href: "/qr", label: "رموز QR", short: "QR", allow: [], icon: QrCode },
   { href: "/help", label: "التعليمات", short: "تعليمات", allow: null, icon: HelpCircle },
 ];
