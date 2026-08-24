@@ -18,6 +18,9 @@ export type Staff = {
   role: StaffRole | null;
   /** which kitchen station a chef sees on the KDS; null for every other role */
   stationId: string | null;
+  /** sees /setup. A separate axis from `role`: running a restaurant and
+   *  installing one are different jobs, and an admin is only the first. */
+  isDeveloper: boolean;
 };
 
 /** The current signed-in staff member, or null. Uses the service client to read
@@ -36,7 +39,7 @@ export async function getStaff(): Promise<Staff | null> {
   const svc = createSupabaseServiceClient();
   const { data: emp } = await svc
     .from("employees")
-    .select("id, name_ar, role_id, station_id")
+    .select("id, name_ar, role_id, station_id, is_developer")
     .eq("auth_user_id", user.id)
     .eq("is_active", true)
     .maybeSingle();
@@ -54,6 +57,7 @@ export async function getStaff(): Promise<Staff | null> {
     email: user.email ?? null,
     role,
     stationId: emp.station_id ?? null,
+    isDeveloper: emp.is_developer === true,
   };
   await rememberSession(token, staff);
   return staff;
@@ -75,6 +79,13 @@ export async function requireAdmin(): Promise<Staff> {
  * Gate a screen on a job type. The owner passes every gate — a manager standing
  * at the expediter station during a rush should never be locked out of it.
  */
+/** The installation surface. Not the same gate as admin — see 0046. */
+export async function requireDeveloper(): Promise<Staff> {
+  const staff = await requireStaff();
+  if (!staff.isDeveloper) throw new Error("هذه الصفحة للمطوّر فقط.");
+  return staff;
+}
+
 export async function requireRole(...allowed: StaffRole[]): Promise<Staff> {
   const staff = await requireStaff();
   if (staff.role === "admin") return staff;

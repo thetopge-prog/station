@@ -114,17 +114,22 @@ export function StaffShell({
   role,
   name,
   pushKey = null,
+  isDeveloper = false,
   children,
 }: {
   role: StaffRole | null;
   name: string;
   pushKey?: string | null;
+  /** /setup belongs to the developer, not to every admin (0046) */
+  isDeveloper?: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
   const router = useRouter();
   const { setTheme } = useCafeUI();
-  const links = NAV.filter((n) => canAccess(role, n.allow ?? []) || n.allow === null);
+  const links = NAV.filter(
+    (n) => (n.href !== "/setup" || isDeveloper) && (canAccess(role, n.allow ?? []) || n.allow === null),
+  );
   const bottomTabs = links.filter((l) => l.href !== "/help").slice(0, 4); // first 4 as bottom tabs, rest in «المزيد»
   const [moreOpen, setMoreOpen] = useState(false);
 

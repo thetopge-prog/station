@@ -1,6 +1,6 @@
 import QRCode from "qrcode";
 import { headers } from "next/headers";
-import { requireAdmin } from "@/lib/cafe/auth";
+import { requireDeveloper } from "@/lib/cafe/auth";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { SetupClient, type MappedPrinter, type ScreenLink } from "@/components/cafe/SetupClient";
 
@@ -14,14 +14,15 @@ export const dynamic = "force-dynamic";
  * printers from the local agent. Nothing here is a screenshot of how the shop
  * was configured once — if somebody re-routes fries tomorrow, this page says so.
  *
- * Admin only. It carries no money, but it does carry the shop's own addresses
- * and the command that installs software on a till.
+ * Developer only (0046). It carries no money, but it does carry the command
+ * that installs software on a till — which is not a restaurant manager's job
+ * even when the restaurant manager is the owner.
  */
 
 const INSTALL = `irm https://raw.githubusercontent.com/thetopge-prog/station/main/scripts/setup-pos.ps1 -OutFile "$env:TEMP\\st-setup.ps1"; powershell -ExecutionPolicy Bypass -File "$env:TEMP\\st-setup.ps1"`;
 
 export default async function SetupPage() {
-  await requireAdmin();
+  await requireDeveloper();
 
   const h = await headers();
   const host = h.get("host") ?? "localhost:3000";

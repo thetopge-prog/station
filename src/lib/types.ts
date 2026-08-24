@@ -29,14 +29,17 @@ export type Database = {
         Row: Timestamped & {
           name_ar: string; role_id: string | null; auth_user_id: string | null; is_active: boolean;
           wage_amount: number; wage_period: "daily" | "weekly" | "monthly" | null; station_id: string | null;
+          is_developer: boolean;  // 0046 — sees /setup; set in the database, not the UI
         };
         Insert: {
           id?: string; name_ar: string; role_id?: string | null; auth_user_id?: string | null; is_active?: boolean;
           wage_amount?: number; wage_period?: "daily" | "weekly" | "monthly" | null; station_id?: string | null; created_at?: string;
+          is_developer?: boolean;
         };
         Update: Partial<{
           name_ar: string; role_id: string | null; auth_user_id: string | null; is_active: boolean;
           wage_amount: number; wage_period: "daily" | "weekly" | "monthly" | null; station_id: string | null;
+          is_developer: boolean;
         }>;
         Relationships: [];
       };

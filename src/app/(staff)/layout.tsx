@@ -23,7 +23,7 @@ export default async function StaffLayout({ children }: { children: React.ReactN
   const staff = await getStaff();
   if (!staff) redirect("/sign-in");
   return (
-    <StaffShell role={staff.role} name={staff.name} pushKey={pushKey}>
+    <StaffShell role={staff.role} name={staff.name} pushKey={pushKey} isDeveloper={staff.isDeveloper}>
       {children}
     </StaffShell>
   );
