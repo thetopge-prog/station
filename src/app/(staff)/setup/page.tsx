@@ -49,10 +49,23 @@ export default async function SetupPage() {
     active: p.is_active,
   }));
 
+  /**
+   * The ceiling display signs in with a key in its own URL, because nobody can
+   * reach it to sign in again and a staff cookie expires in seven days. That
+   * key is handed over HERE, on the developer's page, so it is never something
+   * to look up in a file at the top of a ladder.
+   */
+  const displayKey = process.env.STATION_DISPLAY_KEY;
   const screenDefs = [
     { title: "شاشة المطبخ", note: "لكل طباخ — يرى أصناف محطته فقط", path: "/kds" },
     { title: "شاشة التجهيز", note: "هنا يُوصل قارئ الـQR", path: "/expediter" },
-    { title: "شاشة الاستلام", note: "الشاشة المعلّقة للزبائن", path: "/queue" },
+    {
+      title: "شاشة الاستلام",
+      note: displayKey
+        ? "الشاشة المعلّقة — الرابط يحمل مفتاحها، تفتح بلا تسجيل دخول"
+        : "⚠ لا يوجد STATION_DISPLAY_KEY — ستطلب الشاشة تسجيل دخول",
+      path: displayKey ? `/queue?key=${encodeURIComponent(displayKey)}` : "/queue",
+    },
     { title: "منيو الزبون", note: "التابلت على الطاولة، أو ملصق QR", path: "/menu" },
   ];
   const screens: ScreenLink[] = await Promise.all(
@@ -63,6 +76,10 @@ export default async function SetupPage() {
         note: s.note,
         url,
         qr: await QRCode.toDataURL(url, { margin: 1, width: 300, color: { dark: "#2C1E16", light: "#ffffff" } }),
+        // Turns a Windows screen into a dedicated appliance: full screen, no
+        // tabs, no address bar, starts itself, never sleeps. A ceiling screen
+        // showing a browser is a ceiling screen somebody will need a ladder for.
+        kiosk: `irm https://raw.githubusercontent.com/thetopge-prog/station/main/scripts/setup-display.ps1 -OutFile "$env:TEMP\st-display.ps1"; powershell -ExecutionPolicy Bypass -File "$env:TEMP\st-display.ps1" -Url "${url}"`,
       };
     }),
   );

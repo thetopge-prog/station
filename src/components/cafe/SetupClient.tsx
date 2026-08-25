@@ -31,7 +31,7 @@ export type MappedPrinter = {
   active: boolean;
 };
 
-export type ScreenLink = { title: string; note: string; url: string; qr: string };
+export type ScreenLink = { title: string; note: string; url: string; qr: string; kiosk: string };
 
 const AGENT = "http://127.0.0.1:9977";
 
@@ -229,6 +229,14 @@ export function SetupClient({
               <div className="mt-2 flex items-center gap-2">
                 <code className="min-w-0 flex-1 overflow-x-auto rounded bg-secondary px-2 py-1 text-[11px]" dir="ltr">{s.url}</code>
                 <CopyButton value={s.url} label="نسخ" />
+              </div>
+              {/* a screen on the ceiling must never show a browser: this turns
+                  a Windows device into a dedicated appliance in one command */}
+              <div className="mt-2 border-t border-border pt-2">
+                <CopyButton value={s.kiosk} label="نسخ أمر التثبيت كتطبيق" className="w-full justify-center" />
+                <p className="mt-1 text-center text-[11px] text-muted-foreground">
+                  ملء الشاشة · بلا متصفح · يبدأ وحده · لا ينام
+                </p>
               </div>
             </div>
           ))}
