@@ -84,6 +84,9 @@ export function SetupClient({
   }, [probe]);
 
   const unconfigured = printers.filter((p) => !p.host && !p.share).length;
+  // shown without the scheme: a TV keyboard makes "https://" eight wasted
+  // keystrokes, and every browser adds it back
+  const tvUrl = screens.find((s) => s.url.includes("/queue"))?.url.replace(/^https?:\/\//, "") ?? null;
 
   return (
     <div className="space-y-8 pb-16">
@@ -226,8 +229,12 @@ export function SetupClient({
             <b> هذه الشاشة التي أمامك الآن</b> — الرمز يُعرض هنا ويُمسح هناك، لا العكس.
           </p>
           <p>
-            📺 <b>شاشة بلا كاميرا</b> (المعلّقة بالسقف): لا تمسح شيئاً. وصّل لوحة مفاتيح بالجهاز الذي خلفها
-            <b> مرة واحدة</b>، وألصق «أمر التثبيت كتطبيق» — فيه العنوان والمفتاح، ولن تحتاج لمسها بعدها أبداً.
+            📺 <b>تلفاز ذكي على واي‑فاي المطعم</b>: لا تمسح شيئاً ولا تشغّل أمراً. افتح متصفح التلفاز
+            واكتب العنوان بالريموت مرة واحدة، ثم اجعله <b>الصفحة الرئيسية</b> للمتصفح.
+          </p>
+          <p>
+            💻 <b>شاشة يشغّلها جهاز ويندوز</b> (ميني PC أو TV Stick): ألصق «أمر التثبيت كتطبيق» على ذلك
+            الجهاز — يضبط ملء الشاشة والتشغيل التلقائي ومنع النوم دفعة واحدة.
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -252,6 +259,20 @@ export function SetupClient({
             </div>
           ))}
         </div>
+        {tvUrl && (
+          <div className="mt-4 rounded-2xl border-2 border-primary/40 bg-primary/5 p-4">
+            <p className="mb-1 font-black">📺 للتلفاز الذكي — اكتب هذا بالريموت</p>
+            <p className="mb-3 text-xs text-muted-foreground">
+              مرة واحدة فقط. بعدها: قائمة المتصفح ← اجعلها الصفحة الرئيسية.
+            </p>
+            <p className="overflow-x-auto rounded-xl bg-background p-3 text-center text-xl font-black tracking-wide" dir="ltr">
+              {tvUrl}
+            </p>
+            <div className="mt-2 flex justify-center">
+              <CopyButton value={tvUrl} label="نسخ العنوان" />
+            </div>
+          </div>
+        )}
       </Step>
 
       {/* ── 5. final check ── */}
