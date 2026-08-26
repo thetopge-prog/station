@@ -216,9 +216,20 @@ export function SetupClient({
 
       {/* ── 4. screens ── */}
       <Step n={4} title="الشاشات">
-        <p className="mb-3 text-sm text-muted-foreground">
-          على كل تابلت أو شاشة: امسح الرمز أو اكتب العنوان، ثم سجّل الدخول مرة واحدة.
-        </p>
+        {/* The QR is scanned BY the other device, using its own camera. A
+            ceiling television has no camera, so telling somebody to "scan it"
+            there sends them up a ladder holding a phone for no reason. */}
+        <div className="mb-3 space-y-2 rounded-xl border border-border bg-card p-3 text-sm">
+          <p className="font-black">أي طريقة تستعمل؟ حسب الجهاز:</p>
+          <p>
+            📱 <b>جهاز فيه كاميرا</b> (تابلت المطبخ، التجهيز، منيو الزبون): افتح كاميرته وامسح الرمز من
+            <b> هذه الشاشة التي أمامك الآن</b> — الرمز يُعرض هنا ويُمسح هناك، لا العكس.
+          </p>
+          <p>
+            📺 <b>شاشة بلا كاميرا</b> (المعلّقة بالسقف): لا تمسح شيئاً. وصّل لوحة مفاتيح بالجهاز الذي خلفها
+            <b> مرة واحدة</b>، وألصق «أمر التثبيت كتطبيق» — فيه العنوان والمفتاح، ولن تحتاج لمسها بعدها أبداً.
+          </p>
+        </div>
         <div className="grid gap-3 sm:grid-cols-2">
           {screens.map((s) => (
             <div key={s.url} className="rounded-2xl border border-border bg-card p-3">
