@@ -288,12 +288,14 @@ export function SetupClient({
           </p>
           <div className="space-y-2">
             <HookRow k="المُشغِّل (Trigger)" v="Call/SMS ← Call Incoming ← Any Number" copy={false} />
-            <HookRow k="الإجراء (Action)" v="Connectivity ← HTTP Request ← POST" copy={false} />
-            <HookRow k="الرابط (URL)" v={callHook.url} />
-            <HookRow k="اسم الترويسة (Header)" v={callHook.header} />
-            <HookRow k="قيمة الترويسة" v={callHook.secret} />
-            <HookRow k="نوع المحتوى" v="application/json" />
-            <HookRow k="المحتوى (Body)" v={'{"phone":"[number]"}'} />
+            <HookRow k="الإجراء (Action)" v="ابحث 🔍 عن http ← HTTP Request" copy={false} />
+            <HookRow k="تبويب Settings ← Request method" v="POST" copy={false} />
+            <HookRow k="تبويب Settings ← Enter url" v={callHook.url} />
+            <HookRow k="تبويب Header Params ← الاسم" v={callHook.header} />
+            <HookRow k="تبويب Header Params ← القيمة" v={callHook.secret} />
+            <HookRow k="تبويب Content Body ← النوع" v="application/json" />
+            <HookRow k="تبويب Content Body ← النص" v={'{"phone":"[number]"}'} />
+            <HookRow k="تبويب Query Params" v="اتركه فارغاً" copy={false} />
           </div>
           <div className="mt-3 space-y-2 rounded-xl border border-border bg-card p-3 text-sm">
             <p>
