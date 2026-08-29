@@ -13,6 +13,7 @@ import { QrScanner } from "./QrScanner";
 import { Receipt, type ReceiptData } from "./Receipt";
 import { MenuIcon } from "./MenuIcon";
 import { PriceInput } from "./PriceInput";
+import { CallBanner } from "./CallBanner";
 import { FridayPrayerNotice } from "./FridayPrayerNotice";
 import { ShiftBar } from "./ShiftBar";
 
@@ -329,6 +330,9 @@ export function CashierClient({
             ))}
           </ul>
         )}
+
+        {/* who is calling — the loyalty box below is where that call lands */}
+        <CallBanner onUse={(c) => void lookup(c.phone)} />
 
         {/* loyalty */}
         <div className="space-y-2 rounded-xl bg-secondary/60 p-3">

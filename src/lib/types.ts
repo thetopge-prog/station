@@ -80,9 +80,18 @@ export type Database = {
         Relationships: [];
       };
       customers: {
-        Row: Timestamped & { card_serial: string; phone: string | null; name_ar: string | null; points: number };
-        Insert: { id?: string; card_serial?: string; phone?: string | null; name_ar?: string | null; points?: number; created_at?: string };
-        Update: Partial<{ phone: string | null; name_ar: string | null; points: number }>;
+        // address (0047): the last known delivery address, kept on the PERSON so
+        // a regular is never asked where they live twice
+        Row: Timestamped & { card_serial: string; phone: string | null; name_ar: string | null; points: number; address: string | null };
+        Insert: { id?: string; card_serial?: string; phone?: string | null; name_ar?: string | null; points?: number; address?: string | null; created_at?: string };
+        Update: Partial<{ phone: string | null; name_ar: string | null; points: number; address: string | null }>;
+        Relationships: [];
+      };
+      // 0047 — a phone rings, the number lands here, the till says who it is
+      incoming_calls: {
+        Row: { id: string; phone: string; customer_id: string | null; handled_at: string | null; created_at: string };
+        Insert: { id?: string; phone: string; customer_id?: string | null; handled_at?: string | null; created_at?: string };
+        Update: Partial<{ customer_id: string | null; handled_at: string | null }>;
         Relationships: [];
       };
       debt_entries: {
