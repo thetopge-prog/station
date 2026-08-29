@@ -50,7 +50,10 @@ export async function POST(req: Request) {
   if (!expected) {
     return NextResponse.json({ ok: false, error: "الويب‑هوك غير مُهيّأ" }, { status: 503 });
   }
-  if (!secretMatches(req.headers.get("x-station-secret"), expected)) {
+  // trimmed: this value is pasted into a phone by hand, and a trailing space
+  // picked up on the way is invisible, survives every re-check, and looks
+  // exactly like a wrong password
+  if (!secretMatches(req.headers.get("x-station-secret")?.trim() ?? null, expected.trim())) {
     return NextResponse.json({ ok: false, error: "غير مصرّح" }, { status: 401 });
   }
 
