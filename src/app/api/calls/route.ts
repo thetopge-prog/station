@@ -64,25 +64,35 @@ export async function POST(req: Request) {
   // Read the body BEFORE the auth check, because the secret may be in it.
   // Nothing here touches the database, so an unauthenticated caller still gets
   // no further than parsing their own request.
+  const raw = await req.text();
   let body: { phone?: string; secret?: string } = {};
   try {
-    body = (await req.json()) as { phone?: string; secret?: string };
+    body = JSON.parse(raw) as { phone?: string; secret?: string };
   } catch {
-    // MacroDroid can be configured to send a form body just as easily
-    try {
-      const form = await req.formData();
-      body = { phone: String(form.get("phone") ?? ""), secret: String(form.get("secret") ?? "") };
-    } catch {
-      /* fall through to the missing-phone answer */
-    }
+    // Typed on a phone keyboard, which likes to turn " into “ ” — and then the
+    // whole payload is unparseable JSON for a reason invisible on screen. Pull
+    // the two fields out of the raw text rather than reject a request whose
+    // meaning is perfectly clear.
+    body = {
+      secret: raw.match(/secret["'“”\s:]+([A-Za-z0-9]+)/i)?.[1],
+      phone: raw.match(/phone["'“”\s:]+([+0-9][0-9\s-]*)/i)?.[1],
+    };
   }
 
   // Trimmed on both sides: this value is pasted into a phone by hand, and a
   // trailing space picked up on the way is invisible, survives every re-check,
   // and looks exactly like a wrong password.
   const given = req.headers.get("x-station-secret")?.trim() || body.secret?.trim() || null;
+  // Two different failures, two different codes. An automation app shows the
+  // operator a status number and nothing else, so 401 and 403 are the only
+  // diagnosis available from the far end of the country:
+  //   401 — no secret arrived at all (empty body, wrong tab, nothing sent)
+  //   403 — a secret arrived and does not match (wrong value)
+  if (!given) {
+    return NextResponse.json({ ok: false, error: "لم تصل كلمة السر إطلاقاً" }, { status: 401 });
+  }
   if (!secretMatches(given, expected.trim())) {
-    return NextResponse.json({ ok: false, error: "غير مصرّح" }, { status: 401 });
+    return NextResponse.json({ ok: false, error: "كلمة السر وصلت لكنها غير مطابقة" }, { status: 403 });
   }
 
   const phone = normalizeIraqiPhone(body.phone ?? "");
