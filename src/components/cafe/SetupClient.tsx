@@ -35,16 +35,20 @@ export type ScreenLink = { title: string; note: string; url: string; qr: string;
 
 const AGENT = "http://127.0.0.1:9977";
 
+export type CallHook = { url: string; header: string; secret: string };
+
 export function SetupClient({
   installCommand,
   printers,
   screens,
   origin,
+  callHook = null,
 }: {
   installCommand: string;
   printers: MappedPrinter[];
   screens: ScreenLink[];
   origin: string;
+  callHook?: CallHook | null;
 }) {
   const [agent, setAgent] = useState<"checking" | "up" | "down">("checking");
   const [found, setFound] = useState<Found[] | null>(null);
@@ -275,8 +279,31 @@ export function SetupClient({
         )}
       </Step>
 
-      {/* ── 5. final check ── */}
-      <Step n={5} title="الفحص قبل المغادرة">
+      {/* ── 5. the phone that answers orders ── */}
+      {callHook && (
+        <Step n={5} title="هاتف الطلبات — يظهر اسم المتصل على الكاشير">
+          <p className="mb-3 text-sm text-muted-foreground">
+            على موبايل المطعم: ثبّت <b>MacroDroid</b> من متجر بلاي، ثم أنشئ ماكرو واحداً بهذه القيم.
+            المجاني يكفي. بعدها يرن الهاتف فيظهر اسم الزبون وعنوانه على شاشة الكاشير قبل أن ترفع السماعة.
+          </p>
+          <div className="space-y-2">
+            <HookRow k="المُشغِّل (Trigger)" v="Call → Incoming Call" copy={false} />
+            <HookRow k="الإجراء (Action)" v="Connectivity → HTTP Request → POST" copy={false} />
+            <HookRow k="الرابط (URL)" v={callHook.url} />
+            <HookRow k="اسم الترويسة (Header)" v={callHook.header} />
+            <HookRow k="قيمة الترويسة" v={callHook.secret} />
+            <HookRow k="نوع المحتوى" v="application/json" />
+            <HookRow k="المحتوى (Body)" v={'{"phone":"[number]"}'} />
+          </div>
+          <p className="mt-3 text-xs text-muted-foreground">
+            <b>[number]</b> ليست نصاً تكتبه: اضغط زر النص السحري في MacroDroid واختر رقم المتصل.
+            وأطفئ «توفير البطارية» للتطبيق، وإلا أوقفه أندرويد وهو نائم.
+          </p>
+        </Step>
+      )}
+
+      {/* ── 6. final check ── */}
+      <Step n={callHook ? 6 : 5} title="الفحص قبل المغادرة">
         <p className="mb-2 text-sm text-muted-foreground">اطلب: بيتزا + برجر + فرايس + زنجر. يجب أن تخرج ٥ أوراق من ٤ طابعات.</p>
         <ul className="space-y-1.5 text-sm">
           {[
@@ -296,6 +323,18 @@ export function SetupClient({
           ))}
         </ul>
       </Step>
+    </div>
+  );
+}
+
+function HookRow({ k, v, copy = true }: { k: string; v: string; copy?: boolean }) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-card p-3">
+      <div className="min-w-0">
+        <p className="text-xs text-muted-foreground">{k}</p>
+        <p className="truncate font-mono text-sm font-bold" dir="ltr">{v}</p>
+      </div>
+      {copy && <CopyButton value={v} />}
     </div>
   );
 }

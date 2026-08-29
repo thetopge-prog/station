@@ -84,5 +84,21 @@ export default async function SetupPage() {
     }),
   );
 
-  return <SetupClient installCommand={INSTALL} printers={mapped} screens={screens} origin={origin} />;
+  /**
+   * What the shop's Android needs so a ringing phone reaches the till.
+   *
+   * The secret is handed over here for the same reason the display key is:
+   * /setup is the developer's page, and the alternative is reading it out of a
+   * file on a laptop while standing next to a phone.
+   *
+   * The address is always the public one. The automation must work when the
+   * phone is on mobile data or in the kitchen's dead spot — and both the hub
+   * and the website write to the same database anyway, so there is nothing to
+   * gain by pointing it at a LAN address that changes when a router reboots.
+   */
+  const callHook = process.env.STATION_WEBHOOK_SECRET
+    ? { url: "https://station-anbar.netlify.app/api/calls", header: "x-station-secret", secret: process.env.STATION_WEBHOOK_SECRET }
+    : null;
+
+  return <SetupClient installCommand={INSTALL} printers={mapped} screens={screens} origin={origin} callHook={callHook} />;
 }
