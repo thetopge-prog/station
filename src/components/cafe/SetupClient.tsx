@@ -287,8 +287,8 @@ export function SetupClient({
             المجاني يكفي. بعدها يرن الهاتف فيظهر اسم الزبون وعنوانه على شاشة الكاشير قبل أن ترفع السماعة.
           </p>
           <div className="space-y-2">
-            <HookRow k="المُشغِّل (Trigger)" v="Call → Incoming Call" copy={false} />
-            <HookRow k="الإجراء (Action)" v="Connectivity → HTTP Request → POST" copy={false} />
+            <HookRow k="المُشغِّل (Trigger)" v="Call/SMS ← Call Incoming ← Any Number" copy={false} />
+            <HookRow k="الإجراء (Action)" v="Connectivity ← HTTP Request ← POST" copy={false} />
             <HookRow k="الرابط (URL)" v={callHook.url} />
             <HookRow k="اسم الترويسة (Header)" v={callHook.header} />
             <HookRow k="قيمة الترويسة" v={callHook.secret} />
