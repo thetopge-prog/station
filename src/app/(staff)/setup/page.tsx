@@ -97,7 +97,12 @@ export default async function SetupPage() {
    * gain by pointing it at a LAN address that changes when a router reboots.
    */
   const callHook = process.env.STATION_WEBHOOK_SECRET
-    ? { url: "https://station-anbar.netlify.app/api/calls", header: "x-station-secret", secret: process.env.STATION_WEBHOOK_SECRET }
+    ? {
+        url: "https://station-anbar.netlify.app/api/calls",
+        header: "x-station-secret",
+        secret: process.env.STATION_WEBHOOK_SECRET,
+        body: `{"secret":"${process.env.STATION_WEBHOOK_SECRET}","phone":"[number]"}`,
+      }
     : null;
 
   return <SetupClient installCommand={INSTALL} printers={mapped} screens={screens} origin={origin} callHook={callHook} />;

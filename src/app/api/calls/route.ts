@@ -13,10 +13,20 @@ import { createSupabaseServiceClient } from "@/lib/supabase/server";
  * the number, it is «شنو اسمك؟ وين عنوانك؟» — and both are already in the
  * database for anyone who has ordered before.
  *
- * AUTH: the same shared secret the WhatsApp intake uses, in `x-station-secret`,
- * compared in constant time. No session — the caller is a phone, not a person.
- * With no secret configured the route refuses everything rather than becoming
- * an open pipe for writing phone numbers into the shop's database.
+ * AUTH: the same shared secret the WhatsApp intake uses, compared in constant
+ * time. No session — the caller is a phone, not a person. With no secret
+ * configured the route refuses everything rather than becoming an open pipe for
+ * writing phone numbers into the shop's database.
+ *
+ * The secret is accepted in the `x-station-secret` HEADER or in the BODY as
+ * `secret`. The header is the tidier of the two, but a header tab on an Android
+ * automation app is a separate screen with its own name and value fields, and
+ * getting it subtly wrong produces a clean 401 that looks exactly like a wrong
+ * password. The body is one field the operator has already filled correctly.
+ *
+ * In the body it is still a POST over TLS — not a query string, so it does not
+ * land in an access log, a proxy cache or a browser history the way ?secret=
+ * would.
  */
 
 export const dynamic = "force-dynamic";
@@ -50,24 +60,29 @@ export async function POST(req: Request) {
   if (!expected) {
     return NextResponse.json({ ok: false, error: "الويب‑هوك غير مُهيّأ" }, { status: 503 });
   }
-  // trimmed: this value is pasted into a phone by hand, and a trailing space
-  // picked up on the way is invisible, survives every re-check, and looks
-  // exactly like a wrong password
-  if (!secretMatches(req.headers.get("x-station-secret")?.trim() ?? null, expected.trim())) {
-    return NextResponse.json({ ok: false, error: "غير مصرّح" }, { status: 401 });
-  }
 
-  let body: { phone?: string } = {};
+  // Read the body BEFORE the auth check, because the secret may be in it.
+  // Nothing here touches the database, so an unauthenticated caller still gets
+  // no further than parsing their own request.
+  let body: { phone?: string; secret?: string } = {};
   try {
-    body = (await req.json()) as { phone?: string };
+    body = (await req.json()) as { phone?: string; secret?: string };
   } catch {
     // MacroDroid can be configured to send a form body just as easily
     try {
       const form = await req.formData();
-      body = { phone: String(form.get("phone") ?? "") };
+      body = { phone: String(form.get("phone") ?? ""), secret: String(form.get("secret") ?? "") };
     } catch {
       /* fall through to the missing-phone answer */
     }
+  }
+
+  // Trimmed on both sides: this value is pasted into a phone by hand, and a
+  // trailing space picked up on the way is invisible, survives every re-check,
+  // and looks exactly like a wrong password.
+  const given = req.headers.get("x-station-secret")?.trim() || body.secret?.trim() || null;
+  if (!secretMatches(given, expected.trim())) {
+    return NextResponse.json({ ok: false, error: "غير مصرّح" }, { status: 401 });
   }
 
   const phone = normalizeIraqiPhone(body.phone ?? "");
