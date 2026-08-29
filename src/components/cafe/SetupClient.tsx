@@ -35,7 +35,7 @@ export type ScreenLink = { title: string; note: string; url: string; qr: string;
 
 const AGENT = "http://127.0.0.1:9977";
 
-export type CallHook = { url: string; header: string; secret: string };
+export type CallHook = { url: string; header: string; secret: string; body: string };
 
 export function SetupClient({
   installCommand,
@@ -291,10 +291,9 @@ export function SetupClient({
             <HookRow k="الإجراء (Action)" v="ابحث 🔍 عن http ← HTTP Request" copy={false} />
             <HookRow k="تبويب Settings ← Request method" v="POST" copy={false} />
             <HookRow k="تبويب Settings ← Enter url" v={callHook.url} />
-            <HookRow k="تبويب Header Params ← الاسم" v={callHook.header} />
-            <HookRow k="تبويب Header Params ← القيمة" v={callHook.secret} />
+            <HookRow k="تبويب Header Params" v="اتركه فارغاً — كلمة السر داخل النص" copy={false} />
             <HookRow k="تبويب Content Body ← النوع" v="application/json" />
-            <HookRow k="تبويب Content Body ← النص" v={'{"phone":"[number]"}'} />
+            <HookRow k="تبويب Content Body ← النص (انسخه كاملاً)" v={callHook.body} />
             <HookRow k="تبويب Query Params" v="اتركه فارغاً" copy={false} />
           </div>
           <div className="mt-3 space-y-2 rounded-xl border border-border bg-card p-3 text-sm">
