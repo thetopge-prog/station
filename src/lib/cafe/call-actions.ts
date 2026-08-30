@@ -36,7 +36,6 @@ export type IncomingCall = {
   name: string | null;
   address: string | null;
   points: number | null;
-  lastOrder: LastOrder | null;
 };
 
 export async function latestCall(): Promise<IncomingCall | null> {
@@ -46,7 +45,7 @@ export async function latestCall(): Promise<IncomingCall | null> {
   const since = new Date(Date.now() - WINDOW_SECONDS * 1000).toISOString();
   const { data: call } = await svc
     .from("incoming_calls")
-    .select("id, phone, customer_id, created_at")
+    .select("id, phone, customer_id, created_at, caller_name")
     .is("handled_at", null)
     .gte("created_at", since)
     .order("created_at", { ascending: false })
@@ -64,55 +63,80 @@ export async function latestCall(): Promise<IncomingCall | null> {
     id: call.id,
     phone: call.phone,
     at: call.created_at,
-    name: c?.name_ar ?? null,
+    // a WhatsApp caller saved in the phone's contacts arrives as a name and
+    // no number; showing it beats showing nothing
+    name: c?.name_ar ?? call.caller_name ?? null,
     address: c?.address ?? null,
     points: c?.points ?? null,
-    lastOrder: await lastOrderFor(call.customer_id, call.phone),
   };
 }
 
 /**
- * The one thing a regular actually wants asked: «نفس الطلب؟»
+ * The three orders worth offering — «نفس الطلب؟» asked properly.
  *
- * Matched by customer OR by the phone on the order itself, because a delivery
- * order taken over the counter may never have been attached to a loyalty card
- * — and to the person on the phone that is still their last order.
+ * Called when the card OPENS, never from the four-second poll: a strip that
+ * says whether the phone is ringing must stay one cheap query, and dragging a
+ * receipt behind every tick was a slowdown I introduced myself.
+ *
+ * «Different» means different CONTENT, not a different date. A regular who
+ * orders the same two burgers every Friday has one order, not eight, and
+ * showing it three times would waste the whole panel. Orders are folded by a
+ * signature of (item, quantity) so the three on screen are three real choices.
+ *
+ * Matched by customer OR by the phone on the order, because a delivery order
+ * taken at the counter may never have been attached to a loyalty card — and to
+ * the person on the phone it is still their last order.
  */
-async function lastOrderFor(customerId: string | null, phone: string): Promise<LastOrder | null> {
+export async function recentDistinctOrders(phone: string, customerId?: string | null, want = 3): Promise<LastOrder[]> {
+  await requireStaff();
   const svc = createSupabaseServiceClient();
+
   const q = svc
     .from("orders")
     .select("id, order_seq, subtotal, discount, extra, created_at")
     .neq("status", "cancelled")
     .order("created_at", { ascending: false })
-    .limit(1);
+    // deep enough that three DIFFERENT baskets exist even for somebody who
+    // orders the same thing most weeks
+    .limit(15);
 
-  const { data } = customerId ? await q.eq("customer_id", customerId) : await q.eq("customer_phone", phone);
-  const o = data?.[0];
-  if (!o) return null;
+  const { data: orders } = customerId ? await q.eq("customer_id", customerId) : await q.eq("customer_phone", phone.trim());
+  if (!orders?.length) return [];
 
-  // item_id and variant_id come along so «تعديل الطلب» can rebuild the basket
-  // rather than make the cashier retype a receipt that already exists
-  const { data: items } = await svc
+  const { data: allItems } = await svc
     .from("order_items")
-    .select("item_id, variant_id, flavor_ar, name_ar, qty, unit_price")
-    .eq("order_id", o.id)
-    .limit(30);
+    .select("order_id, item_id, variant_id, flavor_ar, name_ar, qty, unit_price")
+    .in("order_id", orders.map((o) => o.id));
 
-  return {
-    at: o.created_at,
-    seq: o.order_seq,
-    total: +o.subtotal - +o.discount + +o.extra,
-    lines: (items ?? []).map((i) => ({
-      itemId: i.item_id,
-      variantId: i.variant_id,
-      flavor: i.flavor_ar,
-      name: i.name_ar,
-      qty: i.qty,
-      unitPrice: i.unit_price,
-    })),
-  };
+  const byOrder = new Map<string, LastLine[]>();
+  for (const i of allItems ?? []) {
+    const arr = byOrder.get(i.order_id) ?? [];
+    arr.push({ itemId: i.item_id, variantId: i.variant_id, flavor: i.flavor_ar, name: i.name_ar, qty: i.qty, unitPrice: i.unit_price });
+    byOrder.set(i.order_id, arr);
+  }
+
+  const seen = new Set<string>();
+  const out: LastOrder[] = [];
+  for (const o of orders) {
+    const lines = byOrder.get(o.id) ?? [];
+    if (!lines.length) continue;
+    const signature = lines
+      .map((l) => `${l.itemId ?? l.name}|${l.variantId ?? ""}|${l.qty}`)
+      .sort()
+      .join("~");
+    if (seen.has(signature)) continue;
+    seen.add(signature);
+    out.push({
+      at: o.created_at,
+      seq: o.order_seq,
+      total: +o.subtotal - +o.discount + +o.extra,
+      lines,
+    });
+    if (out.length >= want) break;
+  }
+  return out;
 }
+
 
 /**
  * Name and address, saved on the CUSTOMER.

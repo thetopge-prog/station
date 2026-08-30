@@ -101,7 +101,14 @@ export default async function SetupPage() {
         url: "https://station-anbar.netlify.app/api/calls",
         header: "x-station-secret",
         secret: process.env.STATION_WEBHOOK_SECRET,
-        body: `{"secret":"${process.env.STATION_WEBHOOK_SECRET}","phone":"[number]"}`,
+        // BOTH placeholders, one body. A call fills [number] and leaves the
+        // other as literal text; an SMS does the reverse; the endpoint strips
+        // non-digits, so whichever resolved is what arrives. One macro, two
+        // triggers, nothing to remember.
+        body: `{"secret":"${process.env.STATION_WEBHOOK_SECRET}","phone":"[number][sms_number]"}`,
+        // WhatsApp calls never reach Android's telephony, but they do raise a
+        // notification — that is the only handle there is.
+        whatsappBody: `{"secret":"${process.env.STATION_WEBHOOK_SECRET}","phone":"[notification_title]","name":"[notification_title]"}`,
       }
     : null;
 

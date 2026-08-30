@@ -35,7 +35,7 @@ export type ScreenLink = { title: string; note: string; url: string; qr: string;
 
 const AGENT = "http://127.0.0.1:9977";
 
-export type CallHook = { url: string; header: string; secret: string; body: string };
+export type CallHook = { url: string; header: string; secret: string; body: string; whatsappBody: string };
 
 export function SetupClient({
   installCommand,
@@ -287,7 +287,8 @@ export function SetupClient({
             المجاني يكفي. بعدها يرن الهاتف فيظهر اسم الزبون وعنوانه على شاشة الكاشير قبل أن ترفع السماعة.
           </p>
           <div className="space-y-2">
-            <HookRow k="المُشغِّل (Trigger)" v="Call/SMS ← Call Incoming ← Any Number" copy={false} />
+            <HookRow k="المُشغِّل ١ — مكالمة" v="Call/SMS ← Call Incoming ← Any Number" copy={false} />
+            <HookRow k="المُشغِّل ٢ — رسالة" v="Call/SMS ← SMS Received ← Any Number" copy={false} />
             <HookRow k="الإجراء (Action)" v="ابحث 🔍 عن http ← HTTP Request" copy={false} />
             <HookRow k="تبويب Settings ← Request method" v="POST" copy={false} />
             <HookRow k="تبويب Settings ← Enter url" v={callHook.url} />
@@ -296,6 +297,43 @@ export function SetupClient({
             <HookRow k="تبويب Content Body ← النص (انسخه كاملاً)" v={callHook.body} />
             <HookRow k="تبويب Query Params" v="اتركه فارغاً" copy={false} />
           </div>
+          {/* WhatsApp bypasses Android telephony entirely; its notification is
+              the only handle there is, and it is an honest partial answer. */}
+          <div className="mt-3 rounded-xl border-2 border-border bg-card p-3 text-sm">
+            <p className="font-black">📗 مكالمات واتساب — ماكرو ثانٍ منفصل</p>
+            <p className="mt-1 text-muted-foreground">
+              مكالمة واتساب لا تمرّ بنظام المكالمات في أندرويد، فلا يلتقطها المُشغِّل أعلاه — لكنها تُصدر
+              إشعاراً، وهذا ما نلتقطه.
+            </p>
+            <div className="mt-2 space-y-2">
+              <HookRow k="المُشغِّل" v="Notifications ← Notification Received ← WhatsApp" copy={false} />
+              <HookRow k="الإجراء" v="نفس HTTP Request بنفس الرابط" copy={false} />
+              <HookRow k="تبويب Content Body ← النص" v={callHook.whatsappBody} />
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              <b>حدّه الصادق:</b> إن كان الزبون محفوظاً في جهات اتصال هاتفك، يعطي واتساب <b>اسمه لا رقمه</b> —
+              فيظهر الاسم على الشاشة دون أن يُربط بسجلّه. أما غير المحفوظين — وهم أغلب الزبائن — فيصلون
+              برقمهم كاملاً.
+            </p>
+          </div>
+
+          <div className="mt-3 overflow-x-auto rounded-xl border border-border">
+            <table className="w-full text-right text-xs">
+              <thead className="bg-secondary/60 font-black">
+                <tr>
+                  <th className="p-2">الرمز في System Log</th>
+                  <th className="p-2">معناه</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-t border-border"><td className="p-2 font-black text-emerald-600">200</td><td className="p-2">سُجّل ✓</td></tr>
+                <tr className="border-t border-border"><td className="p-2 font-black">422</td><td className="p-2">مصرّح — لكن بلا رقم صالح (تجربة بلا مكالمة، أو رقم محجوب)</td></tr>
+                <tr className="border-t border-border"><td className="p-2 font-black">401</td><td className="p-2">كلمة السر لم تصل — تبويب Content Body فارغ</td></tr>
+                <tr className="border-t border-border"><td className="p-2 font-black">403</td><td className="p-2">كلمة السر وصلت وهي خاطئة — أعِد نسخها من هنا</td></tr>
+              </tbody>
+            </table>
+          </div>
+
           <div className="mt-3 space-y-2 rounded-xl border border-border bg-card p-3 text-sm">
             <p>
               <b>ما معنى [number]؟</b> هي <b>خانة فارغة</b> يملؤها MacroDroid برقم المتصل لحظة الرنين —

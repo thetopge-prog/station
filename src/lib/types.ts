@@ -89,8 +89,8 @@ export type Database = {
       };
       // 0047 — a phone rings, the number lands here, the till says who it is
       incoming_calls: {
-        Row: { id: string; phone: string; customer_id: string | null; handled_at: string | null; created_at: string };
-        Insert: { id?: string; phone: string; customer_id?: string | null; handled_at?: string | null; created_at?: string };
+        Row: { id: string; phone: string; customer_id: string | null; handled_at: string | null; created_at: string; caller_name: string | null };
+        Insert: { id?: string; phone: string; customer_id?: string | null; handled_at?: string | null; created_at?: string; caller_name?: string | null };
         Update: Partial<{ customer_id: string | null; handled_at: string | null }>;
         Relationships: [];
       };

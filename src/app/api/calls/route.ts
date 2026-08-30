@@ -65,9 +65,9 @@ export async function POST(req: Request) {
   // Nothing here touches the database, so an unauthenticated caller still gets
   // no further than parsing their own request.
   const raw = await req.text();
-  let body: { phone?: string; secret?: string } = {};
+  let body: { phone?: string; secret?: string; name?: string } = {};
   try {
-    body = JSON.parse(raw) as { phone?: string; secret?: string };
+    body = JSON.parse(raw) as { phone?: string; secret?: string; name?: string };
   } catch {
     // Typed on a phone keyboard, which likes to turn " into “ ” — and then the
     // whole payload is unparseable JSON for a reason invisible on screen. Pull
@@ -76,6 +76,7 @@ export async function POST(req: Request) {
     body = {
       secret: raw.match(/secret["'“”\s:]+([A-Za-z0-9]+)/i)?.[1],
       phone: raw.match(/phone["'“”\s:]+([+0-9][0-9\s-]*)/i)?.[1],
+      name: raw.match(/name["'“”\s:]+([^"“”,}]+)/i)?.[1],
     };
   }
 
@@ -102,6 +103,19 @@ export async function POST(req: Request) {
   }
 
   const phone = normalizeIraqiPhone(body.phone ?? "");
+
+  // A WhatsApp call notification carries the caller's NUMBER when they are not
+  // in the phone's contacts, and their NAME when they are. A name is not
+  // nothing: the cashier still knows who is on the line, even though there is
+  // no number to match against a record.
+  const callerName = (body.name ?? "").trim().slice(0, 60) || null;
+  if (!phone && callerName && !/^[+\d\s-]+$/.test(callerName)) {
+    const svc = createSupabaseServiceClient();
+    const { error } = await svc.from("incoming_calls").insert({ phone: "—", caller_name: callerName });
+    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, phone: null, name: callerName, known: false, address: null });
+  }
+
   if (!phone) {
     // 422, not 200. The automation app shows the operator a status number and
     // nothing else, and «authorised but no usable number» looked identical to
@@ -118,7 +132,9 @@ export async function POST(req: Request) {
     .eq("phone", phone)
     .maybeSingle();
 
-  const { error } = await svc.from("incoming_calls").insert({ phone, customer_id: customer?.id ?? null });
+  const { error } = await svc
+    .from("incoming_calls")
+    .insert({ phone, customer_id: customer?.id ?? null, caller_name: callerName });
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
 
   // Echoed back so the phone can show a notification even before anyone looks
