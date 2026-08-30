@@ -5,6 +5,7 @@ import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/s
 import { requireRole, requireStaff } from "./auth";
 import { hubEnabled, isLocalOrder, liveLocalOrders, queuePrep, setLocalPrep } from "@/lib/hub/store";
 import { forStation } from "@/lib/hub/local";
+import { cachedRef } from "./ttl-cache";
 import { cloudReachable } from "@/lib/hub/net";
 
 /**
@@ -14,6 +15,9 @@ import { cloudReachable } from "@/lib/hub/net";
  * Everything here moves `orders.prep_status` and never `orders.status` — money
  * state stays exclusively with the cashier flow (see 0023/0024).
  */
+
+/** reference data lives a minute; a station rename mid-service is not a thing */
+const REF_TTL_MS = 60_000;
 
 export type PrepItem = {
   id: string;
@@ -84,28 +88,28 @@ export async function listPrepOrders(stationId: string | null = null): Promise<P
   if (!orders?.length) return local;
 
   const ids = orders.map((o) => o.id);
-  const { data: rawItems } = await svc
-    .from("order_items")
-    .select("id, order_id, name_ar, flavor_ar, qty, item_id")
-    .in("order_id", ids);
+  // categories and stations depend on NOTHING in this order and change about
+  // never, so they are fetched from cache alongside the items rather than in
+  // two more sequential round trips after them
+  const [{ data: rawItems }, cats, stations] = await Promise.all([
+    svc.from("order_items").select("id, order_id, name_ar, flavor_ar, qty, item_id").in("order_id", ids),
+    cachedRef("categories", REF_TTL_MS, async () => (await svc.from("categories").select("id, name_ar, station_id")).data ?? []),
+    cachedRef("stations", REF_TTL_MS, async () => (await svc.from("stations").select("id, name_ar")).data ?? []),
+  ]);
 
   // resolve item → category → station in two small lookups rather than a join
   // per row; the menu is a few dozen rows, so this is cheaper than it looks.
   const itemIds = [...new Set((rawItems ?? []).map((i) => i.item_id).filter(Boolean))] as string[];
-  const { data: menu } = itemIds.length
-    ? await svc.from("menu_items").select("id, category_id").in("id", itemIds)
-    : { data: [] };
-  const { data: cats } = await svc.from("categories").select("id, name_ar, station_id");
-  const { data: stations } = await svc.from("stations").select("id, name_ar");
+  const empIds = [...new Set(orders.flatMap((o) => [o.cashier_id, o.expediter_id]).filter(Boolean))] as string[];
+  // the last two lookups also have nothing to say to each other
+  const [{ data: menu }, { data: emps }] = await Promise.all([
+    itemIds.length ? svc.from("menu_items").select("id, category_id").in("id", itemIds) : Promise.resolve({ data: [] }),
+    empIds.length ? svc.from("employees").select("id, name_ar").in("id", empIds) : Promise.resolve({ data: [] }),
+  ]);
 
   const catOfItem = new Map((menu ?? []).map((m) => [m.id, m.category_id]));
-  const cat = new Map((cats ?? []).map((c) => [c.id, c]));
-  const stationName = new Map((stations ?? []).map((s) => [s.id, s.name_ar]));
-
-  const empIds = [...new Set(orders.flatMap((o) => [o.cashier_id, o.expediter_id]).filter(Boolean))] as string[];
-  const { data: emps } = empIds.length
-    ? await svc.from("employees").select("id, name_ar").in("id", empIds)
-    : { data: [] };
+  const cat = new Map(cats.map((c) => [c.id, c]));
+  const stationName = new Map(stations.map((s) => [s.id, s.name_ar]));
   const empName = new Map((emps ?? []).map((e) => [e.id, e.name_ar]));
 
   const byOrder = new Map<string, PrepItem[]>();

@@ -19,10 +19,16 @@ export function HubBadge() {
   const [s, setS] = useState<HubStatus | null>(null);
 
   useEffect(() => {
+    // The badge renders nothing at all off the hub, so on Netlify this poll was
+    // a server action every fifteen seconds, on every staff screen, to be told
+    // there is nothing to show. One call settles it for the page's lifetime.
     let alive = true;
+    let stop = false;
     const tick = async () => {
+      if (stop) return;
       try {
         const next = await hubStatus();
+        if (!next.enabled) stop = true; // not a hub — never ask again
         if (alive) setS(next);
       } catch {
         /* a status badge must never be the thing that breaks a screen */

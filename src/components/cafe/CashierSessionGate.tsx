@@ -89,7 +89,7 @@ export function CashierSessionGate({ children }: { children: React.ReactNode }) 
         <PriceInput value={counted} onChange={setCounted} />
         <button
           onClick={() => void start(handover.session_id, counted)}
-          disabled={busy}
+          disabled={busy || counted <= 0}
           className="min-h-16 w-full rounded-2xl bg-primary text-xl font-black text-primary-foreground shadow-station disabled:opacity-50"
         >
           {busy ? "…" : `أؤكّد استلام ${formatIqdLabel(counted)}`}

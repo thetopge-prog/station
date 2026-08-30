@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
-import { requireRole, requireStaff } from "./auth";
+import { getStaff, requireRole, requireStaff } from "./auth";
 
 /**
  * Cashier sessions — الورديات المالية.
@@ -74,6 +74,20 @@ export async function pendingHandover(): Promise<PendingHandover | null> {
  * stored alongside what the outgoing cashier said they left, because the gap
  * between those two numbers is the only place a handover loss can show up.
  */
+/**
+ * Postgres speaks English to a cashier who does not.
+ *
+ * «session already open» was rendered verbatim on the till, which is how a
+ * refused shift looked like a wrong number instead of a shift that was never
+ * closed.
+ */
+function arabicError(msg: string): string {
+  if (/session already open/i.test(msg)) return "لديك وردية مفتوحة بالفعل — أنهِها أولاً من زر «إنهاء الوردية».";
+  if (/no employee record/i.test(msg)) return "حسابك غير مرتبط بموظف — راجع صفحة الموظفين.";
+  if (/not staff/i.test(msg)) return "غير مصرّح — سجّل الدخول من جديد.";
+  return msg;
+}
+
 export async function openSession(input: { float: number; fromSession?: string | null; counted?: number | null }) {
   await requireRole("cashier");
   const supabase = await createSupabaseServerClient();
@@ -82,9 +96,49 @@ export async function openSession(input: { float: number; fromSession?: string |
     p_from_session: input.fromSession ?? null,
     p_counted: input.counted ?? null,
   });
-  if (error) return { ok: false as const, error: error.message };
+  if (error) return { ok: false as const, error: arabicError(error.message) };
   revalidatePath("/cashier");
   return { ok: true as const, sessionId: data as unknown as string };
+}
+
+/**
+ * One line about the drawer, for the header on every screen.
+ *
+ * Whether the till is open is the first thing an owner wants to know on
+ * opening the app, and it lived on exactly one page. Resolved from the
+ * `getStaff()` the layout has already paid for, so it costs one query — not a
+ * poll, and not another auth chain.
+ */
+export type ShiftLine = { open: boolean; float: number; sinceMinutes: number; cashier: string | null };
+
+export async function currentShiftLine(): Promise<ShiftLine | null> {
+  const staff = await getStaff();
+  if (!staff) return null;
+
+  const svc = createSupabaseServiceClient();
+  const { data } = await svc
+    .from("cashier_sessions")
+    .select("opening_float, opened_at, cashier_id")
+    .is("closed_at", null)
+    .order("opened_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!data) return { open: false, float: 0, sinceMinutes: 0, cashier: null };
+
+  // the name only matters to a manager looking at somebody else's drawer
+  let cashier: string | null = null;
+  if (data.cashier_id && data.cashier_id !== staff.employeeId) {
+    const { data: emp } = await svc.from("employees").select("name_ar").eq("id", data.cashier_id).maybeSingle();
+    cashier = emp?.name_ar ?? null;
+  }
+
+  return {
+    open: true,
+    float: data.opening_float,
+    sinceMinutes: Math.max(0, Math.round((Date.now() - new Date(data.opened_at).getTime()) / 60000)),
+    cashier,
+  };
 }
 
 /** Live Z-report for an open session — recomputed on every read. */

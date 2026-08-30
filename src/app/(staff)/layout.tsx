@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getStaff } from "@/lib/cafe/auth";
+import { currentShiftLine } from "@/lib/cafe/session-actions";
 import { isDemoServer } from "@/lib/cafe/demo";
 import { StaffShell } from "@/components/cafe/StaffShell";
 
@@ -22,8 +23,14 @@ export default async function StaffLayout({ children }: { children: React.ReactN
   }
   const staff = await getStaff();
   if (!staff) redirect("/sign-in");
+  // The shift was visible on /cashier and nowhere else, so an owner on the
+  // dashboard had no idea whether the till was even open — and a cashier who
+  // wandered off the page lost sight of their own drawer. Resolved here, on a
+  // getStaff() the layout already paid for, and passed down as a prop rather
+  // than fetched again by a poll.
+  const shift = staff.role === "cashier" || staff.role === "admin" ? await currentShiftLine().catch(() => null) : null;
   return (
-    <StaffShell role={staff.role} name={staff.name} pushKey={pushKey} isDeveloper={staff.isDeveloper}>
+    <StaffShell role={staff.role} name={staff.name} pushKey={pushKey} isDeveloper={staff.isDeveloper} shift={shift}>
       {children}
     </StaffShell>
   );

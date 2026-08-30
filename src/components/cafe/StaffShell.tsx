@@ -36,6 +36,8 @@ import {
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { HubBadge } from "./HubBadge";
+import { formatIqdLabel } from "@/lib/cafe/money";
+import type { ShiftLine } from "@/lib/cafe/session-actions";
 import { useCafeUI } from "@/components/CafeUIProvider";
 import { canAccess, type StaffRole } from "@/lib/cafe/roles";
 import { listPendingOrders } from "@/lib/cafe/cashier-actions";
@@ -115,6 +117,7 @@ export function StaffShell({
   name,
   pushKey = null,
   isDeveloper = false,
+  shift = null,
   children,
 }: {
   role: StaffRole | null;
@@ -122,6 +125,8 @@ export function StaffShell({
   pushKey?: string | null;
   /** /setup belongs to the developer, not to every admin (0046) */
   isDeveloper?: boolean;
+  /** the drawer, resolved server-side — null for roles that do not hold one */
+  shift?: ShiftLine | null;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -164,7 +169,13 @@ export function StaffShell({
   const [pendingCount, setPendingCount] = useState(0);
   const [toast, setToast] = useState<{ seq: number; table: string | null } | null>(null);
   const knownIds = useRef<Set<string> | null>(null);
+  // Only where somebody can act on it. A chef on /kds cannot take a pending
+  // self-order, and polling it there cost five round trips every ten seconds
+  // on a database ~320ms away — on every screen in the shop at once.
+  const wantsPending = pathname.startsWith("/cashier") || pathname.startsWith("/orders") || pathname.startsWith("/dashboard");
+
   useEffect(() => {
+    if (!wantsPending) return;
     let stopped = false;
     async function tick() {
       try {
@@ -185,12 +196,12 @@ export function StaffShell({
       }
     }
     tick();
-    const t = setInterval(tick, 10000);
+    const t = setInterval(tick, 15000);
     return () => {
       stopped = true;
       clearInterval(t);
     };
-  }, []);
+  }, [wantsPending]);
 
   // Web Push: notifications that reach the device even with the app closed.
   const [pushState, setPushState] = useState<"unsupported" | "off" | "on" | "denied">("unsupported");
@@ -269,6 +280,26 @@ export function StaffShell({
             </nav>
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            {/* the drawer, on every screen — «هل الوردية مفتوحة؟» was answerable
+                only by walking to the till and opening one specific page */}
+            {shift &&
+              (shift.open ? (
+                <Link
+                  href="/cashier"
+                  title={shift.cashier ? `وردية ${shift.cashier}` : "وردية مفتوحة"}
+                  className="hidden items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-black text-emerald-700 sm:flex dark:text-emerald-300"
+                >
+                  💵 {formatIqdLabel(shift.float)}
+                  <span className="font-bold opacity-70">· {shift.sinceMinutes} د</span>
+                </Link>
+              ) : (
+                <Link
+                  href="/cashier"
+                  className="flex items-center gap-1.5 rounded-full bg-amber-500/20 px-2.5 py-1 text-xs font-black text-amber-800 dark:text-amber-200"
+                >
+                  ⚠️ لم تبدأ الوردية
+                </Link>
+              ))}
             <HubBadge />
             <span className="hidden text-sm text-muted-foreground sm:inline">{name}</span>
             <button
