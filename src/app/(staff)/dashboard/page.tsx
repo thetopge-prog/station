@@ -4,6 +4,8 @@ import { isDemoServer } from "@/lib/cafe/demo";
 import { getRangeSummary, getRecentOrders, getGuestEstimate, getTodaySinceReset, getDaySummary, type DaySummary, type RecentOrder } from "@/lib/cafe/dashboard-actions";
 import { getMonthlyCosts } from "@/lib/cafe/expense-actions";
 import { getTotalOutstanding } from "@/lib/cafe/debt-actions";
+import { shortageReport } from "@/lib/cafe/shortage-actions";
+import type { ShortageRow } from "@/lib/cafe/shortage";
 import { lastNDays, businessDay } from "@/lib/cafe/time";
 import { DashboardClient } from "@/components/cafe/DashboardClient";
 
@@ -29,6 +31,7 @@ export default async function DashboardPage({
   let guestsRange = 0;
   let todayReset: DaySummary | null = null;
   let outstandingDebts = 0;
+  let shortages: ShortageRow[] = [];
   const today = businessDay();
   // lastNDays(2) is [yesterday, today] in Baghdad time — reusing it drops a
   // raw Date.now() out of render, which React 19 flags as an impure call.
@@ -36,7 +39,7 @@ export default async function DashboardPage({
   let yesterdaySummary: DaySummary | null = null;
   try {
     const [from, to] = lastNDays(days);
-    const [s, r, mc, gt, gr, tr, od, ys] = await Promise.all([
+    const [s, r, mc, gt, gr, tr, od, ys, sh] = await Promise.all([
       getRangeSummary(from, to),
       getRecentOrders(12),
       getMonthlyCosts(),
@@ -45,6 +48,7 @@ export default async function DashboardPage({
       getTodaySinceReset(),
       getTotalOutstanding(),
       getDaySummary(yesterday),
+      shortageReport(days),
     ]);
     summary = s;
     recent = r;
@@ -54,9 +58,10 @@ export default async function DashboardPage({
     todayReset = tr;
     outstandingDebts = od;
     yesterdaySummary = ys;
+    shortages = sh;
   } catch {
     // demo mode or transient DB failure — render the empty state below
   }
 
-  return <DashboardClient days={days} summary={summary} recent={recent} monthlyCosts={monthlyCosts} guestsToday={guestsToday} guestsRange={guestsRange} todayReset={todayReset} outstandingDebts={outstandingDebts} todayDate={today} yesterday={yesterday} yesterdaySummary={yesterdaySummary} />;
+  return <DashboardClient days={days} summary={summary} recent={recent} monthlyCosts={monthlyCosts} guestsToday={guestsToday} guestsRange={guestsRange} todayReset={todayReset} outstandingDebts={outstandingDebts} todayDate={today} yesterday={yesterday} yesterdaySummary={yesterdaySummary} shortages={shortages} />;
 }

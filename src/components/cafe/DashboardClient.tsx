@@ -15,6 +15,7 @@ import {
 } from "recharts";
 import type { DaySummary, RecentOrder } from "@/lib/cafe/dashboard-actions";
 import { formatIqd, formatIqdLabel } from "@/lib/cafe/money";
+import type { ShortageRow } from "@/lib/cafe/shortage";
 import { BreakEvenCard } from "./BreakEvenCard";
 
 const CHANNEL_AR: Record<string, string> = {
@@ -45,6 +46,7 @@ export function DashboardClient({
   todayDate,
   yesterday,
   yesterdaySummary = null,
+  shortages = [],
 }: {
   days: number;
   summary: DaySummary[];
@@ -57,6 +59,7 @@ export function DashboardClient({
   todayDate: string;
   yesterday: string;
   yesterdaySummary?: DaySummary | null;
+  shortages?: ShortageRow[];
 }) {
   const router = useRouter();
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -250,6 +253,52 @@ export function DashboardClient({
               </div>
               <p className="text-xs text-muted-foreground">
                 الصافي بعد الثابتة = الأرباح − المصاريف المتغيرة − المصاريف الشهرية الثابتة (الإيجار والكهرباء والمولد والمياه). تُضبط الثابتة من صفحة المصروفات.
+              </p>
+            </section>
+          )}
+
+          {/* «ماذا نفد» — the shopping list, written by the shortages themselves.
+              Hidden entirely when nothing ran out: an empty table on the manager's
+              screen every day trains him to stop looking at it. */}
+          {shortages.length > 0 && (
+            <section className="space-y-2">
+              <h2 className="text-sm font-semibold text-muted-foreground">
+                الأصناف التي نفدت ({days === 1 ? "اليوم" : `آخر ${days} يوم`})
+              </h2>
+              <div className="overflow-x-auto rounded-xl border border-destructive/30 bg-card">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-right text-muted-foreground">
+                      <th className="px-4 py-2.5 font-medium">الصنف</th>
+                      <th className="px-4 py-2.5 font-medium">مرات النفاد</th>
+                      <th className="px-4 py-2.5 font-medium">القطع</th>
+                      <th className="px-4 py-2.5 font-medium">مبيعات ضائعة</th>
+                      <th className="px-4 py-2.5 font-medium">آخر مرة</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shortages.map((r) => (
+                      <tr key={r.name} className="border-b border-border/60 last:border-0">
+                        <td className="px-4 py-2.5 font-semibold">{r.name}</td>
+                        <td className="px-4 py-2.5 font-bold text-destructive tabular-nums">{r.times}</td>
+                        <td className="px-4 py-2.5 tabular-nums">{r.qty}</td>
+                        <td className="px-4 py-2.5 tabular-nums">{formatIqdLabel(r.lost)}</td>
+                        <td className="px-4 py-2.5 text-muted-foreground" dir="ltr">
+                          {new Date(r.lastAt).toLocaleString("en-GB", {
+                            timeZone: "Asia/Baghdad",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            day: "2-digit",
+                            month: "2-digit",
+                          })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                أعلى سطر هو ما يجب شراؤه أولاً — «مبيعات ضائعة» هو المال الذي لم يدخل الصندوق لأن الصنف لم يكن موجوداً.
               </p>
             </section>
           )}

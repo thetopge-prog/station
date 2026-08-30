@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { requireStaff } from "./auth";
+import { foldShortages, type ShortageRow } from "./shortage";
 
 /**
  * The till's side of «صنف نفد».
@@ -79,4 +80,29 @@ export async function ackShortage(orderId: string) {
   if (error) return { ok: false as const, error: error.message };
   revalidatePath("/cashier");
   return { ok: true as const };
+}
+
+/**
+ * «الأصناف التي نفدت» — the report that decides what to buy more of.
+ *
+ * Every 🚫 the expediter presses is a sale that walked out of the door, and
+ * until now that fact lived in one row nobody ever read again.
+ *
+ * `lost` is the money the shop did NOT take — the sharpest number here, because
+ * «نفد ثلاث مرات» sounds small next to «نفد ثلاث مرات وكلّفنا ٤٥٬٠٠٠».
+ */
+export async function shortageReport(days: number): Promise<ShortageRow[]> {
+  await requireStaff();
+  const svc = createSupabaseServiceClient();
+
+  const since = new Date(Date.now() - days * 86_400_000).toISOString();
+  const { data } = await svc
+    .from("order_items")
+    .select("name_ar, qty, unit_price, unavailable_at")
+    .not("unavailable_at", "is", null)
+    .gte("unavailable_at", since)
+    // newest first — foldShortages reads «آخر مرة» off the first sighting
+    .order("unavailable_at", { ascending: false })
+    .limit(500);
+  return foldShortages(data ?? []);
 }
