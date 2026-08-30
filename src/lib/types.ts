@@ -289,7 +289,7 @@ export type Database = {
           business_day: string; order_seq: number; channel: OrderChannel; status: OrderStatus;
           subtotal: number; cost_total: number; discount: number; extra: number; extra_note: string | null;
           table_no: string | null; note: string | null;
-          customer_id: string | null; cashier_id: string | null; paid_at: string | null;
+          customer_id: string | null; cashier_id: string | null; paid_at: string | null; shortage_ack_at: string | null;
           prep_status: PrepStatus; expediter_id: string | null; pickup_code: string | null;
           eta_minutes: number | null; customer_phone: string | null; address_note: string | null;
           updated_at: string; source: "hub" | "cloud";
@@ -309,7 +309,7 @@ export type Database = {
         };
         Update: Partial<{
           status: OrderStatus; discount: number; extra: number; extra_note: string | null;
-          customer_id: string | null; paid_at: string | null;
+          customer_id: string | null; paid_at: string | null; shortage_ack_at: string | null;
           prep_status: PrepStatus; expediter_id: string | null; eta_minutes: number | null; updated_at: string; payment_method: "cash" | "card" | "partner" | null; session_id: string | null; partner_id: string | null;
         }>;
         Relationships: [];
@@ -317,11 +317,11 @@ export type Database = {
       order_items: {
         Row: Timestamped & {
           order_id: string; item_id: string | null; variant_id: string | null; name_ar: string; flavor_ar: string | null;
-          qty: number; unit_price: number; unit_cost: number; line_total: number;
+          qty: number; unit_price: number; unit_cost: number; unavailable_at: string | null; line_total: number;
         };
         Insert: {
           id?: string; order_id: string; item_id?: string | null; variant_id?: string | null; name_ar: string; flavor_ar?: string | null;
-          qty: number; unit_price: number; unit_cost?: number; created_at?: string;
+          qty: number; unit_price: number; unit_cost?: number; unavailable_at?: string | null; created_at?: string;
         };
         Update: Partial<{ qty: number; unit_price: number }>;
         Relationships: [];
@@ -422,6 +422,16 @@ export type Database = {
         Returns: number;
       };
       cancel_order: { Args: { p_order: string }; Returns: undefined };
+      // 0049 — an item ran out mid-assembly: drop it, re-total, alert the till
+      mark_item_unavailable: {
+        Args: { p_item: string };
+        Returns: {
+          order_id: string; order_seq: number; item_name: string;
+          customer_phone: string | null; customer_name: string | null;
+          new_total: number; refund_due: number;
+        }[];
+      };
+      ack_shortage: { Args: { p_order: string }; Returns: undefined };
       // 0045 — delivery aggregators billed postpaid
       save_partner: {
         Args: { p_id: string | null; p_name: string; p_phone?: string | null; p_active?: boolean; p_note?: string | null };

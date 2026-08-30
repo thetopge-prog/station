@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Camera, Check, Hand, MessageCircle, PackageCheck, ScanLine, Timer } from "lucide-react";
-import { claimOrder, confirmAssembled, listPrepOrders, markNotified, markOrderHanded, type PrepOrder } from "@/lib/cafe/prep-actions";
+import { Ban, Camera, Check, Hand, MessageCircle, PackageCheck, ScanLine, Timer } from "lucide-react";
+import { claimOrder, confirmAssembled, listPrepOrders, markItemUnavailable, markNotified, markOrderHanded, type PrepOrder } from "@/lib/cafe/prep-actions";
 import { curbsideReadyLink } from "@/lib/brand";
 import { useLiveOrders } from "./use-live-orders";
 import { orderIdFromScan, useBarcodeScanner } from "./use-barcode-scanner";
@@ -198,6 +198,11 @@ export function ExpediterClient({ name }: { name: string }) {
               checked={checked[o.id] ?? new Set()}
               busy={busy === o.id}
               onToggle={(itemId) => toggle(o.id, itemId)}
+              onUnavailable={async (itemId) => {
+                if (!confirm("تأكيد: هذا الصنف نفد؟ سيُخصم من الفاتورة ويُبلَّغ الكاشير ليتصل بالزبون.")) return;
+                await markItemUnavailable(itemId);
+                await refresh();
+              }}
               onClaim={() => act(o.id, claimOrder)}
               onReady={() => act(o.id, confirmAssembled)}
               onHanded={() => act(o.id, markOrderHanded)}
@@ -226,6 +231,7 @@ function OrderCard({
   checked,
   busy,
   onToggle,
+  onUnavailable,
   onClaim,
   onReady,
   onHanded,
@@ -236,12 +242,15 @@ function OrderCard({
   checked: Set<string>;
   busy: boolean;
   onToggle: (itemId: string) => void;
+  onUnavailable: (itemId: string) => void | Promise<void>;
   onClaim: () => void;
   onReady: () => void;
   onHanded: () => void;
   onNotify: () => void;
 }) {
-  const allTicked = order.items.every((i) => checked.has(i.id));
+  // a line that ran out is not a line anybody can tick, so it leaves the count
+  const live = order.items.filter((i) => !i.unavailable);
+  const allTicked = live.every((i) => checked.has(i.id));
   const isReady = order.prep_status === "ready";
   const mins = Math.floor((now - new Date(order.created_at).getTime()) / 60000);
   const late = mins >= 12;
@@ -282,12 +291,29 @@ function OrderCard({
       <ul className="space-y-1.5">
         {order.items.map((it) => {
           const on = checked.has(it.id);
+          if (it.unavailable) {
+            return (
+              <li key={it.id}>
+                <div className="flex items-center gap-3 rounded-xl border-2 border-dashed border-destructive/50 bg-destructive/5 p-3">
+                  <span className="grid size-8 shrink-0 place-items-center rounded-lg border-2 border-destructive/50 text-destructive">
+                    <Ban className="size-5" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-bold line-through opacity-60">
+                      {it.qty} × {it.name_ar}
+                    </span>
+                    <span className="block text-xs font-black text-destructive">نفد — خُصم من الفاتورة وأُبلغ الكاشير</span>
+                  </span>
+                </div>
+              </li>
+            );
+          }
           return (
-            <li key={it.id}>
+            <li key={it.id} className="flex items-stretch gap-1.5">
               <button
                 onClick={() => onToggle(it.id)}
                 aria-pressed={on}
-                className={`flex w-full items-center gap-3 rounded-xl border-2 p-3 text-right transition ${
+                className={`flex min-w-0 flex-1 items-center gap-3 rounded-xl border-2 p-3 text-right transition ${
                   on ? "border-primary bg-primary/10" : "border-border hover:bg-secondary"
                 }`}
               >
@@ -308,6 +334,16 @@ function OrderCard({
                     </span>
                   )}
                 </span>
+              </button>
+              {/* «نفد» — the only honest answer when the shelf is empty. Without
+                  it the assemble button stays locked and the only way out is to
+                  tick an item that never went in the bag. */}
+              <button
+                onClick={() => void onUnavailable(it.id)}
+                title="الصنف نفد — يُخصم ويُبلَّغ الكاشير"
+                className="grid w-12 shrink-0 place-items-center rounded-xl border-2 border-border text-muted-foreground transition hover:border-destructive hover:bg-destructive/10 hover:text-destructive"
+              >
+                <Ban className="size-5" />
               </button>
             </li>
           );
@@ -358,7 +394,7 @@ function OrderCard({
             className="flex min-h-16 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-xl font-black text-primary-foreground shadow-station transition hover:opacity-90 disabled:opacity-40 disabled:shadow-none"
           >
             <PackageCheck className="size-6" />
-            {busy ? "…" : allTicked ? "تأكيد وإعادة استلام" : `تبقّى ${order.items.length - checked.size}`}
+            {busy ? "…" : allTicked ? "تأكيد وإعادة استلام" : `تبقّى ${live.length - checked.size}`}
           </button>
         </div>
       )}

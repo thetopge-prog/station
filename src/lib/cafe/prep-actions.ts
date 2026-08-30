@@ -21,6 +21,8 @@ const REF_TTL_MS = 60_000;
 
 export type PrepItem = {
   id: string;
+  /** نفد أثناء التجهيز — خارج قائمة التأشير وخارج مجموع الطلب */
+  unavailable?: boolean;
   name_ar: string;
   flavor_ar: string | null;
   qty: number;
@@ -92,7 +94,7 @@ export async function listPrepOrders(stationId: string | null = null): Promise<P
   // never, so they are fetched from cache alongside the items rather than in
   // two more sequential round trips after them
   const [{ data: rawItems }, cats, stations] = await Promise.all([
-    svc.from("order_items").select("id, order_id, name_ar, flavor_ar, qty, item_id").in("order_id", ids),
+    svc.from("order_items").select("id, order_id, name_ar, flavor_ar, qty, item_id, unavailable_at").in("order_id", ids),
     cachedRef("categories", REF_TTL_MS, async () => (await svc.from("categories").select("id, name_ar, station_id")).data ?? []),
     cachedRef("stations", REF_TTL_MS, async () => (await svc.from("stations").select("id, name_ar")).data ?? []),
   ]);
@@ -126,6 +128,7 @@ export async function listPrepOrders(stationId: string | null = null): Promise<P
       station_id: sid,
       station_name: sid ? stationName.get(sid) ?? null : null,
       category_name: c?.name_ar ?? null,
+      unavailable: it.unavailable_at != null,
     });
     byOrder.set(it.order_id, arr);
   }
@@ -211,6 +214,25 @@ export async function claimOrder(orderId: string) {
 export async function confirmAssembled(orderId: string) {
   await requireRole("expediter", "cashier");
   return (await localPrep(orderId, "ready")) ?? rpc("confirm_assembled", orderId);
+}
+
+/**
+ * «نفد» — the line the expediter cannot assemble.
+ *
+ * Three things at once, because any two without the third is worse than doing
+ * nothing: the line leaves the checklist so the order stops being stuck, its
+ * price leaves the total so nobody is charged for what they did not get, and
+ * the till is told to ring the customer. A silent discount is somebody opening
+ * a short bag at home and never finding out why.
+ */
+export async function markItemUnavailable(orderItemId: string) {
+  await requireRole("expediter", "cashier", "chef");
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("mark_item_unavailable", { p_item: orderItemId });
+  if (error) return { ok: false as const, error: error.message };
+  revalidatePath("/expediter");
+  revalidatePath("/cashier");
+  return { ok: true as const, shortage: data?.[0] ?? null };
 }
 
 /** Handed to the customer — drops off every screen. */
