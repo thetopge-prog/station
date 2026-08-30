@@ -82,16 +82,22 @@ export async function POST(req: Request) {
   // Trimmed on both sides: this value is pasted into a phone by hand, and a
   // trailing space picked up on the way is invisible, survives every re-check,
   // and looks exactly like a wrong password.
-  const given = req.headers.get("x-station-secret")?.trim() || body.secret?.trim() || null;
+  // BOTH places are checked, not the header first and the body only if the
+  // header is absent. A stale wrong header left over from an earlier attempt
+  // would otherwise beat a perfectly correct body and report the same 403 —
+  // which is exactly what happened on the shop's phone, three times.
+  const candidates = [req.headers.get("x-station-secret"), body.secret]
+    .map((v) => v?.trim())
+    .filter((v): v is string => !!v);
   // Two different failures, two different codes. An automation app shows the
   // operator a status number and nothing else, so 401 and 403 are the only
   // diagnosis available from the far end of the country:
   //   401 — no secret arrived at all (empty body, wrong tab, nothing sent)
   //   403 — a secret arrived and does not match (wrong value)
-  if (!given) {
+  if (!candidates.length) {
     return NextResponse.json({ ok: false, error: "لم تصل كلمة السر إطلاقاً" }, { status: 401 });
   }
-  if (!secretMatches(given, expected.trim())) {
+  if (!candidates.some((c) => secretMatches(c, expected.trim()))) {
     return NextResponse.json({ ok: false, error: "كلمة السر وصلت لكنها غير مطابقة" }, { status: 403 });
   }
 
