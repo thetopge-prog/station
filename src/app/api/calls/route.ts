@@ -103,9 +103,12 @@ export async function POST(req: Request) {
 
   const phone = normalizeIraqiPhone(body.phone ?? "");
   if (!phone) {
-    // A withheld number is not an error worth retrying — say so plainly so the
-    // phone's automation does not queue it forever.
-    return NextResponse.json({ ok: false, error: "رقم غير صالح أو محجوب" }, { status: 200 });
+    // 422, not 200. The automation app shows the operator a status number and
+    // nothing else, and «authorised but no usable number» looked identical to
+    // «recorded» — which is a test that appears to pass while the database
+    // stays empty. Still not a retryable error: a withheld number will not
+    // become valid on a second attempt.
+    return NextResponse.json({ ok: false, error: "رقم غير صالح أو محجوب" }, { status: 422 });
   }
 
   const svc = createSupabaseServiceClient();
