@@ -14,6 +14,7 @@ import { Receipt, type ReceiptData } from "./Receipt";
 import { MenuIcon } from "./MenuIcon";
 import { PriceInput } from "./PriceInput";
 import { CallBanner } from "./CallBanner";
+import { customerForCall, type LastLine } from "@/lib/cafe/call-actions";
 import { FridayPrayerNotice } from "./FridayPrayerNotice";
 import { ShiftBar } from "./ShiftBar";
 
@@ -27,7 +28,13 @@ type Line = {
   qty: number;
 };
 type Cart = Record<string, Line>;
-type CartAction = { type: "add"; line: Omit<Line, "qty"> } | { type: "inc"; key: string } | { type: "dec"; key: string } | { type: "clear" };
+type CartAction =
+  | { type: "add"; line: Omit<Line, "qty"> }
+  | { type: "inc"; key: string }
+  | { type: "dec"; key: string }
+  /** drop a whole basket in at once — repeating a previous order */
+  | { type: "load"; lines: Line[] }
+  | { type: "clear" };
 
 function cartReducer(state: Cart, action: CartAction): Cart {
   switch (action.type) {
@@ -49,6 +56,8 @@ function cartReducer(state: Cart, action: CartAction): Cart {
       }
       return { ...state, [action.key]: { ...l, qty: l.qty - 1 } };
     }
+    case "load":
+      return Object.fromEntries(action.lines.map((l) => [l.key, l]));
     case "clear":
       return {};
   }
@@ -168,6 +177,13 @@ export function CashierClient({
     setExtraPrice(0);
   }
   const cat = menu.find((c) => c.name_ar === activeCat) ?? menu[0];
+
+  /** the ringing number becomes the order's customer, existing or brand new */
+  async function attachCaller(phone: string) {
+    const cust = await customerForCall(phone);
+    if (cust) setCustomer({ id: cust.id, name_ar: cust.name_ar, points: cust.points });
+    else setLoyaltyMsg("تعذّر ربط الرقم بالطلب.");
+  }
 
   async function lookup(serial: string) {
     const s = serial.trim();
@@ -332,7 +348,29 @@ export function CashierClient({
         )}
 
         {/* who is calling — the loyalty box below is where that call lands */}
-        <CallBanner onUse={(c) => void lookup(c.phone)} />
+        <CallBanner
+          onUse={(c) => void attachCaller(c.phone)}
+          onRepeat={(c, lines) => {
+            // Their previous receipt, dropped into the basket as ordinary lines
+            // — every one still editable. A repeat order is a starting point,
+            // not a shortcut past the cashier reading it back.
+            dispatch({
+              type: "load",
+              lines: lines
+                .filter((l): l is LastLine & { itemId: string } => !!l.itemId)
+                .map((l) => ({
+                  key: `${l.itemId}|${l.variantId ?? ""}|${l.flavor ?? ""}`,
+                  itemId: l.itemId,
+                  name: l.name,
+                  variantId: l.variantId,
+                  flavor: l.flavor,
+                  unitPrice: l.unitPrice,
+                  qty: l.qty,
+                })),
+            });
+            void attachCaller(c.phone);
+          }}
+        />
 
         {/* loyalty */}
         <div className="space-y-2 rounded-xl bg-secondary/60 p-3">

@@ -15,6 +15,19 @@ import { requireStaff } from "./auth";
 /** how long a ringing call stays on screen before it stops being news */
 const WINDOW_SECONDS = 180;
 
+/** one line of the previous receipt, complete enough to re-order it */
+export type LastLine = {
+  itemId: string | null;
+  variantId: string | null;
+  flavor: string | null;
+  name: string;
+  qty: number;
+  unitPrice: number;
+};
+
+/** what they ordered last time, so the cashier can say «نفس الطلب؟» */
+export type LastOrder = { at: string; seq: number; total: number; lines: LastLine[] };
+
 export type IncomingCall = {
   id: string;
   phone: string;
@@ -23,6 +36,7 @@ export type IncomingCall = {
   name: string | null;
   address: string | null;
   points: number | null;
+  lastOrder: LastOrder | null;
 };
 
 export async function latestCall(): Promise<IncomingCall | null> {
@@ -53,7 +67,101 @@ export async function latestCall(): Promise<IncomingCall | null> {
     name: c?.name_ar ?? null,
     address: c?.address ?? null,
     points: c?.points ?? null,
+    lastOrder: await lastOrderFor(call.customer_id, call.phone),
   };
+}
+
+/**
+ * The one thing a regular actually wants asked: «نفس الطلب؟»
+ *
+ * Matched by customer OR by the phone on the order itself, because a delivery
+ * order taken over the counter may never have been attached to a loyalty card
+ * — and to the person on the phone that is still their last order.
+ */
+async function lastOrderFor(customerId: string | null, phone: string): Promise<LastOrder | null> {
+  const svc = createSupabaseServiceClient();
+  const q = svc
+    .from("orders")
+    .select("id, order_seq, subtotal, discount, extra, created_at")
+    .neq("status", "cancelled")
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  const { data } = customerId ? await q.eq("customer_id", customerId) : await q.eq("customer_phone", phone);
+  const o = data?.[0];
+  if (!o) return null;
+
+  // item_id and variant_id come along so «تعديل الطلب» can rebuild the basket
+  // rather than make the cashier retype a receipt that already exists
+  const { data: items } = await svc
+    .from("order_items")
+    .select("item_id, variant_id, flavor_ar, name_ar, qty, unit_price")
+    .eq("order_id", o.id)
+    .limit(30);
+
+  return {
+    at: o.created_at,
+    seq: o.order_seq,
+    total: +o.subtotal - +o.discount + +o.extra,
+    lines: (items ?? []).map((i) => ({
+      itemId: i.item_id,
+      variantId: i.variant_id,
+      flavor: i.flavor_ar,
+      name: i.name_ar,
+      qty: i.qty,
+      unitPrice: i.unit_price,
+    })),
+  };
+}
+
+/**
+ * Name and address, saved on the CUSTOMER.
+ *
+ * This caller always orders delivery, and until now the address lived only on
+ * whichever order happened to carry it. Saving it here is what turns the second
+ * call into «نوصّلها لنفس العنوان؟» instead of the whole interrogation again.
+ */
+export async function saveCallerDetails(phone: string, name: string, address: string) {
+  await requireStaff();
+  const p = phone.trim();
+  if (!p) return { ok: false as const, error: "لا يوجد رقم." };
+
+  const patch: { name_ar?: string; address?: string } = {};
+  if (name.trim()) patch.name_ar = name.trim();
+  if (address.trim()) patch.address = address.trim();
+  if (!Object.keys(patch).length) return { ok: false as const, error: "أدخل الاسم أو العنوان." };
+
+  const svc = createSupabaseServiceClient();
+  const { data: existing } = await svc.from("customers").select("id").eq("phone", p).maybeSingle();
+  const { error } = existing
+    ? await svc.from("customers").update(patch).eq("id", existing.id)
+    : await svc.from("customers").insert({ phone: p, ...patch });
+  if (error) return { ok: false as const, error: error.message };
+  return { ok: true as const };
+}
+
+/**
+ * Find or create the customer behind a ringing number, so the button on the
+ * banner works for somebody who has never ordered before. Without this, «ابدأ
+ * طلباً لهذا الرقم» did nothing at all for a new caller — which is every
+ * caller, once.
+ */
+export async function customerForCall(phone: string): Promise<{ id: string; name_ar: string | null; points: number; serial: string } | null> {
+  await requireStaff();
+  const p = phone.trim();
+  if (!p) return null;
+  const svc = createSupabaseServiceClient();
+
+  const { data: found } = await svc.from("customers").select("id, name_ar, points, card_serial").eq("phone", p).maybeSingle();
+  if (found) return { id: found.id, name_ar: found.name_ar, points: found.points, serial: found.card_serial };
+
+  const { data: created, error } = await svc
+    .from("customers")
+    .insert({ phone: p })
+    .select("id, name_ar, points, card_serial")
+    .maybeSingle();
+  if (error || !created) return null;
+  return { id: created.id, name_ar: created.name_ar, points: created.points, serial: created.card_serial };
 }
 
 /** The cashier acted on it (or dismissed it) — stop showing it. */
