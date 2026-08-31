@@ -14,6 +14,7 @@ import { Receipt, type ReceiptData } from "./Receipt";
 import { MenuIcon } from "./MenuIcon";
 import { PriceInput } from "./PriceInput";
 import { CallBanner } from "./CallBanner";
+import { DutyRoster } from "./DutyRoster";
 import { ShortageAlert } from "./ShortageAlert";
 import { customerForCall, type LastLine } from "@/lib/cafe/call-actions";
 import { FridayPrayerNotice } from "./FridayPrayerNotice";
@@ -351,6 +352,10 @@ export function CashierClient({
         {/* the only alert allowed to take the whole screen: a bag is being
             closed short and somebody has to ring the customer now */}
         <ShortageAlert />
+
+        {/* who is on the pass today — ticked once, corrected as people come
+            and go, and the only record of it the system will ever have */}
+        <DutyRoster />
 
         {/* who is calling — the loyalty box below is where that call lands */}
         <CallBanner

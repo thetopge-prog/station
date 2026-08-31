@@ -241,6 +241,13 @@ export type Database = {
         Update: Partial<{ closed_at: string | null; station_id: string | null }>;
         Relationships: [];
       };
+      // من كان يجهّز في يوم عمل — يؤشّرهم الكاشير (0050)
+      duty_expediters: {
+        Row: { business_day: string; employee_id: string; created_at: string };
+        Insert: { business_day: string; employee_id: string; created_at?: string };
+        Update: Partial<{ business_day: string; employee_id: string }>;
+        Relationships: [];
+      };
       display_ads: {
         Row: Timestamped & { title: string | null; image_url: string; duration_s: number; sort: number; is_active: boolean };
         Insert: { id?: string; title?: string | null; image_url: string; duration_s?: number; sort?: number; is_active?: boolean; created_at?: string };
@@ -409,6 +416,8 @@ export type Database = {
       };
     };
     Functions: {
+      // يستبدل قائمة مجهّزي اليوم كاملة (0050)
+      set_duty_expediters: { Args: { p_day: string; p_ids: string[] }; Returns: undefined };
       place_order: {
         Args: {
           p_channel: OrderChannel; p_lines: Json; p_customer?: string | null; p_table?: string | null;

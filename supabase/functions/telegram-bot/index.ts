@@ -138,6 +138,7 @@ function mainMenu() {
     [{ text: "📦 المخزون", callback_data: "stock" }, { text: "⚠️ النواقص", callback_data: "short" }],
     [{ text: "🛒 قائمة المشتريات", callback_data: "po" }, { text: "👨‍🍳 التحكم بالتجهيز", callback_data: "prep" }],
     [{ text: "🛵 حسابات شركات التوصيل", callback_data: "prt" }],
+    [{ text: "👤 مسؤولو البوت", callback_data: "owners" }],
   ];
 }
 
@@ -315,7 +316,50 @@ const itemText = (it: Row) =>
   [`⚙️ <b>${esc(it.name_ar)}</b>`, "", `💰 السعر: <b>${fmt(it.price)} د.ع</b>`, `🏷️ الكلفة: <b>${fmt(it.cost)} د.ع</b>`, `الحالة: ${it.is_active ? "مفعّل ✅" : "معطّل ⛔"}`].join("\n");
 
 // ── handlers ───────────────────────────────────────────────────────────────
-const authorized = (chatId: number | string) => !OWNERS.length || OWNERS.includes(String(chatId));
+/**
+ * من يُسمح له باستعمال البوت.
+ *
+ * `TG_OWNER_IDS` هو المالك الأصلي: لا يُحذف من داخل البوت مهما جرى، فلا يمكن
+ * لأحد أن يقفل الباب على نفسه بحذف آخر مسؤول. وما عداه يُقرأ من جدول
+ * `bot_owners` ويُدار من داخل البوت — لأن المحل يوظّف ويستغني في يوم واحد،
+ * وذلك لا يستحق تعديل إعدادات المشروع وإعادة نشر دالة.
+ *
+ * تُقرأ مرة لكل تحديث وارد: الدالة قصيرة العمر، والاستعلام صغير.
+ */
+let ownerCache: Set<string> | null = null;
+async function loadOwners(): Promise<Set<string>> {
+  if (ownerCache) return ownerCache;
+  const set = new Set<string>(OWNERS);
+  try {
+    for (const r of (await rest("bot_owners?select=chat_id")) as Row[]) set.add(String(r.chat_id));
+  } catch {
+    // قاعدة لا تستجيب: يبقى المالك الأصلي قادراً على الدخول
+  }
+  ownerCache = set;
+  return set;
+}
+async function authorized(chatId: number | string): Promise<boolean> {
+  const owners = await loadOwners();
+  // لا مالك أصلي ولا جدول؟ البوت مفتوح كما كان قبل هذا كله
+  return owners.size === 0 || owners.has(String(chatId));
+}
+
+/** شاشة المسؤولين. */
+async function viewOwners(): Promise<{ text: string; kb: unknown[][] }> {
+  const rows = (await rest("bot_owners?select=chat_id,label&order=created_at")) as Row[];
+  const lines = ["👤 <b>مسؤولو البوت</b>", ""];
+  for (const o of OWNERS) lines.push(`🔒 <code>${esc(o)}</code> — المالك الأصلي (لا يُحذف من هنا)`);
+  if (!rows.length) lines.push("", "لا يوجد مسؤولون مُضافون بعد.");
+  for (const r of rows) lines.push(`👤 <code>${esc(r.chat_id)}</code>${r.label ? ` — ${esc(r.label)}` : ""}`);
+  lines.push("", "<i>ليعرف أحدهم معرّفه: يراسل البوت، فيردّ عليه بالرقم.</i>");
+
+  const kb: unknown[][] = rows.map((r) => [
+    { text: `🗑️ حذف ${r.label ? r.label : r.chat_id}`, callback_data: `odel|${r.chat_id}` },
+  ]);
+  kb.push([{ text: "➕ إضافة مسؤول", callback_data: "oadd" }]);
+  kb.push(BACK);
+  return { text: lines.join("\n"), kb };
+}
 
 /* ══════════════════════════════════════════════════════════════════════════
    Operations views — inventory, drawer, sales, and expediting from the phone.
@@ -645,7 +689,7 @@ async function viewPurchaseList() {
 
 async function onMessage(msg: Row) {
   const chatId = msg.chat.id;
-  if (!authorized(chatId)) {
+  if (!(await authorized(chatId))) {
     await say(chatId, `غير مصرّح لك بهذا البوت.\nمعرّفك: <code>${chatId}</code>`);
     return;
   }
@@ -653,6 +697,20 @@ async function onMessage(msg: Row) {
   if (state) {
     await clearState(chatId);
     const text = normDigits(String(msg.text).trim());
+    if (state.action === "owneradd") {
+      const id = text.replace(/[^\d-]/g, "");
+      if (!/^-?\d{5,}$/.test(id)) {
+        await say(chatId, "معرّف غير صالح — أرسل الرقم وحده، مثل <code>123456789</code>", [[{ text: "➕ حاول مجدداً", callback_data: "oadd" }], BACK]);
+        return;
+      }
+      await restWrite("bot_owners?on_conflict=chat_id", "POST", [{ chat_id: id, added_by: String(chatId) }]);
+      ownerCache = null;
+      const v = await viewOwners();
+      await say(chatId, `أُضيف <code>${esc(id)}</code> ✅\n\n${v.text}`, v.kb);
+      // نُعلمه بنفسه: مسؤول لا يعرف أنه صار مسؤولاً لن يفتح البوت
+      try { await say(id, "✅ صار لديك وصول إلى بوت ستيشن. أرسل /start للبدء."); } catch { /* لم يبدأ محادثة بعد */ }
+      return;
+    }
     if (state.action === "searchdate") {
       const day = parseDate(text);
       if (!day) {
@@ -765,7 +823,7 @@ async function onCallback(cb: Row) {
   const chatId = cb.message.chat.id;
   const mid = cb.message.message_id;
   await tg("answerCallbackQuery", { callback_query_id: cb.id });
-  if (!authorized(chatId)) return;
+  if (!(await authorized(chatId))) return;
   await clearState(chatId);
 
   const [cmd, a, b] = String(cb.data).split("|");
@@ -776,6 +834,30 @@ async function onCallback(cb: Row) {
   if (cmd === "search") {
     await setState(chatId, { action: "searchdate" });
     return say(chatId, "🔎 أرسل التاريخ المطلوب:\nمثال: <code>2026-08-10</code> أو <code>10/08/2026</code>", [[{ text: "إلغاء", callback_data: "menu" }]], mid);
+  }
+  if (cmd === "owners") {
+    const v = await viewOwners();
+    return say(chatId, v.text, v.kb, mid);
+  }
+  if (cmd === "oadd") {
+    await setState(chatId, { action: "owneradd" });
+    return say(
+      chatId,
+      "➕ <b>إضافة مسؤول</b>\n\nأرسل معرّف تليغرام الخاص به.\n\nليعرفه: يفتح البوت ويرسل أي رسالة، فيردّ عليه بالرقم.",
+      [[{ text: "إلغاء", callback_data: "owners" }]],
+      mid,
+    );
+  }
+  if (cmd === "odel") {
+    // المالك الأصلي محميّ: هو الباب الذي لا يُقفل
+    if (OWNERS.includes(String(a))) {
+      const v = await viewOwners();
+      return say(chatId, `<code>${esc(a)}</code> هو المالك الأصلي ولا يُحذف من هنا.\n\n${v.text}`, v.kb, mid);
+    }
+    await restWrite(`bot_owners?chat_id=eq.${a}`, "DELETE");
+    ownerCache = null;
+    const v = await viewOwners();
+    return say(chatId, `حُذف <code>${esc(a)}</code> ✅\n\n${v.text}`, v.kb, mid);
   }
   if (cmd === "now") return say(chatId, await viewNow(), [[{ text: "🔄 تحديث", callback_data: "now" }], BACK], mid);
   if (cmd === "tables") return say(chatId, await viewTables(), [[{ text: "🔄 تحديث", callback_data: "tables" }], BACK], mid);
