@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- العربية هي اللغة الافتراضية، لا ترجمة. المحل في الرمادي. -->
+<resources>
+  <string name="app_name">ستيشن — المتصل</string>
+  <string name="url_label">عنوان النظام</string>
+  <string name="secret_label">كلمة السر</string>
+  <string name="save">حفظ</string>
+  <string name="probe">فحص</string>
+  <string name="refresh">تحديث</string>
+  <string name="saved">حُفظ</string>
+  <string name="wa_access">تفعيل مكالمات واتساب</string>
+  <string name="never_yet">لم يصل شيء بعد — اطلب من أحد أن يتصل بالمحل.</string>
+  <string name="help">اضغط «فحص» بعد الحفظ. الجواب ٤٢٢ يعني أن العنوان وكلمة السر صحيحان.</string>
+</resources>

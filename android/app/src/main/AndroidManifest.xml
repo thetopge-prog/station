@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ستيشن — المتصل.
+
+  غرض واحد: حين يرنّ هاتف المطعم، يُرسل رقم المتصل إلى نظام ستيشن.
+
+  لا خدمة أمامية ولا إشعار دائم: مُستقبِل البثّ المعرَّف هنا لا يحتاج عملية
+  تعمل — أندرويد يوقظ التطبيق ليسلّمه البثّ. فيصمد أمام إغلاق التطبيق من قائمة
+  المهام وأمام إعادة تشغيل الجهاز، بلا أي شيء نكتبه.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+  <uses-permission android:name="android.permission.INTERNET" />
+  <!-- بثّ حالة الهاتف محميّ بهذا الإذن؛ بدونه لا يصلنا أصلاً -->
+  <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+  <!-- هذا هو الإذن الذي يملأ رقم المتصل. منذ أندرويد 10 يصل الرقم فارغاً لمن
+       لا يملكه — وهو نفسه إذن قراءة السجل في المسار الاحتياطي. -->
+  <uses-permission android:name="android.permission.READ_CALL_LOG" />
+
+  <application
+      android:label="@string/app_name"
+      android:icon="@android:drawable/sym_action_call"
+      android:allowBackup="false"
+      android:supportsRtl="true"
+      android:theme="@android:style/Theme.DeviceDefault.Light">
+
+    <activity
+        android:name=".MainActivity"
+        android:exported="true"
+        android:label="@string/app_name">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.LAUNCHER" />
+      </intent-filter>
+    </activity>
+
+    <receiver
+        android:name=".CallReceiver"
+        android:exported="true"
+        android:permission="android.permission.READ_PHONE_STATE">
+      <intent-filter>
+        <action android:name="android.intent.action.PHONE_STATE" />
+      </intent-filter>
+    </receiver>
+
+    <!--
+      مكالمات واتساب لا تمرّ بنظام الهاتف إطلاقاً، فلا يراها المُستقبِل أعلاه.
+      لكنها تُصدر إشعاراً — وهذا الطريق الوحيد إليها. يحتاج «وصول الإشعارات»،
+      وهو إذن خاص يُمنح مرة واحدة من إعدادات أندرويد.
+    -->
+    <service
+        android:name=".CallNotificationListener"
+        android:exported="true"
+        android:label="@string/app_name"
+        android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+      <intent-filter>
+        <action android:name="android.service.notification.NotificationListenerService" />
+      </intent-filter>
+    </service>
+
+  </application>
+</manifest>

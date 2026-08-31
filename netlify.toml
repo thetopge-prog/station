@@ -13,6 +13,16 @@
   to = "https://ahrxdwvxbykdktyclzdi.supabase.co/storage/v1/object/public/menu/:splat"
   status = 200
 
+# تطبيق «ستيشن — المتصل» على هاتف المطعم.
+#
+# رابط قصير يُملى في الهاتف: يفتح صاحب المحل  ‎/apk‎  فيصله آخر إصدار مباشرة.
+# الوجهة إصدار GitHub عام، فلا يحتاج حساباً ولا كمبيوتراً ولا كابلاً.
+[[redirects]]
+  from = "/apk"
+  to = "https://github.com/thetopge-prog/station/releases/latest/download/station.apk"
+  status = 302
+  force = true
+
 [build.environment]
   NODE_VERSION = "24"
 
