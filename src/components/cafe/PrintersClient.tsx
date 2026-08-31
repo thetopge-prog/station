@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { Printer, Wifi, WifiOff } from "lucide-react";
 import { buildTestJob, savePrinter, type PrinterConfig } from "@/lib/cafe/printer-actions";
 import { agentAlive, agentPrinters, printJobs, pendingPrintCount, clearPrintQueue, type AgentPrinter } from "@/lib/cafe/print-client";
-import type { Codepage } from "@/lib/cafe/escpos";
 
 /**
  * /printers — wire the 5 physical printers to the routing that already exists.
@@ -13,9 +12,13 @@ import type { Codepage } from "@/lib/cafe/escpos";
  * code change. routeOrder decides WHAT prints from categories.station_id; this
  * decides WHERE, and both are rows in the database.
  *
- * The codepage test is the important bit: whether Arabic comes out joined
- * depends on the printer's firmware, not on us. Rather than guess, print the
- * same words both ways and let the owner look at the paper.
+ * There is no codepage choice here, and no Arabic setting of any kind. There
+ * used to be: a cp1256/utf8 toggle, a per-printer code-page number, and a test
+ * for each. The shop's printer has no Arabic code page at any of its 56 slots —
+ * it answered in Cyrillic, Greek, Thai and Chinese — so every one of those
+ * controls was a way to get Arabic wrong and none was a way to get it right.
+ * Arabic is drawn as a picture by the till agent now, and a picture prints the
+ * same on every thermal printer ever made.
  */
 export function PrintersClient({ printers, isAdmin }: { printers: PrinterConfig[]; isAdmin: boolean }) {
   const [rows, setRows] = useState(printers);
@@ -52,24 +55,22 @@ export function PrintersClient({ printers, isAdmin }: { printers: PrinterConfig[
       host: p.host,
       port: p.port,
       share: p.share,
-      codepage: p.codepage,
-      codepage_cmd: p.codepage_cmd,
       copies: p.copies,
       is_active: p.is_active,
     });
     setMsg(res.ok ? `تم حفظ ${p.name_ar}` : res.error);
   }
 
-  async function test(p: PrinterConfig, codepage: Codepage) {
+  async function test(p: PrinterConfig) {
     if (!p.host && !p.share) {
       setMsg("أدخل عنوان IP أو اسم الطابعة كما يظهر في ويندوز.");
       return;
     }
-    const job = await buildTestJob(p.id, codepage, p.codepage_cmd);
+    const job = await buildTestJob(p.id);
     if (!job) return;
     const out = await printJobs([job]);
     setQueued(pendingPrintCount());
-    setMsg(out.sent > 0 ? `أُرسلت صفحة اختبار (${codepage}) إلى ${p.name_ar}` : "تعذّر الوصول إلى وكيل الطباعة المحلي.");
+    setMsg(out.sent > 0 ? `أُرسلت صفحة اختبار إلى ${p.name_ar}` : "تعذّر الوصول إلى وكيل الطباعة المحلي.");
   }
 
   return (
@@ -203,26 +204,6 @@ export function PrintersClient({ printers, isAdmin }: { printers: PrinterConfig[
                   </div>
                 )}
               </Field>
-              {/* The number the paper gives up.
-                  These units power up in Chinese mode and the first real
-                  receipt came out as a column of Chinese characters. FS . is
-                  sent with every ticket now, but WHICH number then selects
-                  Arabic differs by firmware — so the test slip prints one
-                  Arabic line under each candidate and this field records the
-                  one that came out readable. Empty means the printer's own
-                  default, which is right for a printer that never had the
-                  problem. */}
-              <Field label="رقم الترميز العربي (من ورقة الاختبار — اتركه فارغاً إن ظهرت العربية سليمة)">
-                <input
-                  type="number"
-                  value={p.codepage_cmd ?? ""}
-                  onChange={(e) => patch(p.id, { codepage_cmd: e.target.value === "" ? null : Number(e.target.value) })}
-                  placeholder="فارغ"
-                  dir="ltr"
-                  disabled={!isAdmin}
-                  className="w-full rounded-xl border-2 border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-                />
-              </Field>
               <Field label="عدد النسخ">
                 <input
                   type="number"
@@ -237,35 +218,19 @@ export function PrintersClient({ printers, isAdmin }: { printers: PrinterConfig[
               </Field>
             </div>
 
-            <Field label="ترميز العربية">
-              <div className="grid grid-cols-2 gap-1.5 rounded-xl bg-secondary p-1.5">
-                {(["cp1256", "utf8"] as const).map((cp) => (
-                  <button
-                    key={cp}
-                    onClick={() => patch(p.id, { codepage: cp })}
-                    disabled={!isAdmin}
-                    className={`rounded-lg px-3 py-2 text-sm font-bold transition ${
-                      p.codepage === cp ? "bg-primary text-primary-foreground" : "hover:bg-background"
-                    }`}
-                  >
-                    {cp === "cp1256" ? "الطابعة تصل الحروف" : "النظام يصل الحروف"}
-                  </button>
-                ))}
-              </div>
-            </Field>
-
-            <div className="grid grid-cols-3 gap-2">
+            {/* Nothing to choose any more.
+                There used to be a codepage toggle and a codepage number here,
+                and a test for each. The shop's printer turned out to have no
+                Arabic page at any of its 56 slots, so every one of those
+                controls was a way to get Arabic wrong and none was a way to get
+                it right. Arabic is drawn as a picture now, and a picture prints
+                the same on every thermal printer ever made. */}
+            <div className="grid grid-cols-2 gap-2">
               <button
-                onClick={() => void test(p, "cp1256")}
+                onClick={() => void test(p)}
                 className="min-h-11 rounded-xl border-2 border-border text-sm font-bold hover:bg-secondary"
               >
-                اختبار 1256
-              </button>
-              <button
-                onClick={() => void test(p, "utf8")}
-                className="min-h-11 rounded-xl border-2 border-border text-sm font-bold hover:bg-secondary"
-              >
-                اختبار UTF-8
+                اختبار الطباعة
               </button>
               <button
                 onClick={() => void save(p)}

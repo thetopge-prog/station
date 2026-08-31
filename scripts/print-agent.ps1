@@ -163,6 +163,127 @@ function Send-Share([string]$Share, [byte[]]$Bytes) {
   throw ("could not reach the printer. " + ($errs -join " | "))
 }
 
+
+<#
+  ── Arabic as a PICTURE, not as characters ────────────────────────────────
+
+  The shop's printer was asked, 56 different ways, to render Arabic from a code
+  page. It answered in Cyrillic, Greek, Thai and Chinese, and never once in
+  Arabic — because it has no Arabic code page to select. No amount of choosing
+  between numbers was ever going to work, and every choice offered was a way to
+  get it wrong.
+
+  So the printer is no longer asked. These lines are drawn here, with a Windows
+  font, by the same shaping engine that draws Arabic in Word — correctly joined,
+  every time, on any printer that can print a picture. Which is all of them:
+  ESC/POS raster is as old as the format.
+
+  576 dots is 80mm at 203dpi, the standard width of these units.
+#>
+Add-Type -AssemblyName System.Drawing
+
+function Render-Doc([object]$Doc) {
+  $W = 576
+  $base = 22.0
+  $fam = New-Object System.Drawing.FontFamily("Tahoma")   # ships with Windows, has Arabic
+
+  # First pass measures, so the bitmap is exactly as tall as the slip.
+  $probe = New-Object System.Drawing.Bitmap(1, 1)
+  $pg = [System.Drawing.Graphics]::FromImage($probe)
+  $items = @()
+  $total = 8
+  foreach ($ln in $Doc.lines) {
+    $style = if ($ln.bold) { [System.Drawing.FontStyle]::Bold } else { [System.Drawing.FontStyle]::Regular }
+    $font = New-Object System.Drawing.Font($fam, ($base * [double]$ln.h), $style, [System.Drawing.GraphicsUnit]::Pixel)
+    $text = [string]$ln.t
+    if ($text -eq "") { $text = " " }
+    $sz = $pg.MeasureString($text, $font, $W)
+    $h = [int][Math]::Ceiling($sz.Height)
+    $items += [pscustomobject]@{ text = $text; font = $font; h = $h; align = [string]$ln.align }
+    $total += $h
+  }
+  $pg.Dispose(); $probe.Dispose()
+
+  $bmp = New-Object System.Drawing.Bitmap($W, $total)
+  $g = [System.Drawing.Graphics]::FromImage($bmp)
+  $g.Clear([System.Drawing.Color]::White)
+  # Grid-fit, no anti-aliasing: a thermal head is one bit deep, and grey pixels
+  # become random black ones.
+  $g.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::SingleBitPerPixelGridFit
+
+  $fmt = New-Object System.Drawing.StringFormat
+  # Right-to-left is the default because the slips are Arabic; GDI+ does the
+  # shaping and the bidi ordering, which is exactly what we could not do before.
+  $fmt.FormatFlags = [System.Drawing.StringFormatFlags]::DirectionRightToLeft
+  $black = [System.Drawing.Brushes]::Black
+
+  $y = 4
+  foreach ($it in $items) {
+    switch ($it.align) {
+      "c" { $fmt.Alignment = [System.Drawing.StringAlignment]::Center }
+      "l" { $fmt.Alignment = [System.Drawing.StringAlignment]::Far }     # RTL flips near/far
+      default { $fmt.Alignment = [System.Drawing.StringAlignment]::Near }
+    }
+    $rect = New-Object System.Drawing.RectangleF(0, $y, $W, $it.h)
+    $g.DrawString($it.text, $it.font, $black, $rect, $fmt)
+    $y += $it.h
+    $it.font.Dispose()
+  }
+  $g.Dispose()
+
+  # ── to ESC/POS raster: GS v 0 m xL xH yL yH ──────────────────────────────
+  $bytesPerRow = [int]($W / 8)
+  $out = New-Object System.Collections.Generic.List[byte]
+  $out.AddRange([byte[]](0x1b, 0x40))                       # init
+  $out.AddRange([byte[]](0x1d, 0x76, 0x30, 0x00))
+  $out.Add([byte]($bytesPerRow -band 0xFF)); $out.Add([byte](($bytesPerRow -shr 8) -band 0xFF))
+  $out.Add([byte]($total -band 0xFF));       $out.Add([byte](($total -shr 8) -band 0xFF))
+
+  $rect = New-Object System.Drawing.Rectangle(0, 0, $W, $total)
+  $data = $bmp.LockBits($rect, [System.Drawing.Imaging.ImageLockMode]::ReadOnly, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+  $stride = $data.Stride
+  $buf = New-Object byte[] ($stride * $total)
+  [System.Runtime.InteropServices.Marshal]::Copy($data.Scan0, $buf, 0, $buf.Length)
+  $bmp.UnlockBits($data)
+
+  for ($row = 0; $row -lt $total; $row++) {
+    $o = $row * $stride
+    for ($b = 0; $b -lt $bytesPerRow; $b++) {
+      $v = 0
+      for ($bit = 0; $bit -lt 8; $bit++) {
+        $x = $b * 8 + $bit
+        # blue channel is enough on a black-and-white bitmap; < 128 is ink
+        if ($buf[$o + $x * 4] -lt 128) { $v = $v -bor (0x80 -shr $bit) }
+      }
+      $out.Add([byte]$v)
+    }
+  }
+  $bmp.Dispose()
+  return $out
+}
+
+<#
+  The QR stays a NATIVE command rather than part of the picture.
+
+  Every ESC/POS printer draws its own QR from GS ( k, and its own is sharper
+  than anything we would rasterise at 203dpi — a scanner has to read this from
+  a phone at arm's length. Only the text needs to be a picture; the text is the
+  only part the printer cannot do.
+#>
+function Qr-Bytes([string]$Data) {
+  $d = [System.Text.Encoding]::UTF8.GetBytes($Data)
+  $len = $d.Length + 3
+  $out = New-Object System.Collections.Generic.List[byte]
+  $out.AddRange([byte[]](0x1b, 0x61, 0x01))                                  # centre
+  $out.AddRange([byte[]](0x1d, 0x28, 0x6b, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00))  # model 2
+  $out.AddRange([byte[]](0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x43, 0x06))        # module size 6
+  $out.AddRange([byte[]](0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x45, 0x31))        # ECC L
+  $out.AddRange([byte[]](0x1d, 0x28, 0x6b, [byte]($len -band 0xFF), [byte](($len -shr 8) -band 0xFF), 0x31, 0x50, 0x30))
+  $out.AddRange($d)
+  $out.AddRange([byte[]](0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x51, 0x30))        # print
+  return $out
+}
+
 function Send-Bytes($TargetHost, $TargetPort, $Share, [byte[]]$Bytes) {
   if ($TargetHost) { Send-Tcp $TargetHost $TargetPort $Bytes }
   elseif ($Share) { Send-Share $Share $Bytes }
@@ -238,7 +359,19 @@ while ($listener.IsListening) {
         $json = $reader.ReadToEnd()
         $reader.Close()
         $job = $json | ConvertFrom-Json
-        $bytes = [Convert]::FromBase64String($job.data)
+
+        # A job carries either a picture to draw (doc) or ready-made bytes
+        # (data). The doc path is the one the shop uses: see Render-Doc.
+        if ($job.doc) {
+          $out = Render-Doc $job.doc
+          if ($job.doc.qr) { $out.AddRange((Qr-Bytes ([string]$job.doc.qr))) }
+          $out.AddRange([byte[]](0x1b, 0x64, 0x03))            # feed
+          if ($job.doc.kick) { $out.AddRange([byte[]](0x1b, 0x70, 0x00, 0x19, 0xfa)) }
+          $out.AddRange([byte[]](0x1d, 0x56, 0x42, 0x00))      # partial cut
+          $bytes = $out.ToArray()
+        } else {
+          $bytes = [Convert]::FromBase64String($job.data)
+        }
         $copies = if ($job.copies) { [int]$job.copies } else { 1 }
         $portToUse = if ($job.port) { [int]$job.port } else { 9100 }
         for ($i = 0; $i -lt $copies; $i++) {

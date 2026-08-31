@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { requireAdmin, requireStaff } from "./auth";
 import { routeOrder, unroutedItems, type PrintItem, type PrinterRow, type StationRow } from "./print-routing";
-import { renderTicket, testSlip, type Codepage } from "./escpos";
+import { renderTicketDoc, testSlipDoc, type TicketDoc } from "./escpos";
 import { BRAND } from "@/lib/brand";
 
 /**
@@ -28,9 +28,6 @@ export type PrinterConfig = {
   host: string | null;
   port: number;
   share: string | null;
-  codepage: Codepage;
-  /** ESC t n for THIS printer — read off the test slip; null = printer default */
-  codepage_cmd: number | null;
   copies: number;
   is_active: boolean;
   sort: number;
@@ -45,8 +42,18 @@ export type PrintJob = {
   port: number;
   share: string | null;
   copies: number;
-  /** base64 ESC/POS; base64 because this crosses a JSON boundary */
-  data: string;
+  /** base64 ESC/POS — the legacy path, kept for the drawer pulse */
+  data?: string;
+  /**
+   * The slip as CONTENT, for the agent to draw with a Windows font.
+   *
+   * This is how every ticket prints now. The shop's printer has no Arabic code
+   * page at any of its 56 slots — it answered in Cyrillic, Greek, Thai and
+   * Chinese and never in Arabic — so asking it to render Arabic characters
+   * could never have worked, and every setting we offered was a way to get it
+   * wrong. Drawn here, it only has to print dots.
+   */
+  doc?: TicketDoc;
 };
 
 export async function listPrinters(): Promise<PrinterConfig[]> {
@@ -54,14 +61,12 @@ export async function listPrinters(): Promise<PrinterConfig[]> {
   const svc = createSupabaseServiceClient();
   const { data } = await svc
     .from("printers")
-    .select("id, name_ar, kind, station_id, host, port, share, codepage, codepage_cmd, copies, is_active, sort")
+    .select("id, name_ar, kind, station_id, host, port, share, copies, is_active, sort")
     .order("sort", { ascending: true });
   const { data: stations } = await svc.from("stations").select("id, name_ar");
   const names = new Map((stations ?? []).map((s) => [s.id, s.name_ar]));
   return (data ?? []).map((p) => ({
     ...p,
-    codepage: p.codepage as Codepage,
-    codepage_cmd: p.codepage_cmd ?? null,
     kind: p.kind as PrinterConfig["kind"],
     station_name: p.station_id ? names.get(p.station_id) ?? null : null,
   }));
@@ -72,8 +77,6 @@ export async function savePrinter(input: {
   host: string | null;
   port: number;
   share: string | null;
-  codepage: Codepage;
-  codepage_cmd?: number | null;
   copies: number;
   is_active: boolean;
 }) {
@@ -85,8 +88,6 @@ export async function savePrinter(input: {
       host: input.host?.trim() || null,
       port: Math.min(65535, Math.max(1, Math.round(input.port) || 9100)),
       share: input.share?.trim() || null,
-      codepage: input.codepage,
-      codepage_cmd: input.codepage_cmd ?? null,
       copies: Math.min(3, Math.max(1, Math.round(input.copies) || 1)),
       is_active: input.is_active,
       updated_at: new Date().toISOString(),
@@ -98,7 +99,15 @@ export async function savePrinter(input: {
 }
 
 /** A calibration slip so the owner can see which codepage their hardware likes. */
-export async function buildTestJob(printerId: string, codepage: Codepage, codepageCmd: number | null = null): Promise<PrintJob | null> {
+/**
+ * A test slip, printed the same way every real ticket is printed.
+ *
+ * No codepage argument any more. There is nothing left to choose: the text is
+ * drawn as a picture, so a test that passed with one setting and failed with
+ * another has no setting left to differ on. If this comes out right, every
+ * ticket comes out right.
+ */
+export async function buildTestJob(printerId: string): Promise<PrintJob | null> {
   await requireStaff();
   const printers = await listPrinters();
   const p = printers.find((x) => x.id === printerId);
@@ -110,7 +119,7 @@ export async function buildTestJob(printerId: string, codepage: Codepage, codepa
     port: p.port,
     share: p.share,
     copies: 1,
-    data: toBase64(testSlip(p.name_ar, codepage, codepageCmd)),
+    doc: testSlipDoc(p.name_ar),
   };
 }
 
@@ -224,16 +233,13 @@ export async function buildOrderJobs(
       port: p.port,
       share: p.share,
       copies: p.copies,
-      data: toBase64(
-        renderTicket(t, {
-          codepage: p.codepage,
-          codepageCmd: p.codepage_cmd,
-          // the drawer hangs off the receipt printer, and only for cash
-          kickDrawer: kickDrawer && t.kind === "receipt",
-          shopNameAr: BRAND.nameAr,
-          shopCityAr: BRAND.cityAr,
-        }),
-      ),
+      // Content, not bytes. The agent draws it — see PrintJob.doc.
+      doc: renderTicketDoc(t, {
+        // the drawer hangs off the receipt printer, and only for cash
+        kickDrawer: kickDrawer && t.kind === "receipt",
+        shopNameAr: BRAND.nameAr,
+        shopCityAr: BRAND.cityAr,
+      }),
     };
   });
 
@@ -243,6 +249,3 @@ export async function buildOrderJobs(
   return { jobs, unrouted };
 }
 
-function toBase64(bytes: Uint8Array): string {
-  return Buffer.from(bytes).toString("base64");
-}

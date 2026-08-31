@@ -123,9 +123,28 @@ export function encodeText(text: string, codepage: Codepage): number[] {
   return out;
 }
 
+/**
+ * One line of a slip, as CONTENT rather than as bytes.
+ *
+ * The bytes path asks the printer to know Arabic. This one does not: the till
+ * agent draws these lines with a Windows font and sends the result as a
+ * picture, so the printer only ever has to print dots. That is the whole fix —
+ * the shop's printer turned out to have no Arabic code page at any of the 56
+ * slots, and no amount of choosing between them was ever going to produce
+ * Arabic.
+ */
+export type DocLine = { t: string; align: "r" | "c" | "l"; bold: boolean; w: number; h: number };
+export type TicketDoc = { lines: DocLine[]; qr: string | null; kick: boolean };
+
 /** Small builder so the layout below reads like the slip it produces. */
 class Slip {
   private bytes: number[] = [];
+  /** the same slip as content, for the agent to draw — see TicketDoc */
+  readonly doc: DocLine[] = [];
+  private align: "r" | "c" | "l" = "r";
+  private isBold = false;
+  private w = 1;
+  private h = 1;
   constructor(
     private codepage: Codepage,
     readonly cols: number,
@@ -140,24 +159,31 @@ class Slip {
     return this;
   }
   line(s = "") {
+    this.doc.push({ t: s, align: this.align, bold: this.isBold, w: this.w, h: this.h });
     return this.text(s).raw(0x0a);
   }
   rule(ch = "-") {
     return this.line(ch.repeat(this.cols));
   }
   center() {
+    this.align = "c";
     return this.raw(...CMD.alignCenter);
   }
   right() {
+    this.align = "r";
     return this.raw(...CMD.alignRight);
   }
   left() {
+    this.align = "l";
     return this.raw(...CMD.alignLeft);
   }
   bold(on: boolean) {
+    this.isBold = on;
     return this.raw(...(on ? CMD.boldOn : CMD.boldOff));
   }
   size(w: number, h: number) {
+    this.w = w;
+    this.h = h;
     return this.raw(...CMD.size(w, h));
   }
   /**
@@ -220,6 +246,12 @@ export function renderTicket(ticket: Ticket, opts: RenderOptions = {}): Uint8Arr
   const codepage = opts.codepage ?? "cp1256";
   const cols = opts.cols ?? COLS_80MM;
   const s = new Slip(codepage, cols);
+  buildTicket(s, ticket, opts);
+  return s.done();
+}
+
+/** The layout itself — written once, emitted twice (bytes, and content). */
+function buildTicket(s: Slip, ticket: Ticket, opts: RenderOptions): void {
 
   s.raw(...CMD.init, ...CMD.cancelKanji);
   if (opts.codepageCmd != null) s.raw(...CMD.codepage(opts.codepageCmd));
@@ -325,7 +357,22 @@ export function renderTicket(ticket: Ticket, opts: RenderOptions = {}): Uint8Arr
   s.raw(...CMD.feed(3));
   if (opts.kickDrawer) s.raw(...CMD.kick);
   s.raw(...CMD.cut);
-  return s.done();
+}
+
+/**
+ * The same slip, as content for the agent to DRAW.
+ *
+ * Built by the same function that builds the bytes, so the two can never drift:
+ * one pass, one layout, two outputs. The agent turns this into a picture with a
+ * Windows font, and the printer is asked only to print dots — no code page, no
+ * Kanji mode, no firmware roulette, and Arabic that is joined by the same
+ * shaping engine Word uses.
+ */
+export function renderTicketDoc(ticket: Ticket, opts: RenderOptions = {}): TicketDoc {
+  const cols = opts.cols ?? COLS_80MM;
+  const s = new Slip("utf8", cols);
+  buildTicket(s, ticket, opts);
+  return { lines: s.doc, qr: ticket.qr ?? null, kick: opts.kickDrawer === true };
 }
 
 function channelLabel(channel: string): string {
@@ -378,32 +425,24 @@ export function drawerKick(): Uint8Array {
  * labelled, and let the owner read the paper: whichever line is Arabic, that is
  * the number for this printer.
  */
-export function testSlip(printerNameAr: string, codepage: Codepage, codepageCmd: number | null = null): Uint8Array {
-  const s = new Slip(codepage, COLS_80MM);
-  s.raw(...CMD.init, ...CMD.cancelKanji);
-  if (codepageCmd != null) s.raw(...CMD.codepage(codepageCmd));
+/**
+ * The calibration slip, with nothing left to calibrate.
+ *
+ * It used to print the same Arabic line under 56 code pages and ask the owner
+ * which one came out readable. On the shop's printer, none did — it has no
+ * Arabic page at all. So the question is gone along with every setting behind
+ * it: this is drawn as a picture like every other slip, and it either prints or
+ * the printer is unplugged.
+ */
+export function testSlipDoc(printerNameAr: string): TicketDoc {
+  const s = new Slip("utf8", COLS_80MM);
   s.center().size(2, 2).bold(true).line("ستيشن").bold(false).size(1, 1);
   s.line(printerNameAr);
   s.rule("=");
-  s.line(`الترميز: ${codepage}`);
   s.line("برجر بالجبن — زنجر بوفالو");
   s.line("بيتزا سوبريم ١٢٬٠٠٠ د.ع");
   s.line("Station 7,750 IQD");
-
-  if (codepage === "cp1256" && codepageCmd == null) {
-    s.rule();
-    s.left().line("اقرأ الأسطر واكتب رقم السطر العربي:");
-    for (const n of ARABIC_CODEPAGES) {
-      s.raw(...CMD.codepage(n));
-      s.line(`${String(n).padStart(2, "0")} برجر`);
-    }
-    s.raw(...CMD.init, ...CMD.cancelKanji);
-    s.center();
-  }
-
   s.rule();
-  s.line("إن ظهرت الحروف متصلة فالإعداد صحيح");
-  s.raw(...qrCode("https://station.iq"));
-  s.raw(...CMD.feed(3), ...CMD.cut);
-  return s.done();
+  s.line("إن قرأتَ هذا السطر فالطابعة جاهزة");
+  return { lines: s.doc, qr: "https://station.iq", kick: false };
 }
