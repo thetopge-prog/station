@@ -446,8 +446,17 @@ export function SetupClient({
                   <b>الإشعار</b> الذي يعرضه تطبيق الهاتف عند الرنين، وفيه الرقم نصّاً:
                   <br />
                   <b>أضف مُشغِّلاً ثالثاً:</b> <code dir="ltr">Notifications ← Notification Received</code> ←
-                  اختر تطبيق <b>الهاتف/الاتصال</b>، وأرسل معه{" "}
-                  <code dir="ltr">[notification_title]</code>.
+                  وأرسل معه <code dir="ltr">[notification_title]</code>.
+                  <br />
+                  {/* Read off the shop's handset: two packages are involved and
+                      only one of them rings. Choosing the obvious one gets you
+                      missed-call notifications and nothing at the moment it
+                      matters. */}
+                  <b>واختر التطبيق بدقّة:</b> إشعار الرنين تصدره{" "}
+                  <code dir="ltr">com.samsung.android.incallui</code> لا{" "}
+                  <code dir="ltr">com.samsung.android.dialer</code>. الأول يرنّ، والثاني يعرض المكالمات
+                  الفائتة بعد فوات الأوان. <b>أشّر الاثنين معاً</b> إن ظهرا في القائمة، وفعّل «إظهار
+                  تطبيقات النظام» إن لم يظهر الأول.
                   <br />
                   النظام <b>يستخرج الرقم من أي نصّ يصله</b>، فلا يهمّ شكل الإشعار.
                 </p>
