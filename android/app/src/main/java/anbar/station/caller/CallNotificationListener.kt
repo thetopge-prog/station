@@ -48,14 +48,19 @@ class CallNotificationListener : NotificationListenerService() {
     Thread { post(ctx, body, label) }.start()
   }
 
-  /** تطبيقات المكالمات وحدها — لا كل ما يُشعر على الهاتف. */
+  /**
+   * تطبيقات المكالمات **التي لا يراها مسار الهاتف** وحدها.
+   *
+   * لا نُدرج هنا هاتف النظام ولا incallui ولا الاتصال: مكالماتها يلتقطها
+   * CallReceiver **بالرقم**، بينما إشعارها عنوانه «مكالمة واردة» بلا رقم. فلو
+   * أرسلناه لأنتجنا صفّاً فارغاً على شاشة الكاشير مع كل مكالمة ناجحة — وهو ما
+   * حدث فعلاً ثلاث مرات في أول تجربة.
+   */
   private fun interesting(pkg: String): Boolean =
     pkg.contains("whatsapp") ||
-      pkg.contains("incallui") ||
-      pkg.contains("dialer") ||
-      pkg.contains("telecom") ||
       pkg.contains("viber") ||
-      pkg.contains("messenger")
+      pkg.contains("messenger") ||
+      pkg.contains("telegram")
 
   private fun looksLikeCall(s: String): Boolean {
     val t = s.lowercase()

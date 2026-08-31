@@ -180,7 +180,13 @@ export async function POST(req: Request) {
   // nothing: the cashier still knows who is on the line, even though there is
   // no number to match against a record.
   const callerName = (body.name ?? "").trim().slice(0, 60) || null;
-  if (!phone && callerName && !/^[+\d\s-]+$/.test(callerName)) {
+  // A name is only worth showing if it identifies a PERSON. The system dialer's
+  // own notification is titled «مكالمة واردة» — a label, not a caller — and
+  // taking it at face value put three rows reading «اتصال» on the till in one
+  // evening, each looking like a customer nobody could call back.
+  const GENERIC = /^(مكالمة|اتصال|incoming|outgoing|ongoing|call|calling|dialing|unknown)/i;
+  const isPerson = !!callerName && !GENERIC.test(callerName) && !/^[+\d\s-]+$/.test(callerName);
+  if (!phone && isPerson) {
     const svc = createSupabaseServiceClient();
     const { error } = await svc.from("incoming_calls").insert({ phone: "—", caller_name: callerName });
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
@@ -209,7 +215,7 @@ export async function POST(req: Request) {
       literal
         ? `الخانة السحرية لم تُستبدل — وصلت كنصّ: "${seen}"`
         : empty
-          ? "الرقم وصل فارغاً — امنح ماكرودرويد إذن «سجلات المكالمات»"
+          ? "لا رقم في هذا الإشعار — تُهمَل"
           : `لا رقم صالح — قرأتُ: "${seen}"`,
     );
     // 422, not 200. The automation app shows the operator a status number and
