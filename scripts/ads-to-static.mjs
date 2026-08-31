@@ -1,18 +1,21 @@
-// Moves the waiting-room posters out of Supabase storage and into this repo's
-// public/ads/, then repoints display_ads at the local paths.
+// Puts the waiting-room posters in public/posters/ and repoints display_ads.
 //
-// WHY, measured on the shop's actual television rather than guessed:
-// a diagnostic page showed CSS, SVG, data-URI images, a PNG from our origin and
-// three JPEGs from our origin all rendering — while the same poster, both
-// through the /img proxy and straight from storage, stayed blank. The bytes are
-// a valid baseline JPEG; the difference is the delivery. Supabase storage sits
-// behind Cloudflare and answers with a Set-Cookie for supabase.co (on a request
-// to our own host) plus an Alt-Svc invitation to HTTP/3. That set drops the
-// response. Files served by Netlify carry neither header, and it renders them.
+// TWO findings, both measured on the shop's television with a diagnostic page
+// rather than guessed at:
 //
-// The trade: a new poster now needs a deploy rather than an upload. For nine
-// posters that change a few times a year, on the one screen customers look at,
-// that is the right side of the trade.
+// 1. Supabase storage sits behind Cloudflare and answers with a Set-Cookie
+//    scoped to supabase.co — on a request to our own host — plus an Alt-Svc
+//    invitation to HTTP/3. That set drops the response. Files Netlify serves
+//    carry neither header and render fine.
+//
+// 2. The directory may not be called "ads". The set's browser has ad filtering
+//    built in, and `/ads/` is matched by every filter list there is. A poster at
+//    /ads/1.jpg was blocked; the identical image at /check/big.jpg — larger —
+//    loaded. That one word cost most of a day: it also explains why the very
+//    first path, /img/ads/1.jpg, never worked, and why moving it to
+//    /img/ads/tv/ did not help either.
+//
+// Hence /posters/. Do not rename it back.
 //
 //   node scripts/ads-to-static.mjs
 import sharp from "sharp";
@@ -27,28 +30,33 @@ const env = Object.fromEntries(
 const BASE = env.NEXT_PUBLIC_SUPABASE_URL;
 const H = { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` };
 
-mkdirSync("public/ads", { recursive: true });
+mkdirSync("public/posters", { recursive: true });
 
 const ads = await (await fetch(`${BASE}/rest/v1/display_ads?select=id,image_url,sort&order=sort`, { headers: H })).json();
 
 for (const ad of ads) {
-  if (ad.image_url.startsWith("/ads/")) {
-    console.log(`· ${ad.image_url} — already local`);
+  const name = ad.image_url.split("/").pop().replace(/\.[a-z]+$/i, "") + ".jpg";
+  const target = `/posters/${name}`;
+  if (ad.image_url === target) {
+    console.log(`· ${target} — already local`);
     continue;
   }
-  const name = ad.image_url.split("/").pop().replace(/\.[a-z]+$/i, "") + ".jpg";
-  const src = await (await fetch(ad.image_url)).arrayBuffer();
 
-  const out = await sharp(Buffer.from(src))
+  // a local /ads/ path has no bytes to fetch over the network — read the file
+  const src = ad.image_url.startsWith("/")
+    ? readFileSync(`public/posters/${name}`)
+    : Buffer.from(await (await fetch(ad.image_url)).arrayBuffer());
+
+  const out = await sharp(src)
     .resize(1200, 1200, { fit: "inside", withoutEnlargement: true })
     .jpeg({ quality: 80, progressive: false })
     .toBuffer();
-  writeFileSync(`public/ads/${name}`, out);
+  writeFileSync(`public/posters/${name}`, out);
 
   const res = await fetch(`${BASE}/rest/v1/display_ads?id=eq.${ad.id}`, {
     method: "PATCH",
     headers: { ...H, "Content-Type": "application/json" },
-    body: JSON.stringify({ image_url: `/ads/${name}` }),
+    body: JSON.stringify({ image_url: target }),
   });
-  console.log(`${res.ok ? "✓" : "✗"} /ads/${name}  ${(out.length / 1024).toFixed(0)}KB`);
+  console.log(`${res.ok ? "✓" : "✗"} ${target}  ${(out.length / 1024).toFixed(0)}KB`);
 }

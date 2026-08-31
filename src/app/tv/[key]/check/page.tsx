@@ -62,7 +62,7 @@ export default async function TvCheckPage({ params }: { params: Promise<{ key: s
           <img src="/icons/icon-192.png" alt="" style={PX} />
         </Cell>
 
-        <Cell n="٥" label="JPEG الإعلان عبر ‎/img/‎">
+        <Cell n="٥" label="الملصق من موقعنا">
           {adSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={adSrc} alt="" style={PX} />
@@ -97,6 +97,16 @@ export default async function TvCheckPage({ params }: { params: Promise<{ key: s
         <Cell n="١٠" label="JPEG كبيرة (١٢٠٠ بكسل)">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/check/big.jpg" alt="" style={PX} />
+        </Cell>
+
+        {/* The same bytes as cell 10 under a path containing "ads". If this one
+            alone is blank, the browser is filtering by URL — which is what the
+            shop's television turned out to be doing, and what cost most of a
+            day of looking at image formats instead. Worth keeping: the next
+            screen installed here can be checked for it in one glance. */}
+        <Cell n="١١" label="نفس الصورة على مسار فيه ads">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/ads/probe.jpg" alt="" style={PX} />
         </Cell>
       </div>
 
