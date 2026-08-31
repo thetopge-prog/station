@@ -100,14 +100,20 @@ export default async function SetupPage() {
    */
   const callHook = process.env.STATION_WEBHOOK_SECRET
     ? {
-        url: "https://station-anbar.netlify.app/api/calls",
+        /*
+         * The number rides in the URL, not the body.
+         *
+         * The shop's phone posted `"phone":"[number][sms_number]"` verbatim,
+         * three calls running: MacroDroid leaves magic text it does not
+         * recognise for the chosen trigger as LITERAL TEXT rather than
+         * emptying it, and the body field was where it happened. The URL field
+         * substitutes reliably. The secret stays in the body — a query string
+         * lands in access logs and proxy caches; a POST body does not.
+         */
+        url: "https://station-anbar.netlify.app/api/calls?phone=[number]",
         header: "x-station-secret",
         secret: process.env.STATION_WEBHOOK_SECRET,
-        // BOTH placeholders, one body. A call fills [number] and leaves the
-        // other as literal text; an SMS does the reverse; the endpoint strips
-        // non-digits, so whichever resolved is what arrives. One macro, two
-        // triggers, nothing to remember.
-        body: `{"secret":"${process.env.STATION_WEBHOOK_SECRET}","phone":"[number][sms_number]"}`,
+        body: `{"secret":"${process.env.STATION_WEBHOOK_SECRET}"}`,
         // WhatsApp calls never reach Android's telephony, but they do raise a
         // notification — that is the only handle there is.
         whatsappBody: `{"secret":"${process.env.STATION_WEBHOOK_SECRET}","phone":"[notification_title]","name":"[notification_title]"}`,

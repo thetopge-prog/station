@@ -134,7 +134,15 @@ export async function POST(req: Request) {
   // itself displayed the number correctly. Cheaper to accept four spellings
   // than to have somebody drive back to the shop.
   const b = body as Record<string, unknown>;
-  const anyPhone = [b.phone, b.number, b.caller, b.from]
+  // Also from the QUERY STRING, which is the fix for the fault that actually
+  // happened: the shop's phone sent `"phone":"[number][sms_number]"` verbatim,
+  // three times, because MacroDroid does not substitute magic text it does not
+  // recognise for the chosen trigger — and leaves it as literal text rather
+  // than emptying it. The URL field substitutes reliably where the body did
+  // not, so ?phone=[number] is the route that works. The secret stays in the
+  // body: a query string lands in logs and proxy caches, a POST body does not.
+  const q = new URL(req.url).searchParams;
+  const anyPhone = [b.phone, b.number, b.caller, b.from, q.get("phone"), q.get("number")]
     .map((v) => (typeof v === "string" ? v : ""))
     .find((v) => normalizeIraqiPhone(v));
   const phone = normalizeIraqiPhone(anyPhone ?? "");
@@ -152,13 +160,26 @@ export async function POST(req: Request) {
   }
 
   if (!phone) {
-    await note(422, raw, `لا رقم صالح — قرأتُ: "${body.phone ?? ""}"`);
+    // Name the specific failure. An unsubstituted placeholder looks nothing
+    // like a withheld number, and telling them apart is the whole difference
+    // between "fix your macro" and "that caller hid their number".
+    const seen = String(body.phone ?? q.get("phone") ?? "");
+    const literal = /\[[a-z_]+\]/i.test(seen);
+    await note(422, raw, literal ? `الخانة السحرية لم تُستبدل — وصلت كنصّ: "${seen}"` : `لا رقم صالح — قرأتُ: "${seen}"`);
     // 422, not 200. The automation app shows the operator a status number and
     // nothing else, and «authorised but no usable number» looked identical to
     // «recorded» — which is a test that appears to pass while the database
     // stays empty. Still not a retryable error: a withheld number will not
     // become valid on a second attempt.
-    return NextResponse.json({ ok: false, error: "رقم غير صالح أو محجوب" }, { status: 422 });
+    return NextResponse.json(
+      {
+        ok: false,
+        error: literal
+          ? "خانة الرقم وصلت كنصّ ولم تُستبدل — ضع الرقم في الرابط: ?phone=[number]"
+          : "رقم غير صالح أو محجوب",
+      },
+      { status: 422 },
+    );
   }
 
   const svc = createSupabaseServiceClient();
