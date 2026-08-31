@@ -38,10 +38,25 @@ export async function QueueScreen({ displayKey }: { displayKey: string | null })
 
   return (
     <>
-      <QueueDisplayClient displayKey={displayKey} initialRows={rows} initialAds={ads} />
+      <QueueDisplayClient displayKey={displayKey} initialRows={rows} initialAds={ads} initialAdIndex={slideNow(ads.length)} />
       <StaleReload />
     </>
   );
+}
+
+/**
+ * Which slide it is, by the clock rather than by a timer.
+ *
+ * A television that cannot run the app cannot advance a slideshow either — it
+ * would show poster one for ever, which is how a menu board becomes wallpaper
+ * nobody reads. The guard below reloads such a screen every fifteen seconds,
+ * and deriving the slide from the wall clock means each reload lands on the
+ * next one. A screen that CAN run the app just uses this as its starting
+ * slide and cross-fades from there as usual.
+ */
+function slideNow(count: number): number {
+  if (count < 2) return 0;
+  return Math.floor(Date.now() / 15_000) % count;
 }
 
 /**

@@ -33,11 +33,14 @@ export function QueueDisplayClient({
   displayKey = null,
   initialRows = [],
   initialAds = [],
+  initialAdIndex = 0,
 }: {
   displayKey?: string | null;
   /** the board as the server saw it — correct before any script runs */
   initialRows?: QueueRow[];
   initialAds?: DisplayAd[];
+  /** which slide to open on — the server picks it from the clock */
+  initialAdIndex?: number;
 }) {
   // an unattended screen has to notice its own failures — see the hook
   const { beat, fail } = useDisplayWatchdog();
@@ -142,7 +145,7 @@ export function QueueDisplayClient({
   // board. Nothing in progress → adverts. Never both at once — a customer
   // hunting for their number must not have to look past a poster.
   const busy = rows.length > 0;
-  if (loaded && !busy) return <AdScreen now={now} displayKey={displayKey} initialAds={initialAds} />;
+  if (loaded && !busy) return <AdScreen now={now} displayKey={displayKey} initialAds={initialAds} initialAdIndex={initialAdIndex} />;
 
   return (
     <div dir="rtl" className="flex min-h-[100dvh] flex-col gap-4 bg-background p-4 lg:p-6">
@@ -194,9 +197,9 @@ export function QueueDisplayClient({
  * Falls back to a branded holding card when no ads are uploaded, so the screen
  * is never blank white.
  */
-function AdScreen({ now, displayKey, initialAds = [] }: { now: number; displayKey: string | null; initialAds?: DisplayAd[] }) {
+function AdScreen({ now, displayKey, initialAds = [], initialAdIndex = 0 }: { now: number; displayKey: string | null; initialAds?: DisplayAd[]; initialAdIndex?: number }) {
   const [ads, setAds] = useState<DisplayAd[]>(initialAds);
-  const [i, setI] = useState(0);
+  const [i, setI] = useState(initialAdIndex);
 
   useEffect(() => {
     const t = setTimeout(() => void listDisplayAds(displayKey).then(setAds).catch(() => {}), 0);
