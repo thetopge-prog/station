@@ -144,17 +144,40 @@ function SessionBar({ session, onClosed }: { session: OpenSession; onClosed: () 
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<{ expected: number; variance: number } | null>(null);
+  const [err, setErr] = useState<string | null>(null);
 
+  /*
+   * Both of these used to swallow every failure.
+   *
+   * `finish` ignored a `{ ok: false }` result entirely and let a thrown error
+   * escape into an unhandled rejection, so a cashier pressing «إنهاء وتسليم»
+   * at the end of a shift saw the button flicker and nothing else — no closed
+   * till, no reason, nothing to tell anyone. That is the worst shape a failure
+   * can take on a screen someone has to finish their night on. The permission
+   * check is real (an expediter may open /cashier but may not close the
+   * drawer); it just has to SAY so.
+   */
   async function openReport() {
     setOpen(true);
-    setReport(await sessionReport(session.id));
+    setErr(null);
+    try {
+      const r = await sessionReport(session.id);
+      setReport(r);
+      if (!r) setErr("تعذّر جلب تقرير الوردية — يمكنك المتابعة، لكن راجع الأرقام يدوياً.");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "تعذّر جلب تقرير الوردية.");
+    }
   }
 
   async function finish() {
     setBusy(true);
+    setErr(null);
     try {
       const res = await closeSession({ sessionId: session.id, counted, deposited, note });
       if (res.ok) setDone({ expected: res.expected, variance: res.variance });
+      else setErr(res.error);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "تعذّر إنهاء الوردية.");
     } finally {
       setBusy(false);
     }
@@ -226,6 +249,12 @@ function SessionBar({ session, onClosed }: { session: OpenSession; onClosed: () 
                     className="w-full rounded-xl border-2 border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
                   />
                 </div>
+
+                {err && (
+                  <div className="mt-3">
+                    <Err msg={err} />
+                  </div>
+                )}
 
                 <div className="mt-4 grid grid-cols-2 gap-2">
                   <button onClick={() => setOpen(false)} disabled={busy} className="min-h-14 rounded-xl border-2 border-border font-black">

@@ -85,6 +85,7 @@ function arabicError(msg: string): string {
   if (/session already open/i.test(msg)) return "لديك وردية مفتوحة بالفعل — أنهِها أولاً من زر «إنهاء الوردية».";
   if (/no employee record/i.test(msg)) return "حسابك غير مرتبط بموظف — راجع صفحة الموظفين.";
   if (/not staff/i.test(msg)) return "غير مصرّح — سجّل الدخول من جديد.";
+  if (/session not found|already closed/i.test(msg)) return "هذه الوردية مُغلقة أصلاً — حدّث الصفحة.";
   return msg;
 }
 
@@ -163,7 +164,15 @@ export async function closeSession(input: {
   deposited?: number;
   note?: string | null;
 }) {
-  await requireRole("cashier");
+  // /cashier itself only asks for a staff session, so an expediter can reach
+  // this screen — but counting the drawer down is not their job. Refused with a
+  // sentence that says which of the two it is, because «لا يعمل» was all the
+  // shop could report before.
+  try {
+    await requireRole("cashier");
+  } catch {
+    return { ok: false as const, error: "إنهاء الوردية للكاشير أو المدير فقط — سجّل الدخول بحساب الكاشير." };
+  }
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.rpc("close_cashier_session", {
     p_session: input.sessionId,
@@ -172,7 +181,7 @@ export async function closeSession(input: {
     p_handover_to: null,
     p_note: input.note?.trim() || null,
   });
-  if (error) return { ok: false as const, error: error.message };
+  if (error) return { ok: false as const, error: arabicError(error.message) };
   const row = data?.[0] as { expected_cash: number; variance: number } | undefined;
   revalidatePath("/cashier");
   revalidatePath("/dashboard");
