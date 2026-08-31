@@ -122,14 +122,36 @@ namespace Station {
 function Send-Share([string]$Share, [byte[]]$Bytes) {
   $errs = @()
 
-  # 1) the spooler, by name — the route that does not involve the network
-  if ($PrinterName) {
-    try { [Station.RawPrint]::Send($PrinterName, $Bytes); return }
-    catch { $errs += ("spooler '" + $PrinterName + "': " + $_.Exception.Message) }
+  <#
+    Resolve which printer this job is FOR, then hand it to the spooler.
+
+    The first version of this preferred -PrinterName for everything, which
+    quietly sent every kitchen ticket to the till printer: one printer, four
+    destinations, no error. Routing has to come from what the caller asked for.
+
+    The value from the app is matched three ways, in this order:
+      1. a Windows SHARE name  (POS80)
+      2. a Windows PRINTER name (POS-23)  ← so a printer that was never shared
+         still works, and nobody has to enable sharing on four devices
+      3. the drawer's own printer, for the /kick pulse
+  #>
+  $name = $null
+  if ($Share) {
+    try { $name = @(Get-Printer -ErrorAction SilentlyContinue | Where-Object { $_.ShareName -eq $Share })[0].Name } catch { }
+    if (-not $name) {
+      try { $name = @(Get-Printer -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq $Share })[0].Name } catch { }
+    }
+  }
+  if (-not $name -and $PrinterName -and (-not $Share -or $Share -eq $DrawerShare)) { $name = $PrinterName }
+
+  if ($name) {
+    try { [Station.RawPrint]::Send($name, $Bytes); return }
+    catch { $errs += ("spooler '" + $name + "': " + $_.Exception.Message) }
+  } else {
+    $errs += ("no local printer matches '" + $Share + "' by share name or printer name")
   }
 
-  # 2) the share, three spellings of "this machine". Kept because a printer on
-  #    ANOTHER till is reachable only this way.
+  # A printer attached to ANOTHER till is reachable only over SMB.
   foreach ($h in @("127.0.0.1", "localhost", $env:COMPUTERNAME)) {
     $path = "\\$h\$Share"
     try {

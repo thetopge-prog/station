@@ -58,7 +58,7 @@ export function PrintersClient({ printers, isAdmin }: { printers: PrinterConfig[
 
   async function test(p: PrinterConfig, codepage: Codepage) {
     if (!p.host && !p.share) {
-      setMsg("أدخل عنوان IP أو اسم المشاركة أولاً.");
+      setMsg("أدخل عنوان IP أو اسم الطابعة كما يظهر في ويندوز.");
       return;
     }
     const job = await buildTestJob(p.id, codepage);
@@ -163,7 +163,7 @@ export function PrintersClient({ printers, isAdmin }: { printers: PrinterConfig[
                   className="w-full rounded-xl border-2 border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary"
                 />
               </Field>
-              <Field label="أو اسم المشاركة (USB)">
+              <Field label="أو اسم الطابعة في ويندوز (أو اسم المشاركة)">
                 <input
                   value={p.share ?? ""}
                   onChange={(e) => patch(p.id, { share: e.target.value })}
