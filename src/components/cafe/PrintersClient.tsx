@@ -53,6 +53,7 @@ export function PrintersClient({ printers, isAdmin }: { printers: PrinterConfig[
       port: p.port,
       share: p.share,
       codepage: p.codepage,
+      codepage_cmd: p.codepage_cmd,
       copies: p.copies,
       is_active: p.is_active,
     });
@@ -64,7 +65,7 @@ export function PrintersClient({ printers, isAdmin }: { printers: PrinterConfig[
       setMsg("أدخل عنوان IP أو اسم الطابعة كما يظهر في ويندوز.");
       return;
     }
-    const job = await buildTestJob(p.id, codepage);
+    const job = await buildTestJob(p.id, codepage, p.codepage_cmd);
     if (!job) return;
     const out = await printJobs([job]);
     setQueued(pendingPrintCount());
@@ -201,6 +202,26 @@ export function PrintersClient({ printers, isAdmin }: { printers: PrinterConfig[
                     ))}
                   </div>
                 )}
+              </Field>
+              {/* The number the paper gives up.
+                  These units power up in Chinese mode and the first real
+                  receipt came out as a column of Chinese characters. FS . is
+                  sent with every ticket now, but WHICH number then selects
+                  Arabic differs by firmware — so the test slip prints one
+                  Arabic line under each candidate and this field records the
+                  one that came out readable. Empty means the printer's own
+                  default, which is right for a printer that never had the
+                  problem. */}
+              <Field label="رقم الترميز العربي (من ورقة الاختبار — اتركه فارغاً إن ظهرت العربية سليمة)">
+                <input
+                  type="number"
+                  value={p.codepage_cmd ?? ""}
+                  onChange={(e) => patch(p.id, { codepage_cmd: e.target.value === "" ? null : Number(e.target.value) })}
+                  placeholder="فارغ"
+                  dir="ltr"
+                  disabled={!isAdmin}
+                  className="w-full rounded-xl border-2 border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                />
               </Field>
               <Field label="عدد النسخ">
                 <input

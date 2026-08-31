@@ -264,18 +264,18 @@ export type Database = {
         Row: Timestamped & {
           name_ar: string; kind: PrinterKind; station_id: string | null;
           host: string | null; port: number; share: string | null;
-          codepage: "cp1256" | "utf8"; copies: number; is_active: boolean; sort: number; updated_at: string;
+          codepage: "cp1256" | "utf8"; codepage_cmd: number | null; copies: number; is_active: boolean; sort: number; updated_at: string;
         };
         Insert: {
           id?: string; name_ar: string; kind: PrinterKind; station_id?: string | null;
           host?: string | null; port?: number; share?: string | null;
-          codepage?: "cp1256" | "utf8"; copies?: number; is_active?: boolean; sort?: number;
+          codepage?: "cp1256" | "utf8"; codepage_cmd?: number | null; copies?: number; is_active?: boolean; sort?: number;
           updated_at?: string; created_at?: string;
         };
         Update: Partial<{
           name_ar: string; kind: PrinterKind; station_id: string | null;
           host: string | null; port: number; share: string | null;
-          codepage: "cp1256" | "utf8"; copies: number; is_active: boolean; sort: number; updated_at: string;
+          codepage: "cp1256" | "utf8"; codepage_cmd: number | null; copies: number; is_active: boolean; sort: number; updated_at: string;
         }>;
         Relationships: [];
       };

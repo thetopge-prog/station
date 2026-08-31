@@ -29,6 +29,13 @@ export type Codepage = "cp1256" | "utf8";
 /** 80mm roll at font A ≈ 42 columns; 58mm ≈ 32. */
 export const COLS_80MM = 42;
 
+/**
+ * The `ESC t n` values that mean "Arabic" on one 80mm clone or another —
+ * CP864 and CP1256 sit at different numbers depending on the firmware. The
+ * test slip prints a line under each so the paper answers the question.
+ */
+export const ARABIC_CODEPAGES = [22, 26, 32, 37, 41] as const;
+
 const ESC = 0x1b;
 const GS = 0x1d;
 
@@ -48,6 +55,19 @@ const CMD = {
   kick: [ESC, 0x70, 0x00, 0x19, 0xfa],
   /** ESC t n — select character code table (n is printer-specific) */
   codepage: (n: number) => [ESC, 0x74, n],
+  /**
+   * FS . — cancel Kanji (double-byte) character mode.
+   *
+   * These 80mm units are built for the Chinese market and power up expecting
+   * GB18030, so every byte above 0x7F is read as the FIRST HALF of a Chinese
+   * character. The shop's first real receipt came out as a column of Chinese:
+   * the numbers, the QR and the layout were all correct, only the Arabic was
+   * being decoded two bytes at a time.
+   *
+   * ESC @ does not clear it — it resets to the printer's own default, which IS
+   * this. Sent on every ticket, and harmless on a printer that has no such mode.
+   */
+  cancelKanji: [0x1c, 0x2e],
 } as const;
 
 /**
@@ -193,7 +213,7 @@ export function renderTicket(ticket: Ticket, opts: RenderOptions = {}): Uint8Arr
   const cols = opts.cols ?? COLS_80MM;
   const s = new Slip(codepage, cols);
 
-  s.raw(...CMD.init);
+  s.raw(...CMD.init, ...CMD.cancelKanji);
   if (opts.codepageCmd != null) s.raw(...CMD.codepage(opts.codepageCmd));
 
   // ── header ──────────────────────────────────────────────────────────────
@@ -341,9 +361,18 @@ export function drawerKick(): Uint8Array {
  * owner can look at one piece of paper and tell /printers which setting their
  * hardware actually understands.
  */
+/**
+ * The test slip, which is really a code-page scan.
+ *
+ * Which number selects Arabic differs by firmware — 22, 32, 37 and 41 are all
+ * CP1256 or CP864 on one clone or another, and no datasheet in the shop says
+ * which. So rather than guess, print the same Arabic line under each candidate,
+ * labelled, and let the owner read the paper: whichever line is Arabic, that is
+ * the number for this printer.
+ */
 export function testSlip(printerNameAr: string, codepage: Codepage, codepageCmd: number | null = null): Uint8Array {
   const s = new Slip(codepage, COLS_80MM);
-  s.raw(...CMD.init);
+  s.raw(...CMD.init, ...CMD.cancelKanji);
   if (codepageCmd != null) s.raw(...CMD.codepage(codepageCmd));
   s.center().size(2, 2).bold(true).line("ستيشن").bold(false).size(1, 1);
   s.line(printerNameAr);
@@ -352,6 +381,18 @@ export function testSlip(printerNameAr: string, codepage: Codepage, codepageCmd:
   s.line("برجر بالجبن — زنجر بوفالو");
   s.line("بيتزا سوبريم ١٢٬٠٠٠ د.ع");
   s.line("Station 7,750 IQD");
+
+  if (codepage === "cp1256" && codepageCmd == null) {
+    s.rule();
+    s.left().line("اقرأ الأسطر أدناه واختر رقم السطر العربي:");
+    for (const n of ARABIC_CODEPAGES) {
+      s.raw(...CMD.codepage(n));
+      s.line(`${n} : برجر جبن`);
+    }
+    s.raw(...CMD.init, ...CMD.cancelKanji);
+    s.center();
+  }
+
   s.rule();
   s.line("إن ظهرت الحروف متصلة فالإعداد صحيح");
   s.raw(...qrCode("https://station.iq"));

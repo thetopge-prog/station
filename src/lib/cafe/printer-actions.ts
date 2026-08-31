@@ -29,6 +29,8 @@ export type PrinterConfig = {
   port: number;
   share: string | null;
   codepage: Codepage;
+  /** ESC t n for THIS printer — read off the test slip; null = printer default */
+  codepage_cmd: number | null;
   copies: number;
   is_active: boolean;
   sort: number;
@@ -52,13 +54,14 @@ export async function listPrinters(): Promise<PrinterConfig[]> {
   const svc = createSupabaseServiceClient();
   const { data } = await svc
     .from("printers")
-    .select("id, name_ar, kind, station_id, host, port, share, codepage, copies, is_active, sort")
+    .select("id, name_ar, kind, station_id, host, port, share, codepage, codepage_cmd, copies, is_active, sort")
     .order("sort", { ascending: true });
   const { data: stations } = await svc.from("stations").select("id, name_ar");
   const names = new Map((stations ?? []).map((s) => [s.id, s.name_ar]));
   return (data ?? []).map((p) => ({
     ...p,
     codepage: p.codepage as Codepage,
+    codepage_cmd: p.codepage_cmd ?? null,
     kind: p.kind as PrinterConfig["kind"],
     station_name: p.station_id ? names.get(p.station_id) ?? null : null,
   }));
@@ -70,6 +73,7 @@ export async function savePrinter(input: {
   port: number;
   share: string | null;
   codepage: Codepage;
+  codepage_cmd?: number | null;
   copies: number;
   is_active: boolean;
 }) {
@@ -82,6 +86,7 @@ export async function savePrinter(input: {
       port: Math.min(65535, Math.max(1, Math.round(input.port) || 9100)),
       share: input.share?.trim() || null,
       codepage: input.codepage,
+      codepage_cmd: input.codepage_cmd ?? null,
       copies: Math.min(3, Math.max(1, Math.round(input.copies) || 1)),
       is_active: input.is_active,
       updated_at: new Date().toISOString(),
@@ -93,7 +98,7 @@ export async function savePrinter(input: {
 }
 
 /** A calibration slip so the owner can see which codepage their hardware likes. */
-export async function buildTestJob(printerId: string, codepage: Codepage): Promise<PrintJob | null> {
+export async function buildTestJob(printerId: string, codepage: Codepage, codepageCmd: number | null = null): Promise<PrintJob | null> {
   await requireStaff();
   const printers = await listPrinters();
   const p = printers.find((x) => x.id === printerId);
@@ -105,7 +110,7 @@ export async function buildTestJob(printerId: string, codepage: Codepage): Promi
     port: p.port,
     share: p.share,
     copies: 1,
-    data: toBase64(testSlip(p.name_ar, codepage)),
+    data: toBase64(testSlip(p.name_ar, codepage, codepageCmd)),
   };
 }
 
@@ -222,6 +227,7 @@ export async function buildOrderJobs(
       data: toBase64(
         renderTicket(t, {
           codepage: p.codepage,
+          codepageCmd: p.codepage_cmd,
           // the drawer hangs off the receipt printer, and only for cash
           kickDrawer: kickDrawer && t.kind === "receipt",
           shopNameAr: BRAND.nameAr,
