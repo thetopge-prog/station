@@ -79,6 +79,17 @@ export function normalizeIraqiPhone(raw: string): string | null {
   return /^07\d{9}$/.test(local) ? local : null;
 }
 
+/**
+ * Pull an Iraqi mobile out of free text — a notification title, a line of
+ * message body, whatever the phone could be persuaded to send. Digits may
+ * arrive separated by spaces or dashes, so they are stripped first.
+ */
+function digAnyIraqiNumber(text: string): string | null {
+  const flat = text.replace(/[\s\-()]/g, "");
+  const m = flat.match(/(?:\+?964|00964|0)7\d{9}/);
+  return m ? m[0] : null;
+}
+
 export async function POST(req: Request) {
   const expected = process.env.STATION_WEBHOOK_SECRET;
   if (!expected) {
@@ -142,9 +153,26 @@ export async function POST(req: Request) {
   // not, so ?phone=[number] is the route that works. The secret stays in the
   // body: a query string lands in logs and proxy caches, a POST body does not.
   const q = new URL(req.url).searchParams;
-  const anyPhone = [b.phone, b.number, b.caller, b.from, q.get("phone"), q.get("number")]
-    .map((v) => (typeof v === "string" ? v : ""))
-    .find((v) => normalizeIraqiPhone(v));
+
+  /*
+   * Take the number from ANYWHERE in what the phone sent.
+   *
+   * Android stopped handing the incoming number to ordinary apps: since API 29
+   * the PHONE_STATE broadcast's EXTRA_INCOMING_NUMBER is empty no matter what
+   * permissions the app holds — verified on the shop's own handset, where the
+   * call log has 07844446633 and the trigger still resolved to "". So the
+   * telephony route is closed by the platform, not by our configuration.
+   *
+   * What is NOT closed is the notification the dialer raises, which carries the
+   * number as text — the same handle the WhatsApp macro already uses. Rather
+   * than name a field for every shape that text can take, scan every string in
+   * the request for an Iraqi mobile and use the first one found.
+   */
+  const haystack = [
+    ...Object.values(b).filter((v): v is string => typeof v === "string"),
+    ...[...q.values()],
+  ];
+  const anyPhone = haystack.find((v) => normalizeIraqiPhone(v)) ?? haystack.map(digAnyIraqiNumber).find(Boolean);
   const phone = normalizeIraqiPhone(anyPhone ?? "");
 
   // A WhatsApp call notification carries the caller's NUMBER when they are not

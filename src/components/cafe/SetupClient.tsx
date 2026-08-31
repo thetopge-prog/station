@@ -434,6 +434,23 @@ export function SetupClient({
                     so the macro fires, the number field resolves, and it
                     resolves to nothing — which reads like a broken macro and is
                     not one. */}
+                {/* Verified on the shop's own handset with adb: trigger set to
+                    Call Incoming, READ_CALL_LOG / READ_PHONE_STATE /
+                    READ_PHONE_NUMBERS all granted, the number sitting in the
+                    call log — and [number] still resolved to "". Since Android
+                    10 the platform simply does not give the incoming number to
+                    ordinary apps. It is not a configuration we got wrong. */}
+                <p className="mt-2 rounded-lg border-2 border-primary/50 bg-card p-2">
+                  <b>إن بقي الرقم فارغاً — فهذا أندرويد لا الإعداد.</b> منذ أندرويد ١٠ لا يُعطي النظام
+                  رقم المتصل للتطبيقات العادية مهما مُنحت من أذونات. الطريق المفتوح هو{" "}
+                  <b>الإشعار</b> الذي يعرضه تطبيق الهاتف عند الرنين، وفيه الرقم نصّاً:
+                  <br />
+                  <b>أضف مُشغِّلاً ثالثاً:</b> <code dir="ltr">Notifications ← Notification Received</code> ←
+                  اختر تطبيق <b>الهاتف/الاتصال</b>، وأرسل معه{" "}
+                  <code dir="ltr">[notification_title]</code>.
+                  <br />
+                  النظام <b>يستخرج الرقم من أي نصّ يصله</b>، فلا يهمّ شكل الإشعار.
+                </p>
                 <p className="mt-2 rounded-lg border border-amber-500/50 bg-amber-50/60 p-2 dark:bg-amber-950/20">
                   <b>٤. الإذن الذي يطلبه أندرويد بصمت:</b> إعدادات الهاتف ← التطبيقات ← MacroDroid ←
                   الأذونات ← فعّل <b>«الهاتف»</b> و<b>«سجلات المكالمات»</b>.
