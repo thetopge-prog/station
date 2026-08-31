@@ -29,9 +29,9 @@ export function CallBanner({
   onRepeat,
 }: {
   /** attach this caller to the current order (find-or-create) */
-  onUse?: (call: IncomingCall) => void;
+  onUse?: (phone: string) => void;
   /** attach them AND fill the basket with one of their previous orders */
-  onRepeat?: (call: IncomingCall, lines: LastLine[]) => void;
+  onRepeat?: (phone: string, lines: LastLine[]) => void;
 }) {
   const [call, setCall] = useState<IncomingCall | null>(null);
   const [open, setOpen] = useState(false);
@@ -72,8 +72,11 @@ export function CallBanner({
           <span className="min-w-0">
             <span className="block text-xs font-black text-primary">زبون يتصل الآن — اضغط للفتح</span>
             <span className="block truncate text-base font-black">{call.name ?? "زبون جديد"}</span>
-            <span className="block text-xs text-muted-foreground" dir="ltr">
-              {call.phone}
+            {/* a WhatsApp caller in the phone's contacts arrives as a name and
+                no number — say so, rather than printing a dash that reads like
+                a broken field */}
+            <span className={`block text-xs ${call.phone ? "text-muted-foreground" : "font-bold text-amber-600"}`} dir={call.phone ? "ltr" : "rtl"}>
+              {call.phone ?? "مكالمة واتساب — بلا رقم"}
             </span>
           </span>
         </button>
@@ -90,12 +93,12 @@ export function CallBanner({
         <CallerCard
           call={call}
           onClose={() => setOpen(false)}
-          onUse={(c) => {
-            onUse?.(c);
+          onUse={(phone) => {
+            onUse?.(phone);
             void dismiss();
           }}
-          onRepeat={(c, lines) => {
-            onRepeat?.(c, lines);
+          onRepeat={(phone, lines) => {
+            onRepeat?.(phone, lines);
             void dismiss();
           }}
           onDetailsSaved={(name, address) => setCall({ ...call, name, address })}

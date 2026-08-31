@@ -28,9 +28,23 @@ export type LastLine = {
 /** what they ordered last time, so the cashier can say «نفس الطلب؟» */
 export type LastOrder = { at: string; seq: number; total: number; lines: LastLine[] };
 
+/**
+ * The placeholder `/api/calls` writes when a WhatsApp call arrives with a name
+ * and no number. It is a real row — the cashier still wants to know the phone
+ * is ringing — but it is NOT a phone number, and everything downstream treats
+ * it as absent.
+ */
+const NO_NUMBER = "—";
+
 export type IncomingCall = {
   id: string;
-  phone: string;
+  /**
+   * null for a WhatsApp caller saved in the shop phone's contacts: Android
+   * hands over their NAME instead. Typed as nullable so every consumer is
+   * forced to decide what to do about it, rather than silently writing «—»
+   * into the customers table as if it were a number.
+   */
+  phone: string | null;
   at: string;
   /** filled when this number has ordered before — the whole point */
   name: string | null;
@@ -52,16 +66,19 @@ export async function latestCall(): Promise<IncomingCall | null> {
     .limit(1)
     .maybeSingle();
   if (!call) return null;
+  const phone = call.phone === NO_NUMBER ? null : call.phone;
 
   // Looked up now rather than trusted from insert time: the customer may have
   // been created, renamed or given an address in the seconds since the ring.
   const { data: c } = call.customer_id
     ? await svc.from("customers").select("name_ar, address, points").eq("id", call.customer_id).maybeSingle()
-    : await svc.from("customers").select("name_ar, address, points").eq("phone", call.phone).maybeSingle();
+    : phone
+      ? await svc.from("customers").select("name_ar, address, points").eq("phone", phone).maybeSingle()
+      : { data: null };
 
   return {
     id: call.id,
-    phone: call.phone,
+    phone,
     at: call.created_at,
     // a WhatsApp caller saved in the phone's contacts arrives as a name and
     // no number; showing it beats showing nothing
@@ -87,8 +104,9 @@ export async function latestCall(): Promise<IncomingCall | null> {
  * taken at the counter may never have been attached to a loyalty card — and to
  * the person on the phone it is still their last order.
  */
-export async function recentDistinctOrders(phone: string, customerId?: string | null, want = 3): Promise<LastOrder[]> {
+export async function recentDistinctOrders(phone: string | null, customerId?: string | null, want = 3): Promise<LastOrder[]> {
   await requireStaff();
+  if (!phone && !customerId) return [];
   const svc = createSupabaseServiceClient();
 
   const q = svc
@@ -100,7 +118,7 @@ export async function recentDistinctOrders(phone: string, customerId?: string | 
     // orders the same thing most weeks
     .limit(15);
 
-  const { data: orders } = customerId ? await q.eq("customer_id", customerId) : await q.eq("customer_phone", phone.trim());
+  const { data: orders } = customerId ? await q.eq("customer_id", customerId) : await q.eq("customer_phone", phone!.trim());
   if (!orders?.length) return [];
 
   const { data: allItems } = await svc
@@ -145,10 +163,12 @@ export async function recentDistinctOrders(phone: string, customerId?: string | 
  * whichever order happened to carry it. Saving it here is what turns the second
  * call into «نوصّلها لنفس العنوان؟» instead of the whole interrogation again.
  */
-export async function saveCallerDetails(phone: string, name: string, address: string) {
+export async function saveCallerDetails(phone: string | null, name: string, address: string) {
   await requireStaff();
-  const p = phone.trim();
-  if (!p) return { ok: false as const, error: "لا يوجد رقم." };
+  const p = phone?.trim();
+  // «—» is the no-number placeholder, not a number. Saving against it would
+  // fold every anonymous WhatsApp caller into one customer record.
+  if (!p || p === NO_NUMBER) return { ok: false as const, error: "لا يوجد رقم — اكتب رقم الزبون أولاً." };
 
   const patch: { name_ar?: string; address?: string } = {};
   if (name.trim()) patch.name_ar = name.trim();
@@ -170,10 +190,10 @@ export async function saveCallerDetails(phone: string, name: string, address: st
  * طلباً لهذا الرقم» did nothing at all for a new caller — which is every
  * caller, once.
  */
-export async function customerForCall(phone: string): Promise<{ id: string; name_ar: string | null; points: number; serial: string } | null> {
+export async function customerForCall(phone: string | null): Promise<{ id: string; name_ar: string | null; points: number; serial: string } | null> {
   await requireStaff();
-  const p = phone.trim();
-  if (!p) return null;
+  const p = phone?.trim();
+  if (!p || p === NO_NUMBER) return null;
   const svc = createSupabaseServiceClient();
 
   const { data: found } = await svc.from("customers").select("id, name_ar, points, card_serial").eq("phone", p).maybeSingle();

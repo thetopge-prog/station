@@ -40,13 +40,18 @@ export function CallerCard({
 }: {
   call: IncomingCall;
   onClose: () => void;
-  onUse: (call: IncomingCall) => void;
-  onRepeat: (call: IncomingCall, lines: LastLine[]) => void;
+  onUse: (phone: string) => void;
+  onRepeat: (phone: string, lines: LastLine[]) => void;
   onDetailsSaved?: (name: string | null, address: string | null) => void;
 }) {
   const [name, setName] = useState(call.name ?? "");
+  // Typed by hand for a WhatsApp caller, whose number Android never hands over
+  // when they are saved in the shop phone's contacts. Without this the cashier
+  // knows who is on the line and can record nothing about them.
+  const [phone, setPhone] = useState(call.phone ?? "");
   const [address, setAddress] = useState(call.address ?? "");
   const [saved, setSaved] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
   const [orders, setOrders] = useState<LastOrder[] | null>(null);
   const [picked, setPicked] = useState(0);
 
@@ -62,8 +67,12 @@ export function CallerCard({
   }, [call.phone]);
 
   async function save() {
-    const res = await saveCallerDetails(call.phone, name, address);
-    if (!res.ok) return;
+    const res = await saveCallerDetails(phone, name, address);
+    if (!res.ok) {
+      setErr(res.error);
+      return;
+    }
+    setErr(null);
     setSaved(true);
     onDetailsSaved?.(name.trim() || null, address.trim() || null);
     setTimeout(() => setSaved(false), 2000);
@@ -110,12 +119,28 @@ export function CallerCard({
             />
           </label>
 
-          <div className="rounded-xl bg-secondary/60 p-3">
-            <p className="text-lg font-black tabular-nums" dir="ltr">
-              {call.phone}
-            </p>
-            {call.points != null && <p className="text-xs font-bold text-muted-foreground">{call.points} نقطة</p>}
-          </div>
+          {call.phone ? (
+            <div className="rounded-xl bg-secondary/60 p-3">
+              <p className="text-lg font-black tabular-nums" dir="ltr">
+                {call.phone}
+              </p>
+              {call.points != null && <p className="text-xs font-bold text-muted-foreground">{call.points} نقطة</p>}
+            </div>
+          ) : (
+            <label className="block text-sm">
+              <span className="font-bold text-amber-600">مكالمة واتساب — اسأل عن الرقم واكتبه</span>
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                inputMode="tel"
+                dir="ltr"
+                placeholder="07XXXXXXXXX"
+                className="mt-1 block min-h-12 w-full rounded-xl border border-input bg-background px-3 text-lg font-black tabular-nums outline-none focus:ring-2 focus:ring-ring"
+              />
+            </label>
+          )}
+
+          {err && <p className="text-sm font-bold text-destructive">{err}</p>}
 
           <button
             onClick={() => void save()}
@@ -192,14 +217,14 @@ export function CallerCard({
       {/* ── what happens next ── */}
       <footer className="grid gap-2 border-t border-border bg-card p-4 sm:grid-cols-2">
         <button
-          onClick={() => chosen && onRepeat(call, chosen.lines)}
+          onClick={() => chosen && onRepeat(phone, chosen.lines)}
           disabled={!chosen}
           className="min-h-14 rounded-2xl bg-primary text-lg font-black text-primary-foreground transition active:scale-[0.99] disabled:opacity-40"
         >
           {chosen ? `اختر هذا الطلب · ${formatIqdLabel(chosen.total)}` : "لا يوجد طلب سابق"}
         </button>
         <button
-          onClick={() => onUse(call)}
+          onClick={() => onUse(phone)}
           className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl border-2 border-primary text-lg font-black text-primary transition active:scale-[0.99]"
         >
           <Sparkles className="size-5" />

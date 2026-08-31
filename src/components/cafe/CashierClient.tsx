@@ -354,8 +354,8 @@ export function CashierClient({
 
         {/* who is calling — the loyalty box below is where that call lands */}
         <CallBanner
-          onUse={(c) => void attachCaller(c.phone)}
-          onRepeat={(c, lines) => {
+          onUse={(phone) => void attachCaller(phone)}
+          onRepeat={(phone, lines) => {
             // Their previous receipt, dropped into the basket as ordinary lines
             // — every one still editable. A repeat order is a starting point,
             // not a shortcut past the cashier reading it back.
@@ -373,7 +373,7 @@ export function CashierClient({
                   qty: l.qty,
                 })),
             });
-            void attachCaller(c.phone);
+            void attachCaller(phone);
           }}
         />
 
