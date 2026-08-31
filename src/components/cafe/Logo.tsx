@@ -7,10 +7,17 @@ import { BRAND } from "@/lib/brand";
  * on white and on kraft, at 24px in a nav bar and at 200px on a TV, and it must
  * render before any network request completes (the POS screens run offline).
  * `currentColor` lets it inherit whatever it is placed on.
+ *
+ * The width/height ATTRIBUTES are the fallback size, not the real one — any
+ * class overrides them. They exist for a browser that drops the stylesheet:
+ * an old smart-TV browser ignores Tailwind's @layer block entirely, and
+ * without an intrinsic size an unstyled SVG expands to fill the screen. A
+ * ceiling display showing one enormous face is worse than one showing a small
+ * logo and no layout.
  */
 export function StationSmiley({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 64 64" className={className} role="img" aria-label={BRAND.nameAr} fill="none">
+    <svg viewBox="0 0 64 64" width="64" height="64" className={className} role="img" aria-label={BRAND.nameAr} fill="none">
       <circle cx="32" cy="32" r="29" stroke="currentColor" strokeWidth="4" />
       {/* the two arced eyes, closed-happy, exactly as on the packaging */}
       <path d="M20 25c1.6-3.4 5.4-3.4 7 0" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
