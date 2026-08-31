@@ -20,6 +20,9 @@
 param(
   [int]$Port = 9988,
   [string]$DrawerShare = "POS80",
+  # The Windows printer NAME. Preferred over the share: raw bytes go straight to
+  # the spooler, so no SMB, no loopback, no share permissions in the path.
+  [string]$PrinterName = "",
   [switch]$Install
 )
 
@@ -30,13 +33,13 @@ if ($Install) {
   # opens. -WindowStyle Hidden keeps a console off the cashier screen.
   $target = $MyInvocation.MyCommand.Path
   $action = New-ScheduledTaskAction -Execute "powershell.exe" `
-    -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$target`" -Port $Port -DrawerShare $DrawerShare"
+    -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$target`" -Port $Port -DrawerShare `"$DrawerShare`" -PrinterName `"$PrinterName`""
   $trigger = New-ScheduledTaskTrigger -AtStartup
   $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -RunLevel Highest
   $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1)
   Register-ScheduledTask -TaskName "StationPrintAgent" -Action $action -Trigger $trigger `
     -Principal $principal -Settings $settings -Force | Out-Null
-  Write-Host "تم تثبيت وكيل الطباعة — يبدأ تلقائياً مع تشغيل الجهاز."
+  Write-Host "Print agent installed - starts automatically with Windows."
   Start-ScheduledTask -TaskName "StationPrintAgent"
   exit 0
 }
@@ -61,29 +64,81 @@ function Send-Tcp([string]$TargetHost, [int]$TargetPort, [byte[]]$Bytes) {
   }
 }
 
+<#
+  Raw bytes to the spooler by printer NAME — OpenPrinter / StartDocPrinter /
+  WritePrinter, which is how till software has always done this.
+
+  The share path below it was the only route and it answered 500 on the shop's
+  machine: writing to \host\SHARE goes through SMB even when the printer is
+  attached to that very computer, so it inherits loopback hardening, share
+  permissions and the Server service. None of that has anything to do with
+  printing. This route touches none of it.
+#>
+if (-not ([System.Management.Automation.PSTypeName]'Station.RawPrint').Type) {
+  Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+namespace Station {
+  public class RawPrint {
+    [StructLayout(LayoutKind.Sequential, CharSet=CharSet.Unicode)]
+    public class DOCINFO { [MarshalAs(UnmanagedType.LPWStr)] public string pDocName;
+                           [MarshalAs(UnmanagedType.LPWStr)] public string pOutputFile;
+                           [MarshalAs(UnmanagedType.LPWStr)] public string pDataType; }
+    [DllImport("winspool.drv", CharSet=CharSet.Unicode, SetLastError=true)]
+    static extern bool OpenPrinter(string src, out IntPtr h, IntPtr pd);
+    [DllImport("winspool.drv", SetLastError=true)] static extern bool ClosePrinter(IntPtr h);
+    [DllImport("winspool.drv", CharSet=CharSet.Unicode, SetLastError=true)]
+    static extern bool StartDocPrinter(IntPtr h, int level, [In, MarshalAs(UnmanagedType.LPStruct)] DOCINFO di);
+    [DllImport("winspool.drv", SetLastError=true)] static extern bool EndDocPrinter(IntPtr h);
+    [DllImport("winspool.drv", SetLastError=true)] static extern bool StartPagePrinter(IntPtr h);
+    [DllImport("winspool.drv", SetLastError=true)] static extern bool EndPagePrinter(IntPtr h);
+    [DllImport("winspool.drv", SetLastError=true)]
+    static extern bool WritePrinter(IntPtr h, IntPtr buf, int count, out int written);
+
+    public static void Send(string printer, byte[] bytes) {
+      IntPtr h; if (!OpenPrinter(printer, out h, IntPtr.Zero))
+        throw new Exception("OpenPrinter failed for '" + printer + "': " + Marshal.GetLastWin32Error());
+      try {
+        DOCINFO di = new DOCINFO(); di.pDocName = "Station"; di.pDataType = "RAW";
+        if (!StartDocPrinter(h, 1, di)) throw new Exception("StartDocPrinter: " + Marshal.GetLastWin32Error());
+        try {
+          if (!StartPagePrinter(h)) throw new Exception("StartPagePrinter: " + Marshal.GetLastWin32Error());
+          IntPtr p = Marshal.AllocCoTaskMem(bytes.Length);
+          try {
+            Marshal.Copy(bytes, 0, p, bytes.Length);
+            int written;
+            if (!WritePrinter(h, p, bytes.Length, out written))
+              throw new Exception("WritePrinter: " + Marshal.GetLastWin32Error());
+          } finally { Marshal.FreeCoTaskMem(p); }
+          EndPagePrinter(h);
+        } finally { EndDocPrinter(h); }
+      } finally { ClosePrinter(h); }
+    }
+  }
+}
+'@
+}
+
 function Send-Share([string]$Share, [byte[]]$Bytes) {
-  # Three spellings of "this machine". \\127.0.0.1\ is refused outright on
-  # some Windows builds (loopback SMB hardening, or the IP simply not being a
-  # name the redirector accepts) while \\localhost\ or the computer name work
-  # on the very same box. First one that opens wins; if none do, every failure
-  # is reported, because "could not print" told the shop nothing at all.
   $errs = @()
+
+  # 1) the spooler, by name — the route that does not involve the network
+  if ($PrinterName) {
+    try { [Station.RawPrint]::Send($PrinterName, $Bytes); return }
+    catch { $errs += ("spooler '" + $PrinterName + "': " + $_.Exception.Message) }
+  }
+
+  # 2) the share, three spellings of "this machine". Kept because a printer on
+  #    ANOTHER till is reachable only this way.
   foreach ($h in @("127.0.0.1", "localhost", $env:COMPUTERNAME)) {
     $path = "\\$h\$Share"
     try {
       $fs = [System.IO.File]::OpenWrite($path)
-      try {
-        $fs.Write($Bytes, 0, $Bytes.Length)
-        $fs.Flush()
-      } finally {
-        $fs.Close()
-      }
+      try { $fs.Write($Bytes, 0, $Bytes.Length); $fs.Flush() } finally { $fs.Close() }
       return
-    } catch {
-      $errs += ("{0}: {1}" -f $path, $_.Exception.Message)
-    }
+    } catch { $errs += ("{0}: {1}" -f $path, $_.Exception.Message) }
   }
-  throw ("could not write to printer share. " + ($errs -join " | "))
+  throw ("could not reach the printer. " + ($errs -join " | "))
 }
 
 function Send-Bytes($TargetHost, $TargetPort, $Share, [byte[]]$Bytes) {

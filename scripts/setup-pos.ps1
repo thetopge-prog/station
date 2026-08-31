@@ -125,7 +125,7 @@ Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" |
   Where-Object { $_.CommandLine -like "*print-agent.ps1*" } |
   ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 
-& powershell -NoProfile -ExecutionPolicy Bypass -File $agentPath -Install -DrawerShare $share | Out-Null
+& powershell -NoProfile -ExecutionPolicy Bypass -File $agentPath -Install -DrawerShare "$share" -PrinterName "$($chosen.Name)" | Out-Null
 Start-Sleep -Seconds 3
 try {
   Invoke-WebRequest "http://127.0.0.1:9988/ping" -UseBasicParsing -TimeoutSec 5 | Out-Null
@@ -142,8 +142,12 @@ try {
   # The agent answers a failure with the real reason in the body. Printing uses
   # the same path as this pulse, so a silent failure here is a shop that
   # discovers on a busy evening that nothing prints.
+  # PowerShell 5.1 puts a failed response body in ErrorDetails; the stream is
+  # the fallback. Without one of the two, all the shop sees is "(500) Internal
+  # Server Error", which names nothing.
   $why = ""
-  try { $why = (New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())).ReadToEnd() } catch { }
+  try { $why = $_.ErrorDetails.Message } catch { }
+  if (-not $why) { try { $why = (New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())).ReadToEnd() } catch { } }
   if (-not $why) { $why = $_.Exception.Message }
   Say "DRAWER/PRINT TEST FAILED: $why" $false
   Say "Printing uses this same path - fix this before trading on Station." $false
