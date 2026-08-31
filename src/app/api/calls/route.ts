@@ -31,6 +31,30 @@ import { createSupabaseServiceClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Every request is written down, verbatim, for /setup to show.
+ *
+ * MacroDroid's own log said "captured 07831551888" and then "422". Both true:
+ * the number was on the phone and it did not arrive here. What was actually in
+ * the body — the one fact that settles it — nobody could see, so every attempt
+ * at a fix was a guess. Twenty rows, secret redacted, oldest trimmed.
+ *
+ * Never allowed to fail the request it is describing.
+ */
+async function note(status: number, raw: string, why: string) {
+  try {
+    const svc = createSupabaseServiceClient();
+    await svc.rpc("log_webhook", {
+      p_route: "/api/calls",
+      p_status: status,
+      p_body: raw.replace(/("secret"\s*:\s*")[^"]*"/i, '$1***"').slice(0, 600),
+      p_note: why,
+    });
+  } catch {
+    /* a diagnostic that breaks the thing it diagnoses is worse than none */
+  }
+}
+
 function secretMatches(given: string | null, expected: string): boolean {
   if (!given || given.length !== expected.length) return false;
   let diff = 0;
@@ -96,13 +120,24 @@ export async function POST(req: Request) {
   //   401 — no secret arrived at all (empty body, wrong tab, nothing sent)
   //   403 — a secret arrived and does not match (wrong value)
   if (!candidates.length) {
+    await note(401, raw, "لم تصل كلمة السر");
     return NextResponse.json({ ok: false, error: "لم تصل كلمة السر إطلاقاً" }, { status: 401 });
   }
   if (!candidates.some((c) => secretMatches(c, expected.trim()))) {
+    await note(403, raw, "كلمة السر غير مطابقة");
     return NextResponse.json({ ok: false, error: "كلمة السر وصلت لكنها غير مطابقة" }, { status: 403 });
   }
 
-  const phone = normalizeIraqiPhone(body.phone ?? "");
+  // Read the number from any of the names an automation app might use. The
+  // shop's macro fires on «Call Active», whose magic text is not the same as
+  // «Incoming Call»'s, and one wrong field name produced a 422 while the phone
+  // itself displayed the number correctly. Cheaper to accept four spellings
+  // than to have somebody drive back to the shop.
+  const b = body as Record<string, unknown>;
+  const anyPhone = [b.phone, b.number, b.caller, b.from]
+    .map((v) => (typeof v === "string" ? v : ""))
+    .find((v) => normalizeIraqiPhone(v));
+  const phone = normalizeIraqiPhone(anyPhone ?? "");
 
   // A WhatsApp call notification carries the caller's NUMBER when they are not
   // in the phone's contacts, and their NAME when they are. A name is not
@@ -117,6 +152,7 @@ export async function POST(req: Request) {
   }
 
   if (!phone) {
+    await note(422, raw, `لا رقم صالح — قرأتُ: "${body.phone ?? ""}"`);
     // 422, not 200. The automation app shows the operator a status number and
     // nothing else, and «authorised but no usable number» looked identical to
     // «recorded» — which is a test that appears to pass while the database
@@ -136,6 +172,8 @@ export async function POST(req: Request) {
     .from("incoming_calls")
     .insert({ phone, customer_id: customer?.id ?? null, caller_name: callerName });
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+
+  await note(200, raw, `سُجّل ${phone}`);
 
   // Echoed back so the phone can show a notification even before anyone looks
   // at the till screen.

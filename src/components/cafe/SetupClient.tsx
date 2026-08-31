@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, Check, Monitor, Printer, RefreshCw, Smartphone, X } from "lucide-react";
 import { CopyButton } from "./CopyButton";
+import { recentWebhooks } from "@/lib/cafe/webhook-log";
 
 /**
  * /setup — the installation page, opened in the browser on the machine being
@@ -30,6 +31,8 @@ export type MappedPrinter = {
   share: string | null;
   active: boolean;
 };
+
+export type WebhookRow = { id: number; at: string; status: number; body: string | null; note: string | null };
 
 export type ScreenLink = { title: string; note: string; url: string; qr: string; kiosk: string };
 
@@ -86,6 +89,22 @@ export function SetupClient({
     const t = setTimeout(() => void probe(), 0);
     return () => clearTimeout(t);
   }, [probe]);
+
+  // What the phone actually sent, most recent first. Refreshed on demand rather
+  // than polled: this is read while somebody stands next to the till making a
+  // test call, not left open all day.
+  const [hooks, setHooks] = useState<WebhookRow[]>([]);
+  const loadHooks = useCallback(async () => {
+    try {
+      setHooks(await recentWebhooks());
+    } catch {
+      /* not the developer, or the table is empty */
+    }
+  }, []);
+  useEffect(() => {
+    const t = setTimeout(() => void loadHooks(), 0);
+    return () => clearTimeout(t);
+  }, [loadHooks]);
 
   const unconfigured = printers.filter((p) => !p.host && !p.share).length;
   // shown without the scheme: a TV keyboard makes "https://" eight wasted
@@ -332,6 +351,46 @@ export function SetupClient({
                 <tr className="border-t border-border"><td className="p-2 font-black">403</td><td className="p-2">كلمة السر وصلت وهي خاطئة — أعِد نسخها من هنا</td></tr>
               </tbody>
             </table>
+          </div>
+
+          {/* What the phone actually sent.
+              A status code alone is a riddle: MacroDroid reported «captured
+              07831551888» and «422» in the same second, both true, and the one
+              fact that reconciles them — the body — was invisible. Now it is
+              not. The secret is redacted before the row is written; this is a
+              diagnostic, not somewhere to leak it. */}
+          <div className="mt-3 rounded-xl border-2 border-primary/40 bg-card p-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="text-sm font-black">📥 آخر ما وصل من الهاتف</p>
+              <button
+                onClick={() => void loadHooks()}
+                className="min-h-9 rounded-lg border border-border px-3 text-xs font-bold hover:bg-secondary"
+              >
+                تحديث
+              </button>
+            </div>
+            {hooks.length === 0 ? (
+              <p className="text-xs font-bold text-muted-foreground">
+                لا شيء بعد — اتصل بخط المطعم ثم اضغط «تحديث».
+              </p>
+            ) : (
+              <ul className="space-y-1.5">
+                {hooks.map((h) => (
+                  <li key={h.id} className="rounded-lg bg-secondary/60 p-2 text-xs">
+                    <p className="flex items-center gap-2 font-black">
+                      <span className={h.status === 200 ? "text-emerald-600" : "text-destructive"}>{h.status}</span>
+                      <span className="text-muted-foreground" dir="ltr">
+                        {new Date(h.at).toLocaleTimeString("en-GB", { timeZone: "Asia/Baghdad" })}
+                      </span>
+                      <span className="font-bold">{h.note}</span>
+                    </p>
+                    <p className="mt-0.5 break-all font-mono text-[11px] text-muted-foreground" dir="ltr">
+                      {h.body}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           <div className="mt-3 space-y-2 rounded-xl border border-border bg-card p-3 text-sm">

@@ -241,6 +241,13 @@ export type Database = {
         Update: Partial<{ closed_at: string | null; station_id: string | null }>;
         Relationships: [];
       };
+      // آخر ما وصل إلى /api/calls — لصفحة التركيب (0052)
+      webhook_log: {
+        Row: { id: number; at: string; route: string; status: number; body: string | null; note: string | null };
+        Insert: { route: string; status: number; body?: string | null; note?: string | null };
+        Update: Partial<{ route: string; status: number; body: string | null; note: string | null }>;
+        Relationships: [];
+      };
       // من كان يجهّز في يوم عمل — يؤشّرهم الكاشير (0050)
       duty_expediters: {
         Row: { business_day: string; employee_id: string; created_at: string };
@@ -418,6 +425,7 @@ export type Database = {
     Functions: {
       // يستبدل قائمة مجهّزي اليوم كاملة (0050)
       set_duty_expediters: { Args: { p_day: string; p_ids: string[] }; Returns: undefined };
+      log_webhook: { Args: { p_route: string; p_status: number; p_body: string; p_note: string }; Returns: undefined };
       place_order: {
         Args: {
           p_channel: OrderChannel; p_lines: Json; p_customer?: string | null; p_table?: string | null;
