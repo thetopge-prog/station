@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { PhoneCall, X } from "lucide-react";
+import { chimeCall, unlockAudio } from "@/lib/cafe/chime";
 import { latestCall, markCallHandled, type IncomingCall, type LastLine } from "@/lib/cafe/call-actions";
 import { CallerCard } from "./CallerCard";
 
@@ -35,14 +36,34 @@ export function CallBanner({
 }) {
   const [call, setCall] = useState<IncomingCall | null>(null);
   const [open, setOpen] = useState(false);
+  // ids already announced, so the four-second poll does not ring on every tick
+  const rung = useRef<Set<string>>(new Set());
 
   const poll = useCallback(async () => {
     try {
       const next = await latestCall();
+      // A ring the cashier has to SEE is a ring they miss: they are looking at
+      // the basket, not at the top of the screen. Sound is what actually
+      // reaches someone whose eyes are elsewhere.
+      if (next && !rung.current.has(next.id)) {
+        rung.current.add(next.id);
+        chimeCall();
+      }
       setCall((prev) => (prev && next && prev.id === next.id ? prev : next));
     } catch {
       /* signed out or offline — a banner must never break the till */
     }
+  }, []);
+
+  // Browsers refuse audio until the page has been touched once. A till is
+  // touched constantly, so the first tap of the shift unlocks the rest of it.
+  useEffect(() => {
+    const unlock = () => {
+      unlockAudio();
+      window.removeEventListener("pointerdown", unlock);
+    };
+    window.addEventListener("pointerdown", unlock);
+    return () => window.removeEventListener("pointerdown", unlock);
   }, []);
 
   useEffect(() => {
@@ -66,16 +87,21 @@ export function CallBanner({
 
   return (
     <>
-      <div className="mb-3 flex animate-[st-card-in_.3s_both] items-center gap-2 rounded-2xl border-2 border-primary bg-primary/10 p-2.5">
-        <button onClick={() => setOpen(true)} className="flex min-w-0 flex-1 items-center gap-2 text-right">
-          <PhoneCall className="size-5 shrink-0 animate-pulse text-primary" />
+      {/* Loud on purpose. The first version was a quiet strip, and a quiet
+          strip at the top of a screen whose user is looking at the basket is
+          furniture. Orange fill, white type, a pulsing handset — it reads from
+          across the counter without being a dialog that steals the till
+          mid-order. */}
+      <div className="mb-3 flex animate-[st-card-in_.3s_both] items-center gap-3 rounded-2xl bg-primary p-3.5 text-primary-foreground shadow-station-lg ring-4 ring-primary/25">
+        <button onClick={() => setOpen(true)} className="flex min-w-0 flex-1 items-center gap-3 text-right">
+          <PhoneCall className="size-8 shrink-0 animate-pulse" />
           <span className="min-w-0">
-            <span className="block text-xs font-black text-primary">زبون يتصل الآن — اضغط للفتح</span>
-            <span className="block truncate text-base font-black">{call.name ?? "زبون جديد"}</span>
+            <span className="block text-sm font-black opacity-90">📞 زبون يتصل الآن — اضغط للفتح</span>
+            <span className="block truncate text-xl font-black">{call.name ?? "زبون جديد"}</span>
             {/* a WhatsApp caller in the phone's contacts arrives as a name and
                 no number — say so, rather than printing a dash that reads like
                 a broken field */}
-            <span className={`block text-xs ${call.phone ? "text-muted-foreground" : "font-bold text-amber-600"}`} dir={call.phone ? "ltr" : "rtl"}>
+            <span className={`block text-lg font-black tabular-nums ${call.phone ? "opacity-95" : "opacity-90"}`} dir={call.phone ? "ltr" : "rtl"}>
               {call.phone ?? "مكالمة واتساب — بلا رقم"}
             </span>
           </span>
@@ -83,7 +109,7 @@ export function CallBanner({
         <button
           onClick={() => void dismiss()}
           aria-label="إخفاء"
-          className="grid size-11 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-secondary"
+          className="grid size-11 shrink-0 place-items-center rounded-full text-primary-foreground/80 hover:bg-white/20"
         >
           <X className="size-5" />
         </button>

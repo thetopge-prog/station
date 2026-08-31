@@ -58,3 +58,14 @@ export function chimeNewOrder(): void {
 export function chimeReady(): void {
   playTones([784, 988, 1319], 0.14, 0.3);
 }
+
+/**
+ * Two-tone, like a desk phone: somebody is on the line right now.
+ *
+ * Deliberately unlike chimeReady — a cashier learns which sound means what
+ * within a shift, and two alerts that sound alike are one alert nobody trusts.
+ * Repeated twice because the till is the noisiest corner of the shop.
+ */
+export function chimeCall(): void {
+  playTones([880, 660, 880, 660], 0.16, 0.32);
+}
