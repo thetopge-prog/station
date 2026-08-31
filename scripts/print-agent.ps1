@@ -62,14 +62,28 @@ function Send-Tcp([string]$TargetHost, [int]$TargetPort, [byte[]]$Bytes) {
 }
 
 function Send-Share([string]$Share, [byte[]]$Bytes) {
-  $path = "\\127.0.0.1\$Share"
-  $fs = [System.IO.File]::OpenWrite($path)
-  try {
-    $fs.Write($Bytes, 0, $Bytes.Length)
-    $fs.Flush()
-  } finally {
-    $fs.Close()
+  # Three spellings of "this machine". \\127.0.0.1\ is refused outright on
+  # some Windows builds (loopback SMB hardening, or the IP simply not being a
+  # name the redirector accepts) while \\localhost\ or the computer name work
+  # on the very same box. First one that opens wins; if none do, every failure
+  # is reported, because "could not print" told the shop nothing at all.
+  $errs = @()
+  foreach ($h in @("127.0.0.1", "localhost", $env:COMPUTERNAME)) {
+    $path = "\\$h\$Share"
+    try {
+      $fs = [System.IO.File]::OpenWrite($path)
+      try {
+        $fs.Write($Bytes, 0, $Bytes.Length)
+        $fs.Flush()
+      } finally {
+        $fs.Close()
+      }
+      return
+    } catch {
+      $errs += ("{0}: {1}" -f $path, $_.Exception.Message)
+    }
   }
+  throw ("could not write to printer share. " + ($errs -join " | "))
 }
 
 function Send-Bytes($TargetHost, $TargetPort, $Share, [byte[]]$Bytes) {
@@ -153,7 +167,7 @@ while ($listener.IsListening) {
         for ($i = 0; $i -lt $copies; $i++) {
           Send-Bytes $job.host $portToUse $job.share $bytes
         }
-        Write-Host ("طُبع: {0} ({1} نسخة)" -f $job.printerName, $copies)
+        Write-Host ("printed: {0} x{1}" -f $job.printerName, $copies)
       }
       default {
         $res.StatusCode = 404
@@ -168,9 +182,15 @@ while ($listener.IsListening) {
   } catch {
     # One bad job (printer off, paper out, malformed request) must never take
     # the agent down — the next sale still has to print.
-    Write-Host ("خطأ طباعة: {0}" -f $_.Exception.Message) -ForegroundColor Yellow
+    # The installer and the till both surface this text. A 500 with an empty
+    # body is how a printing fault stays a mystery for a week.
+    $msg = $_.Exception.Message
+    Write-Host ("print error: {0}" -f $msg) -ForegroundColor Yellow
     try {
       $res.StatusCode = 500
+      $out = [System.Text.Encoding]::UTF8.GetBytes($msg)
+      $res.ContentLength64 = $out.Length
+      $res.OutputStream.Write($out, 0, $out.Length)
       $res.Close()
     } catch { }
   }

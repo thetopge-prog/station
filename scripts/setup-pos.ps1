@@ -40,21 +40,21 @@ if (-not $isAdmin) {
     Start-Process powershell -Verb RunAs -ArgumentList "-ExecutionPolicy Bypass -File `"$PSCommandPath`"$fwd"
     exit
   }
-  Say "شغّل PowerShell كمسؤول (Run as Administrator) ثم أعد المحاولة" $false
-  Read-Host "اضغط Enter للإغلاق"
+  Say "Run PowerShell as Administrator, then try again" $false
+  Read-Host "Press Enter to close"
   exit 1
 }
 
 Write-Host ""
-Write-Host "══════ إعداد كاشير ستيشن ══════"
+Write-Host "====== Station POS setup ======"
 Write-Host ""
 
 # ── 1) اكتشاف طابعة الفواتير ────────────────────────────────────────────────
 $pat = "POS|-80|80mm|58|Receipt|Thermal|BIXOLON|EPSON TM|TM-|XP-|Xprinter|SAM4S|Citizen|POSBANK|SEWOO|Rongta|GP-|SPRT|HPRT"
 $all = @(Get-Printer | Where-Object { $_.Name -notmatch "OneNote|PDF|XPS|Fax" })
 if (-not $all) {
-  Say "لا توجد أي طابعة مثبتة! ثبّت تعريف طابعة الفواتير أولاً ثم أعد التشغيل" $false
-  Read-Host "اضغط Enter للإغلاق"
+  Say "No printer installed. Install the receipt printer driver first, then re-run" $false
+  Read-Host "Press Enter to close"
   exit 1
 }
 $defaultName = (Get-CimInstance Win32_Printer | Where-Object { $_.Default }).Name
@@ -64,21 +64,21 @@ if ($defaultName -and ($cands | Where-Object { $_.Name -eq $defaultName })) { $c
 elseif ($cands) { $chosen = $cands | Select-Object -First 1 }
 elseif ($defaultName) { $chosen = $all | Where-Object { $_.Name -eq $defaultName } | Select-Object -First 1 }
 else { $chosen = $all | Select-Object -First 1 }
-Say "طابعة الفواتير المكتشفة: $($chosen.Name)"
+Say "Receipt printer found: $($chosen.Name)"
 
 # ── 2) مشاركة الطابعة (أو استخدام مشاركتها الحالية) ────────────────────────
 try { Start-Service LanmanServer -ErrorAction Stop } catch {}
 $share = $null
 if ($chosen.Shared -and $chosen.ShareName) {
   $share = $chosen.ShareName
-  Say "الطابعة مشاركة مسبقاً بالاسم: $share (سيُستخدم كما هو)"
+  Say "Printer already shared as: $share (kept as-is)"
 } else {
   $share = "POS80"
   try {
     Set-Printer -Name $chosen.Name -Shared $true -ShareName $share -ErrorAction Stop
-    Say "تمت مشاركة الطابعة بالاسم: $share"
+    Say "Printer shared as: $share"
   } catch {
-    Say "تعذّرت المشاركة تلقائياً: $($_.Exception.Message) — شاركها يدوياً بالاسم POS80" $false
+    Say "Could not share automatically: $($_.Exception.Message) - share it by hand as POS80" $false
   }
 }
 
@@ -90,12 +90,12 @@ if ($MakeDefault) {
   try {
     (New-Object -ComObject WScript.Network).SetDefaultPrinter($chosen.Name)
     New-ItemProperty -Path "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Windows" -Name "LegacyDefaultPrinterMode" -Value 1 -PropertyType DWord -Force | Out-Null
-    Say "أصبحت الافتراضية (وأوقفنا تبديل Windows التلقائي لها)"
+    Say "Set as the default printer (Windows auto-switching turned off)"
   } catch {
-    Say "تعذّر ضبط الافتراضية تلقائياً — اضبطها من إعدادات الطابعات" $false
+    Say "Could not set the default printer - set it in Windows printer settings" $false
   }
 } else {
-  Say "الطابعة الافتراضية لم تُغيَّر — النظام القديم يبقى كما هو (أضف -MakeDefault عند الانتقال الكامل)"
+  Say "Default printer NOT changed - the other system is untouched (add -MakeDefault when you switch over)"
 }
 
 # ── 4) تنزيل وكيل الطباعة ───────────────────────────────────────────────────
@@ -107,11 +107,11 @@ $agentPath = "$dir\print-agent.ps1"
 $agentUrl = "https://raw.githubusercontent.com/thetopge-prog/station/main/scripts/print-agent.ps1"
 try {
   Invoke-WebRequest $agentUrl -OutFile $agentPath -UseBasicParsing -TimeoutSec 30
-  Say "نُزّل وكيل الطباعة إلى $agentPath"
+  Say "Print agent downloaded to $agentPath"
 } catch {
-  Say "تعذّر تنزيل وكيل الطباعة: $($_.Exception.Message)" $false
-  Say "بدون هذا الملف لن تُطبع أي تذكرة. تأكد من الإنترنت وأعد تشغيل المُثبّت." $false
-  Read-Host "اضغط Enter للإغلاق"
+  Say "Could not download the print agent: $($_.Exception.Message)" $false
+  Say "Without it nothing will print. Check the internet and re-run this installer." $false
+  Read-Host "Press Enter to close"
   exit 1
 }
 
@@ -129,17 +129,25 @@ Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" |
 Start-Sleep -Seconds 3
 try {
   Invoke-WebRequest "http://127.0.0.1:9988/ping" -UseBasicParsing -TimeoutSec 5 | Out-Null
-  Say "وكيل الطباعة يعمل، ويبدأ تلقائياً مع الجهاز (المشاركة: $share)"
+  Say "Print agent is running and starts with Windows (share: $share)"
 } catch {
-  Say "الوكيل لم يستجب بعد — أعد تشغيل الجهاز، فهو مسجّل للعمل مع الإقلاع" $false
+  Say "Agent not answering yet - reboot; it is registered to start on boot" $false
 }
 
 # ── 6) اختبار فتح الدرج ─────────────────────────────────────────────────────
 try {
-  Invoke-WebRequest "http://127.0.0.1:9988/kick" -UseBasicParsing -TimeoutSec 6 | Out-Null
-  Say "أُرسلت نبضة الاختبار — إن انفتح الدرج الآن فكل شيء مضبوط 💰"
+  Invoke-WebRequest "http://127.0.0.1:9988/kick" -UseBasicParsing -TimeoutSec 15 | Out-Null
+  Say "Drawer test sent - if the drawer just opened, printing is wired correctly"
 } catch {
-  Say "لم يستجب الوكيل للاختبار — أعد تشغيل الجهاز وجرّب http://127.0.0.1:9988/kick" $false
+  # The agent answers a failure with the real reason in the body. Printing uses
+  # the same path as this pulse, so a silent failure here is a shop that
+  # discovers on a busy evening that nothing prints.
+  $why = ""
+  try { $why = (New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())).ReadToEnd() } catch { }
+  if (-not $why) { $why = $_.Exception.Message }
+  Say "DRAWER/PRINT TEST FAILED: $why" $false
+  Say "Printing uses this same path - fix this before trading on Station." $false
+  Say "Check: printer online, sharing enabled, share name = $share" $false
 }
 
 # ── 7) اختصار «كاشير ستيشن» بوضع الطباعة الصامتة ──────────────────────────
@@ -163,7 +171,7 @@ if ($browser) {
   $lnk.Arguments = "--app=https://station-anbar.netlify.app/cashier --kiosk-printing --start-maximized --no-first-run"
   if ($ico -and (Test-Path $ico)) { $lnk.IconLocation = "$ico,0" } else { $lnk.IconLocation = "$browser,0" }
   $lnk.Save()
-  Say "اختصار «كاشير ستيشن» (نافذة تطبيق نظيفة بلا متصفح + أيقونة ستيشن + طباعة صامتة)"
+  Say "Desktop shortcut created: Station POS (app window, silent printing)"
 
   # ── يفتح الكاشير تلقائياً عند تشغيل ويندوز (نسخة من الاختصار في مجلد بدء التشغيل) ──
   $startupLnk = $ws.CreateShortcut("$startupDir\كاشير ستيشن.lnk")
@@ -171,19 +179,19 @@ if ($browser) {
   $startupLnk.Arguments   = $lnk.Arguments
   $startupLnk.IconLocation = $lnk.IconLocation
   $startupLnk.Save()
-  Say "الكاشير سيفتح تلقائياً عند بدء تشغيل ويندوز 🚀"
+  Say "The till will open automatically when Windows starts"
 } else {
-  Say "لم أجد Chrome أو Edge — ثبّت أحدهما ثم أعد التشغيل" $false
+  Say "Chrome or Edge not found - install one, then re-run" $false
 }
 
 Write-Host ""
-Write-Host "══════ اكتمل الإعداد ══════"
-Write-Host "الطابعة: $($chosen.Name)  |  المشاركة: $share  |  الوكيل: 127.0.0.1:9988"
-Write-Host "الكاشير + وكيل الدرج يبدآن تلقائياً عند تشغيل ويندوز (بعد تسجيل الدخول)."
-Write-Host "المتبقي عليك: أول مرة سجّل الدخول في «كاشير ستيشن» وفعّل خياري 🖨️ و 💰 داخل الشاشة."
+Write-Host "====== Setup complete ======"
+Write-Host "Printer: $($chosen.Name)  |  Share: $share  |  Agent: 127.0.0.1:9988"
+Write-Host "Till + print agent start automatically with Windows (after sign-in)."
+Write-Host "Left to do: sign in once in Station POS and enable printing + drawer in the screen."
 Write-Host ""
-Write-Host "اختياري — لتشغيل غير مراقَب تماماً (بلا كتابة كلمة سر ويندوز عند الإقلاع):"
-Write-Host "  شغّل  netplwiz  ← ألغِ تحديد «يجب على المستخدمين إدخال اسم وكلمة مرور» ← أدخل كلمة السر مرة."
-Write-Host "  (هذا إعداد ويندوز يخصّك؛ يخزّن كلمة السر محلياً — فعّله فقط على جهاز الكاشير المخصّص.)"
+Write-Host "Optional - for fully unattended boot (no Windows password prompt):"
+Write-Host "  Run  netplwiz  -> untick 'Users must enter a user name and password' -> enter the password once."
+Write-Host "  (Windows setting; stores the password locally - only do this on the dedicated till PC.)"
 Write-Host ""
-Read-Host "اضغط Enter للإغلاق"
+Read-Host "Press Enter to close"
