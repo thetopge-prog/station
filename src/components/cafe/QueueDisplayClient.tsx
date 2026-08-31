@@ -227,7 +227,13 @@ function AdScreen({ now, displayKey, initialAds = [], initialAdIndex = 0 }: { no
 
   return (
     <div dir="rtl" className="queue-screen relative flex w-full flex-col overflow-hidden bg-primary">
-      <div className="queue-ad-stage">
+      {/* Inline, not a class. Twice now the CSS minifier has undone a
+          deliberate old-browser choice: it dropped a duplicated declaration
+          that was there as a fallback, and it folded four separate offsets
+          back into `inset: 0` — the Chrome-87 shorthand I had written out
+          longhand precisely to avoid. Inline styles are in the HTML, where no
+          minifier rewrites them. This is the one screen where that matters. */}
+      <div style={{ position: "relative", width: "100%", height: "calc(100vh - 4.5rem)" }}>
         {!current ? (
           <div className="flex h-full flex-col items-center justify-center gap-6 text-primary-foreground">
             <StationSmiley className="size-40" />
@@ -249,9 +255,16 @@ function AdScreen({ now, displayKey, initialAds = [], initialAdIndex = 0 }: { no
             key={current.id}
             src={current.src}
             alt={current.title ?? ""}
-            className="queue-ad"
-            style={{ opacity: 1 }}
-            fetchPriority="high"
+            style={{
+              position: "absolute",
+              top: 0,
+              right: 0,
+              bottom: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+            }}
           />
         )}
       </div>
