@@ -163,9 +163,25 @@ export async function POST(req: Request) {
     // Name the specific failure. An unsubstituted placeholder looks nothing
     // like a withheld number, and telling them apart is the whole difference
     // between "fix your macro" and "that caller hid their number".
+    // Three failures that look identical from the shop and need three
+    // different fixes. Naming them apart is the whole value of this log:
+    //   literal  → the trigger does not provide the number (wrong trigger)
+    //   empty    → Android withheld it. Since Android 9 the incoming-number
+    //              extra is null without READ_CALL_LOG, so an automation app
+    //              with only the Phone permission sees a call and no number.
+    //   garbage  → a withheld or malformed caller ID, which is normal
     const seen = String(body.phone ?? q.get("phone") ?? "");
     const literal = /\[[a-z_]+\]/i.test(seen);
-    await note(422, raw, literal ? `الخانة السحرية لم تُستبدل — وصلت كنصّ: "${seen}"` : `لا رقم صالح — قرأتُ: "${seen}"`);
+    const empty = seen.trim() === "";
+    await note(
+      422,
+      raw,
+      literal
+        ? `الخانة السحرية لم تُستبدل — وصلت كنصّ: "${seen}"`
+        : empty
+          ? "الرقم وصل فارغاً — امنح ماكرودرويد إذن «سجلات المكالمات»"
+          : `لا رقم صالح — قرأتُ: "${seen}"`,
+    );
     // 422, not 200. The automation app shows the operator a status number and
     // nothing else, and «authorised but no usable number» looked identical to
     // «recorded» — which is a test that appears to pass while the database
@@ -176,7 +192,9 @@ export async function POST(req: Request) {
         ok: false,
         error: literal
           ? "المُشغِّل لا يعطي الرقم — بدّل Call Active إلى Incoming Call"
-          : "رقم غير صالح أو محجوب",
+          : empty
+            ? "الرقم فارغ — امنح ماكرودرويد إذن «سجلات المكالمات» من إعدادات أندرويد"
+            : "رقم غير صالح أو محجوب",
       },
       { status: 422 },
     );

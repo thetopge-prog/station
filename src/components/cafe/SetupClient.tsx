@@ -429,6 +429,18 @@ export function SetupClient({
                   وتبويب <b>Content Body</b> يبقى كما هو: كلمة السر وحدها. والرابط بلا{" "}
                   <code dir="ltr">?phone=</code> إن استعملت Query Params.
                 </p>
+                {/* The permission that Android quietly requires. Since Android
+                    9 the incoming-number extra is null without READ_CALL_LOG,
+                    so the macro fires, the number field resolves, and it
+                    resolves to nothing — which reads like a broken macro and is
+                    not one. */}
+                <p className="mt-2 rounded-lg border border-amber-500/50 bg-amber-50/60 p-2 dark:bg-amber-950/20">
+                  <b>٤. الإذن الذي يطلبه أندرويد بصمت:</b> إعدادات الهاتف ← التطبيقات ← MacroDroid ←
+                  الأذونات ← فعّل <b>«الهاتف»</b> و<b>«سجلات المكالمات»</b>.
+                  <br />
+                  منذ أندرويد ٩، لا يُعطى رقم المتصل لأي تطبيق بلا إذن «سجلات المكالمات» — فيعمل الماكرو،
+                  وتُستبدل الخانة، <b>وتُستبدل بفراغ</b>. يبدو عطلاً في الماكرو وليس كذلك.
+                </p>
               </div>
             <HookRow k="المُشغِّل ١ — مكالمة" v="Call/SMS ← Call Incoming ← Any Number" copy={false} />
             <HookRow k="المُشغِّل ٢ — رسالة" v="Call/SMS ← SMS Received ← Any Number" copy={false} />
