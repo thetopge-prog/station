@@ -199,7 +199,9 @@ export async function POST(req: Request) {
     //              with only the Phone permission sees a call and no number.
     //   garbage  → a withheld or malformed caller ID, which is normal
     const seen = String(body.phone ?? q.get("phone") ?? "");
-    const literal = /\[[a-z_]+\]/i.test(seen);
+    // Both spellings: MacroDroid builds differ, and this device's own hint text
+    // reads {cell_id} where the docs say [cell_id].
+    const literal = /[[{][a-z_]+[\]}]/i.test(seen);
     const empty = seen.trim() === "";
     await note(
       422,
