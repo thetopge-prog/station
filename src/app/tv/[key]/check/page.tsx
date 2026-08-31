@@ -108,6 +108,16 @@ export default async function TvCheckPage({ params }: { params: Promise<{ key: s
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/ads/probe.jpg" alt="" style={PX} />
         </Cell>
+
+        {/* Cell 6 tested Supabase storage through a path containing "ads", so
+            its failure proved nothing about storage — the filter would have
+            blocked it either way. This is the same file in storage under a
+            clean path. If it renders, posters can be uploaded from inside the
+            system again instead of needing a deploy. */}
+        <Cell n="١٢" label="من التخزين بمسار نظيف">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/img/posters/probe.jpg" alt="" style={PX} />
+        </Cell>
       </div>
 
       <p style={{ fontSize: 18, marginTop: 22, opacity: 0.9 }} dir="ltr">
