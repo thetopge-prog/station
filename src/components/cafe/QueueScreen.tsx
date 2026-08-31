@@ -2,6 +2,9 @@ import { canViewQueue, listDisplayAds, listQueue } from "@/lib/cafe/queue-action
 import { QueueDisplayClient } from "@/components/cafe/QueueDisplayClient";
 import { BRAND } from "@/lib/brand";
 
+/** how often the ceiling display redraws itself, in seconds */
+export const TV_RELOAD_S = 10;
+
 /**
  * The waiting-area TV, behind either of its two addresses.
  *
@@ -15,11 +18,22 @@ import { BRAND } from "@/lib/brand";
  * built for: a set whose browser cannot run the app shows an empty board
  * forever, and nobody is standing at the ceiling to notice. Server-rendered,
  * the numbers are correct in the very first byte, on any browser ever made.
+ *
+ * `reloadSeconds` only tells the slideshow which beat to step on — the actual
+ * redraw is an HTTP `Refresh` header set in src/proxy.ts for /tv, because Next
+ * strips a <meta http-equiv="refresh"> rendered inside a component and because
+ * a television suspends every JavaScript timer on a page nobody touches.
  */
-export async function QueueScreen({ displayKey }: { displayKey: string | null }) {
+export async function QueueScreen({
+  displayKey,
+  reloadSeconds,
+}: {
+  displayKey: string | null;
+  reloadSeconds?: number;
+}) {
   if (!(await canViewQueue(displayKey))) {
     return (
-      <div dir="rtl" className="flex min-h-[100dvh] flex-col items-center justify-center gap-3 bg-primary p-8 text-center text-primary-foreground">
+      <div dir="rtl" className="queue-screen flex flex-col items-center justify-center gap-3 bg-primary p-8 text-center text-primary-foreground">
         <p className="station-script text-6xl">{BRAND.nameLatin}</p>
         <p className="text-xl font-black">شاشة الاستلام</p>
         <p className="max-w-md text-sm font-bold opacity-90">
@@ -38,8 +52,12 @@ export async function QueueScreen({ displayKey }: { displayKey: string | null })
 
   return (
     <>
-      <QueueDisplayClient displayKey={displayKey} initialRows={rows} initialAds={ads} initialAdIndex={slideNow(ads.length)} />
-      <StaleReload />
+      <QueueDisplayClient
+        displayKey={displayKey}
+        initialRows={rows}
+        initialAds={ads}
+        initialAdIndex={slideNow(ads.length, reloadSeconds ?? 8)}
+      />
     </>
   );
 }
@@ -47,34 +65,13 @@ export async function QueueScreen({ displayKey }: { displayKey: string | null })
 /**
  * Which slide it is, by the clock rather than by a timer.
  *
- * A television that cannot run the app cannot advance a slideshow either — it
+ * A television that cannot run a timer cannot advance a slideshow either — it
  * would show poster one for ever, which is how a menu board becomes wallpaper
- * nobody reads. The guard below reloads such a screen every fifteen seconds,
- * and deriving the slide from the wall clock means each reload lands on the
- * next one. A screen that CAN run the app just uses this as its starting
- * slide and cross-fades from there as usual.
+ * nobody reads. Bucketing the clock by the reload interval makes each redraw
+ * land on the next poster. A screen that CAN run the app takes this as its
+ * starting slide and cross-fades onward as usual.
  */
-function slideNow(count: number): number {
+function slideNow(count: number, seconds: number): number {
   if (count < 2) return 0;
-  return Math.floor(Date.now() / 15_000) % count;
-}
-
-/**
- * The last line of defence for a screen nobody can reach.
- *
- * If the app hydrates, it sets `window.__stationLive` and this does nothing at
- * all. If it does not — an old television browser choking on a modern bundle,
- * a half-loaded script, an evicted chunk — the page reloads itself every
- * fifteen seconds, and the server-rendered board is correct on arrival. A
- * board that is fifteen seconds stale is a working board; one frozen at
- * whatever was on it an hour ago is a wrong one, and a customer trusts it
- * either way.
- *
- * Deliberately ES5, deliberately inline, deliberately not a module: it has to
- * run on precisely the browser that could not run everything else.
- */
-function StaleReload() {
-  const js =
-    "setTimeout(function(){if(!window.__stationLive){setInterval(function(){location.reload()},15000)}},15000)";
-  return <script dangerouslySetInnerHTML={{ __html: js }} />;
+  return Math.floor(Date.now() / (seconds * 1000)) % count;
 }

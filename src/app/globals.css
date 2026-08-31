@@ -278,3 +278,30 @@ body {
     max-height: 85vh;
   }
 }
+
+/* ── The waiting-room board ────────────────────────────────────────────────
+   This screen gets its own two classes instead of leaning on utilities,
+   because it is the one page in the system that must render on a television
+   browser years behind the rest of the web. `flex-1` was not expanding the
+   columns there: the board drew two short boxes under the header and left two
+   thirds of a 55-inch screen empty.
+
+   The vh fallback needs @supports and cannot be written as two declarations of
+   the same property — the minifier drops the first one, which is how I shipped
+   a fallback that was not in the built file at all. */
+.queue-screen {
+  min-height: 100dvh;
+}
+.queue-body {
+  flex: 1 1 auto;
+  /* the header and the footer line take the rest */
+  min-height: 74dvh;
+}
+@supports not (height: 100dvh) {
+  .queue-screen {
+    min-height: 100vh;
+  }
+  .queue-body {
+    min-height: 74vh;
+  }
+}

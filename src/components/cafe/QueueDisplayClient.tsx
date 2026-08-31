@@ -148,10 +148,10 @@ export function QueueDisplayClient({
   if (loaded && !busy) return <AdScreen now={now} displayKey={displayKey} initialAds={initialAds} initialAdIndex={initialAdIndex} />;
 
   return (
-    <div dir="rtl" className="flex min-h-[100dvh] flex-col gap-4 bg-background p-4 lg:p-6">
+    <div dir="rtl" className="queue-screen flex flex-col gap-4 bg-background p-4 lg:p-6">
       <Header live={live} now={now} />
 
-      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-2 lg:gap-6">
+      <div className="queue-body grid gap-4 lg:grid-cols-2 lg:gap-6">
         {/* قيد التجهيز — calm, kraft-toned */}
         <Column
           title="تحت التحضير"
@@ -222,8 +222,8 @@ function AdScreen({ now, displayKey, initialAds = [], initialAdIndex = 0 }: { no
   }).format(new Date(now));
 
   return (
-    <div dir="rtl" className="relative flex h-[100dvh] w-full flex-col overflow-hidden bg-primary">
-      <div className="relative min-h-0 flex-1">
+    <div dir="rtl" className="queue-screen relative flex w-full flex-col overflow-hidden bg-primary">
+      <div className="queue-body relative">
         {ads.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-6 text-primary-foreground">
             <StationSmiley className="size-40" />

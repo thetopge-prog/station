@@ -36,6 +36,22 @@ export function proxy(request: NextRequest) {
   try {
     const { pathname } = request.nextUrl;
 
+    // The ceiling display redraws itself with the HTTP `Refresh` header, the
+    // header form of <meta http-equiv="refresh">. It is set here because Next
+    // strips such a meta tag rendered inside a component, and because a header
+    // cannot be lost to a stale HTML cache either.
+    //
+    // Why a browser-level refresh at all: an order handed to a customer stayed
+    // on the shop's television indefinitely — the five-second poll never ran.
+    // TV browsers throttle and then suspend JavaScript timers on a page nobody
+    // touches, which is what a ceiling screen is, permanently. The HTML engine
+    // does not suspend.
+    if (pathname.startsWith("/tv/")) {
+      const res = NextResponse.next();
+      res.headers.set("Refresh", "10");
+      return res;
+    }
+
     // DEMO trial (local dev only, no Supabase configured): don't force login, so
     // staff screens are browsable. Gated to development so a production deploy
     // whose public env is injected at runtime can NEVER bypass the gate here.
