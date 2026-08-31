@@ -306,6 +306,18 @@ body {
   }
 }
 
+/* Two columns from 700px, not Tailwind's `lg` at 1024px.
+   The shop's 55-inch television reports a CSS viewport around 960px at 1080p —
+   televisions scale their own pixels — so `lg` never matched and the board drew
+   «تحت التحضير» above «جاهز» on the widest screen in the building, giving the
+   ready column a sliver at the bottom. Nothing narrower than a tablet has room
+   for two, so 700px is where the split belongs. */
+@media (min-width: 700px) {
+  .queue-body {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 /* The advert stage moved to inline styles on the element — see the comment in
    QueueDisplayClient. Twice the minifier undid a deliberate old-browser choice
    here (a duplicated declaration kept as a fallback, then four longhand offsets

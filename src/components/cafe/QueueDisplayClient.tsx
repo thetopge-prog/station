@@ -151,7 +151,7 @@ export function QueueDisplayClient({
     <div dir="rtl" className="queue-screen flex flex-col gap-4 bg-background p-4 lg:p-6">
       <Header live={live} now={now} />
 
-      <div className="queue-body grid gap-4 lg:grid-cols-2 lg:gap-6">
+      <div className="queue-body grid gap-4 lg:gap-6">
         {/* قيد التجهيز — calm, kraft-toned */}
         <Column
           title="تحت التحضير"
