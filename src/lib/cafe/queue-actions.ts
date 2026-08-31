@@ -61,6 +61,8 @@ export type QueueRow = {
   table_no: string | null;
   channel: string;
   created_at: string;
+  /** when the row last changed — how the TV knows an order JUST went ready */
+  updated_at: string;
   cashier_name: string | null;
   expediter_name: string | null;
 };
@@ -83,6 +85,7 @@ export async function listQueue(displayKey?: string | null): Promise<QueueRow[]>
           table_no: o.display.table_no,
           channel: o.display.channel,
           created_at: o.created_at,
+          updated_at: o.created_at,
           cashier_name: o.display.cashier_name,
           expediter_name: o.display.expediter_name,
         }))
@@ -92,7 +95,7 @@ export async function listQueue(displayKey?: string | null): Promise<QueueRow[]>
 
   const { data, error } = await supabase
     .from("queue_public")
-    .select("id, order_seq, pickup_code, prep_status, table_no, channel, created_at, cashier_name, expediter_name");
+    .select("id, order_seq, pickup_code, prep_status, table_no, channel, created_at, updated_at, cashier_name, expediter_name");
   if (error) return local;
 
   const localIds = new Set(local.map((o) => o.id));

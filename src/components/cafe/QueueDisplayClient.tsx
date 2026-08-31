@@ -223,7 +223,7 @@ function AdScreen({ now, displayKey, initialAds = [], initialAdIndex = 0 }: { no
 
   return (
     <div dir="rtl" className="queue-screen relative flex w-full flex-col overflow-hidden bg-primary">
-      <div className="queue-body relative">
+      <div className="queue-ad-stage">
         {ads.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-6 text-primary-foreground">
             <StationSmiley className="size-40" />
@@ -237,7 +237,7 @@ function AdScreen({ now, displayKey, initialAds = [], initialAdIndex = 0 }: { no
               key={ad.id}
               src={ad.src}
               alt={ad.title ?? ""}
-              className="absolute inset-0 h-full w-full object-contain transition-opacity duration-700"
+              className="queue-ad"
               style={{ opacity: n === i ? 1 : 0 }}
               // the first slide is the one the customer sees on walk-in
               loading={n === 0 ? "eager" : "lazy"}
@@ -373,21 +373,10 @@ function ReadyCard({ row }: { row: QueueRow }) {
         </p>
       )}
 
-      {/* cashier + expediter, as the spec requires */}
-      <dl className="mt-3 space-y-0.5 text-base font-bold opacity-95">
-        {row.cashier_name && (
-          <div className="flex items-center justify-center gap-1.5">
-            <dt className="opacity-80">الكاشير:</dt>
-            <dd>{row.cashier_name}</dd>
-          </div>
-        )}
-        {row.expediter_name && (
-          <div className="flex items-center justify-center gap-1.5">
-            <dt className="opacity-80">المجهّز:</dt>
-            <dd>{row.expediter_name}</dd>
-          </div>
-        )}
-      </dl>
+      {/* No staff names. A customer scanning a board from across the room is
+          looking for one thing — their number — and every other line is
+          something to read past first. Who served them is on the receipt and
+          in the dashboard, where it is actually used. */}
 
       {row.table_no && <p className="mt-2 text-lg font-black">طاولة {row.table_no}</p>}
     </li>

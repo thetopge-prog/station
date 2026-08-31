@@ -1,6 +1,7 @@
 import { canViewQueue, listDisplayAds, listQueue } from "@/lib/cafe/queue-actions";
 import { QueueDisplayClient } from "@/components/cafe/QueueDisplayClient";
 import { BRAND } from "@/lib/brand";
+import { justWentReady, slideNow } from "@/lib/cafe/queue-display";
 
 /** how often the ceiling display redraws itself, in seconds */
 export const TV_RELOAD_S = 10;
@@ -52,6 +53,7 @@ export async function QueueScreen({
 
   return (
     <>
+      {justWentReady(rows, reloadSeconds ?? 10) ? <ReadyChime /> : null}
       <QueueDisplayClient
         displayKey={displayKey}
         initialRows={rows}
@@ -63,15 +65,18 @@ export async function QueueScreen({
 }
 
 /**
- * Which slide it is, by the clock rather than by a timer.
+ * The bell, as an HTML element rather than a script.
  *
- * A television that cannot run a timer cannot advance a slideshow either — it
- * would show poster one for ever, which is how a menu board becomes wallpaper
- * nobody reads. Bucketing the clock by the reload interval makes each redraw
- * land on the next poster. A screen that CAN run the app takes this as its
- * starting slide and cross-fades onward as usual.
+ * The staff screens ring through WebAudio, which needs a user gesture before a
+ * browser will allow a sound. Nobody ever touches a screen bolted to a ceiling,
+ * so that path is permanently muted there — and on this television no script
+ * of ours runs at all.
+ *
+ * <audio autoplay> is the one mechanism left. Whether it sounds is the set's
+ * decision, not ours: some allow it outright, some want the browser unmuted
+ * once by hand. If it stays silent, that is the television's policy and no
+ * amount of code changes it.
  */
-function slideNow(count: number, seconds: number): number {
-  if (count < 2) return 0;
-  return Math.floor(Date.now() / (seconds * 1000)) % count;
+function ReadyChime() {
+  return <audio src="/chime.wav" autoPlay preload="auto" />;
 }

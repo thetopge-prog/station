@@ -305,3 +305,35 @@ body {
     min-height: 74vh;
   }
 }
+
+/* ── The advert stage ──────────────────────────────────────────────────────
+   Posters never appeared on the shop's television, though all nine <img> tags
+   were in the HTML the server sent. The stack is absolutely positioned so it
+   can cross-fade, and absolute positioning had nothing to resolve against:
+   `inset: 0` is the shorthand (Chrome 87), and `height: 100%` resolves against
+   a parent's HEIGHT, which was only ever a min-height. Two modern assumptions,
+   one invisible poster.
+
+   Stated the old way instead — an explicit height on the stage, and four
+   separate offsets on the image. All of it predates 2015. */
+.queue-ad-stage {
+  position: relative;
+  /* the whole screen minus the brand bar at the foot of it */
+  height: calc(100dvh - 4.5rem);
+}
+.queue-ad {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: opacity 0.7s;
+}
+@supports not (height: 100dvh) {
+  .queue-ad-stage {
+    height: calc(100vh - 4.5rem);
+  }
+}

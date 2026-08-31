@@ -102,5 +102,5 @@ export function proxy(request: NextRequest) {
 export const config = {
   // Run on all routes except Next internals and static assets. The PWA manifest
   // must stay public — the browser fetches it credential-less to install the app.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|admin-manifest.webmanifest|sw.js|.*\\.(?:svg|png|jpg|jpeg|webp|gif|ico|pdf)$).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|admin-manifest.webmanifest|sw.js|.*\\.(?:svg|png|jpg|jpeg|webp|gif|ico|pdf|wav|mp3)$).*)"],
 };

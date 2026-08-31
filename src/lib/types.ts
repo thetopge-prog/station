@@ -367,8 +367,8 @@ export type Database = {
       queue_public: {
         Row: {
           id: string; order_seq: number; pickup_code: string | null; prep_status: "preparing" | "ready";
-          table_no: string | null; channel: OrderChannel; created_at: string; eta_minutes: number | null;
-          cashier_name: string | null; expediter_name: string | null;
+          table_no: string | null; channel: OrderChannel; created_at: string; updated_at: string;
+          eta_minutes: number | null; cashier_name: string | null; expediter_name: string | null;
         };
         Relationships: [];
       };
