@@ -408,9 +408,26 @@ export function SetupClient({
                 <p className="font-black text-destructive">⚠️ المُشغِّل الصحيح: «Incoming Call» — لا «Call Active»</p>
                 <p className="mt-1 text-muted-foreground">
                   «Call Active» يعمل ويعرض الرقم على شاشة الهاتف، لكنه <b>لا يملأ</b>{" "}
-                  <code dir="ltr">[number]</code> — فيصل النصّ حرفياً ويُرفض الطلب. وأضمن من الكتابة:
-                  اضغط زر <b>{"{ }"}</b> بجانب الخانة واختر الرقم من القائمة، فلا يعرض ماكرودرويد إلا
-                  الخانات الصالحة لمُشغِّلك.
+                  <code dir="ltr">[number]</code> — فيصل النصّ حرفياً ويُرفض الطلب.
+                </p>
+                <ol className="mt-2 space-y-1 text-muted-foreground">
+                  <li>
+                    <b>١.</b> Triggers ← احذف <code dir="ltr">Call Active</code> ← أضف{" "}
+                    <code dir="ltr">Call/SMS ← Call Incoming ← Any Number</code>
+                  </li>
+                  <li>
+                    <b>٢.</b> في إجراء HTTP Request افتح تبويب <b>Query Params</b> ← أضف مفتاحاً اسمه{" "}
+                    <code dir="ltr">phone</code>
+                  </li>
+                  <li>
+                    <b>٣.</b> في خانة قيمته اضغط زر <b>{"{ }"}</b> واختر رقم المتصل من القائمة —{" "}
+                    <b>لا تكتبه بيدك</b>. ماكرودرويد لا يعرض إلا الخانات الصالحة لمُشغِّلك، فلا يمكن أن
+                    تختار الخاطئة.
+                  </li>
+                </ol>
+                <p className="mt-2 rounded-lg bg-secondary/60 p-2 text-muted-foreground">
+                  وتبويب <b>Content Body</b> يبقى كما هو: كلمة السر وحدها. والرابط بلا{" "}
+                  <code dir="ltr">?phone=</code> إن استعملت Query Params.
                 </p>
               </div>
             <HookRow k="المُشغِّل ١ — مكالمة" v="Call/SMS ← Call Incoming ← Any Number" copy={false} />
