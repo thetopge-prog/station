@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Printer, Wifi, WifiOff } from "lucide-react";
 import { buildTestJob, savePrinter, type PrinterConfig } from "@/lib/cafe/printer-actions";
-import { agentAlive, printJobs, pendingPrintCount, clearPrintQueue } from "@/lib/cafe/print-client";
+import { agentAlive, agentPrinters, printJobs, pendingPrintCount, clearPrintQueue, type AgentPrinter } from "@/lib/cafe/print-client";
 import type { Codepage } from "@/lib/cafe/escpos";
 
 /**
@@ -21,6 +21,8 @@ export function PrintersClient({ printers, isAdmin }: { printers: PrinterConfig[
   const [rows, setRows] = useState(printers);
   const [agent, setAgent] = useState<boolean | null>(null);
   const [queued, setQueued] = useState(0);
+  /** what Windows on this till actually has — asked, not typed */
+  const [found, setFound] = useState<AgentPrinter[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
 
   useEffect(() => {
@@ -28,6 +30,7 @@ export function PrintersClient({ printers, isAdmin }: { printers: PrinterConfig[
     // cascading render under React 19
     const t = setTimeout(() => {
       void agentAlive().then(setAgent);
+      void agentPrinters().then(setFound);
       setQueued(pendingPrintCount());
     }, 0);
     return () => clearTimeout(t);
@@ -172,6 +175,32 @@ export function PrintersClient({ printers, isAdmin }: { printers: PrinterConfig[
                   disabled={!isAdmin}
                   className="w-full rounded-xl border-2 border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary"
                 />
+                {/* The names on this till are POS80, POS80-25, POS-24, POS-23:
+                    four of them, two characters apart, read off one screen and
+                    retyped into another. A tap cannot make that typo, and the
+                    typo it prevents sends the burger order to the pizza oven
+                    where nobody notices until a customer complains.
+                    Filling also ticks «مفعّلة» — a name typed into a printer
+                    nobody switched on is the same as no name at all. */}
+                {isAdmin && found.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {found.map((f) => (
+                      <button
+                        key={f.name}
+                        type="button"
+                        onClick={() => patch(p.id, { share: f.share || f.name, host: null, is_active: true })}
+                        className={`rounded-lg border px-2 py-1 text-xs font-bold transition ${
+                          (p.share ?? "") === (f.share || f.name)
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-border hover:bg-secondary"
+                        }`}
+                        dir="ltr"
+                      >
+                        {f.share || f.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </Field>
               <Field label="عدد النسخ">
                 <input

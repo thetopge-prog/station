@@ -107,6 +107,29 @@ export async function kickDrawer(): Promise<void> {
 }
 
 /** How many slips are waiting on a printer that was unreachable. */
+/** one printer as Windows sees it, straight from the agent */
+export type AgentPrinter = { name: string; share: string | null; host: string | null; port: string | null };
+
+/**
+ * What printers this till actually has.
+ *
+ * Asked of the agent rather than typed by hand: the names are things like
+ * "POS80-25" and "POS-23", four of them, differing by two characters, and they
+ * get read off a screen and retyped into another. One typo sends the burger
+ * order to the pizza oven and nobody notices until a customer complains.
+ */
+export async function agentPrinters(timeoutMs = 2500): Promise<AgentPrinter[]> {
+  try {
+    const res = await fetch(`${AGENT}/printers`, { signal: AbortSignal.timeout(timeoutMs) });
+    if (!res.ok) return [];
+    const list = (await res.json()) as AgentPrinter[];
+    // the virtual ones are never a receipt printer, and they crowd the real list
+    return list.filter((p) => !/OneNote|PDF|XPS|Fax/i.test(p.name));
+  } catch {
+    return [];
+  }
+}
+
 export function pendingPrintCount(): number {
   return readQueue().length;
 }
