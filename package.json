@@ -40,6 +40,7 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "@csstools/postcss-cascade-layers": "^6.0.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^24",
     "@types/qrcode": "^1.5.5",
