@@ -46,7 +46,8 @@ export function proxy(request: NextRequest) {
     // TV browsers throttle and then suspend JavaScript timers on a page nobody
     // touches, which is what a ceiling screen is, permanently. The HTML engine
     // does not suspend.
-    if (pathname.startsWith("/tv/")) {
+    // …but not the diagnostic page, which somebody is standing there reading
+    if (pathname.startsWith("/tv/") && !pathname.endsWith("/check")) {
       const res = NextResponse.next();
       res.headers.set("Refresh", "10");
       return res;

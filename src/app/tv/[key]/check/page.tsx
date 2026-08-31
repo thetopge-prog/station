@@ -1,0 +1,96 @@
+import { canViewQueue, listDisplayAds } from "@/lib/cafe/queue-actions";
+
+/**
+ * /tv/<key>/check — one photograph tells us which layer is broken.
+ *
+ * The waiting-room posters would not appear on the shop's television and I had
+ * spent several rounds guessing at why: cascade layers, dvh units, progressive
+ * JPEG, nine images at once. Each guess cost the owner a trip to the screen and
+ * told me one bit at a time.
+ *
+ * This page tests every layer separately, each labelled, on one screen. The
+ * owner photographs it once and the answer is in the photo: whichever rows are
+ * blank name the failure exactly.
+ *
+ * Deliberately written with inline styles and no framework classes — it has to
+ * render on the browser that could not render the real page, and a test that
+ * depends on the thing being tested proves nothing.
+ */
+export const dynamic = "force-dynamic";
+
+const PX = { border: "2px solid #fff", background: "#fff2", width: 220, height: 150, objectFit: "contain" } as const;
+
+export default async function TvCheckPage({ params }: { params: Promise<{ key: string }> }) {
+  const { key } = await params;
+  if (!(await canViewQueue(key))) return <p style={{ padding: 40, fontSize: 32 }}>مفتاح غير صحيح</p>;
+
+  const ads = await listDisplayAds(key).catch(() => []);
+  const adSrc = ads[0]?.src ?? null;
+
+  // 1x1 red GIF — the smallest possible proof that <img> renders at all, with
+  // no network involved whatsoever
+  const dataUri =
+    "data:image/gif;base64,R0lGODlhAQABAIAAAP8AAAAAACH5BAAAAAAALAAAAAABAAEAAAICRAEAOw==";
+
+  return (
+    <div dir="rtl" style={{ background: "#ff6b00", color: "#fff", minHeight: "100vh", padding: 24, fontFamily: "sans-serif" }}>
+      <p style={{ fontSize: 34, fontWeight: 900, margin: "0 0 6px" }}>فحص الشاشة</p>
+      <p style={{ fontSize: 20, margin: "0 0 20px" }}>صوّر هذه الصفحة وأرسلها. المربّع الفارغ هو العطل.</p>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 18 }}>
+        <Cell n="١" label="CSS — يجب أن يكون أخضر">
+          <div style={{ ...PX, background: "#16a34a" }} />
+        </Cell>
+
+        <Cell n="٢" label="SVG">
+          <svg width="220" height="150" viewBox="0 0 220 150" style={{ border: "2px solid #fff" }}>
+            <circle cx="110" cy="75" r="55" fill="#fff" />
+          </svg>
+        </Cell>
+
+        <Cell n="٣" label="صورة مدمجة (بلا شبكة)">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={dataUri} alt="" style={PX} />
+        </Cell>
+
+        <Cell n="٤" label="PNG من الموقع نفسه">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icons/icon-192.png" alt="" style={PX} />
+        </Cell>
+
+        <Cell n="٥" label="JPEG الإعلان عبر ‎/img/‎">
+          {adSrc ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={adSrc} alt="" style={PX} />
+          ) : (
+            <div style={{ ...PX, display: "grid", placeItems: "center" }}>لا إعلانات</div>
+          )}
+        </Cell>
+
+        <Cell n="٦" label="JPEG من التخزين مباشرة">
+          {ads[0] ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={ads[0].src.replace(/^\/img\//, "https://ahrxdwvxbykdktyclzdi.supabase.co/storage/v1/object/public/menu/")} alt="" style={PX} />
+          ) : (
+            <div style={PX} />
+          )}
+        </Cell>
+      </div>
+
+      <p style={{ fontSize: 18, marginTop: 22, opacity: 0.9 }} dir="ltr">
+        {adSrc ?? "—"}
+      </p>
+    </div>
+  );
+}
+
+function Cell({ n, label, children }: { n: string; label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ textAlign: "center" }}>
+      {children}
+      <p style={{ fontSize: 19, fontWeight: 700, marginTop: 6 }}>
+        {n} — {label}
+      </p>
+    </div>
+  );
+}
