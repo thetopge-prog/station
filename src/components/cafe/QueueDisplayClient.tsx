@@ -215,6 +215,10 @@ function AdScreen({ now, displayKey, initialAds = [], initialAdIndex = 0 }: { no
     return () => clearTimeout(t);
   }, [ads, i]);
 
+  // guard the index: the server picks it from the clock, and the slide count
+  // can change under it when a poster is switched off mid-service
+  const current = ads.length ? ads[i % ads.length] : null;
+
   const time = new Intl.DateTimeFormat("ar-IQ", {
     timeZone: "Asia/Baghdad",
     hour: "2-digit",
@@ -224,25 +228,31 @@ function AdScreen({ now, displayKey, initialAds = [], initialAdIndex = 0 }: { no
   return (
     <div dir="rtl" className="queue-screen relative flex w-full flex-col overflow-hidden bg-primary">
       <div className="queue-ad-stage">
-        {ads.length === 0 ? (
+        {!current ? (
           <div className="flex h-full flex-col items-center justify-center gap-6 text-primary-foreground">
             <StationSmiley className="size-40" />
             <p className="station-script text-8xl">{BRAND.nameLatin}</p>
             <p className="text-4xl font-black">{BRAND.taglineAr}</p>
           </div>
         ) : (
-          ads.map((ad, n) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              key={ad.id}
-              src={ad.src}
-              alt={ad.title ?? ""}
-              className="queue-ad"
-              style={{ opacity: n === i ? 1 : 0 }}
-              // the first slide is the one the customer sees on walk-in
-              loading={n === 0 ? "eager" : "lazy"}
-            />
-          ))
+          /* ONE poster, not all nine.
+             The stack used to render every slide at once so a cross-fade never
+             showed a half-loaded image. On the television that was the reason
+             no poster appeared at all: nine images at ~330KB is 2.9MB, over
+             shop wifi, on a page that throws itself away every ten seconds. It
+             never finished, so nothing was ever cached, so the next load
+             started from nothing again — a screen that could not paint a
+             single poster BECAUSE it was asked for nine.
+             The redraw picks the slide now, so the stack bought nothing. */
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={current.id}
+            src={current.src}
+            alt={current.title ?? ""}
+            className="queue-ad"
+            style={{ opacity: 1 }}
+            fetchPriority="high"
+          />
         )}
       </div>
 
