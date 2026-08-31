@@ -36,6 +36,18 @@ export function proxy(request: NextRequest) {
   try {
     const { pathname } = request.nextUrl;
 
+    // The phone app, by a URL somebody can read out loud.
+    //
+    // Done here rather than as a netlify.toml redirect because this gate runs
+    // first and sent /apk to the sign-in page — a download link that demands a
+    // login is not a download link. The target is a public GitHub release, so
+    // the phone needs no account either.
+    if (pathname === "/apk") {
+      return NextResponse.redirect(
+        "https://github.com/thetopge-prog/station/releases/latest/download/station.apk",
+      );
+    }
+
     // The ceiling display redraws itself with the HTTP `Refresh` header, the
     // header form of <meta http-equiv="refresh">. It is set here because Next
     // strips such a meta tag rendered inside a component, and because a header
