@@ -112,7 +112,11 @@ export function IncomingOrdersClient() {
   async function accept(id: string, method: "cash" | "card") {
     setQueueErr(null);
     const o = pending.find((p) => p.id === id);
-    const res = await payPendingOrder(id);
+    // `method` was taken and then dropped: payPendingOrder defaults to "cash",
+    // so every card sale accepted here was booked as cash and counted into the
+    // shift's expected drawer — a shortage the cashier is asked to explain at
+    // close, for money that was never in the drawer to begin with.
+    const res = await payPendingOrder(id, 0, null, method);
     if (!res.ok) setQueueErr(res.error);
     else {
       if (method === "cash") kickDrawer();
