@@ -398,6 +398,21 @@ export function SetupClient({
             المجاني يكفي. بعدها يرن الهاتف فيظهر اسم الزبون وعنوانه على شاشة الكاشير قبل أن ترفع السماعة.
           </p>
           <div className="space-y-2">
+{/* Named exactly, because the wrong one costs an evening.
+                  «Call Active» fires and shows the number on the phone's own
+                  screen — and does NOT fill [number]. MacroDroid leaves magic
+                  text it cannot resolve as literal text, so the request went
+                  out reading "[number]" seven times running while the log on
+                  the handset showed the real number each time. */}
+              <div className="rounded-xl border-2 border-destructive/50 bg-destructive/5 p-3 text-sm">
+                <p className="font-black text-destructive">⚠️ المُشغِّل الصحيح: «Incoming Call» — لا «Call Active»</p>
+                <p className="mt-1 text-muted-foreground">
+                  «Call Active» يعمل ويعرض الرقم على شاشة الهاتف، لكنه <b>لا يملأ</b>{" "}
+                  <code dir="ltr">[number]</code> — فيصل النصّ حرفياً ويُرفض الطلب. وأضمن من الكتابة:
+                  اضغط زر <b>{"{ }"}</b> بجانب الخانة واختر الرقم من القائمة، فلا يعرض ماكرودرويد إلا
+                  الخانات الصالحة لمُشغِّلك.
+                </p>
+              </div>
             <HookRow k="المُشغِّل ١ — مكالمة" v="Call/SMS ← Call Incoming ← Any Number" copy={false} />
             <HookRow k="المُشغِّل ٢ — رسالة" v="Call/SMS ← SMS Received ← Any Number" copy={false} />
             <HookRow k="الإجراء (Action)" v="ابحث 🔍 عن http ← HTTP Request" copy={false} />

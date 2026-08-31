@@ -175,7 +175,7 @@ export async function POST(req: Request) {
       {
         ok: false,
         error: literal
-          ? "خانة الرقم وصلت كنصّ ولم تُستبدل — ضع الرقم في الرابط: ?phone=[number]"
+          ? "المُشغِّل لا يعطي الرقم — بدّل Call Active إلى Incoming Call"
           : "رقم غير صالح أو محجوب",
       },
       { status: 422 },
