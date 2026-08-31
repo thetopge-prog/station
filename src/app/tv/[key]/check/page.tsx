@@ -31,6 +31,10 @@ export default async function TvCheckPage({ params }: { params: Promise<{ key: s
   // no network involved whatsoever
   const dataUri =
     "data:image/gif;base64,R0lGODlhAQABAIAAAP8AAAAAACH5BAAAAAAALAAAAAABAAEAAAICRAEAOw==";
+  // A 48x48 baseline JPEG, inlined. Round one proved PNG renders and JPEG does
+  // not; this asks whether the JPEG DECODER works at all, with no network in
+  // the way, and the three files beside it ask where the size limit falls.
+  const tinyJpeg = "data:image/jpeg;base64,/9j/2wBDAAoHBwgHBgoICAgLCgoLDhgQDg0NDh0VFhEYIx8lJCIfIiEmKzcvJik0KSEiMEExNDk7Pj4+JS5ESUM8SDc9Pjv/2wBDAQoLCw4NDhwQEBw7KCIoOzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozv/wAARCAAwADADASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAT/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFgEBAQEAAAAAAAAAAAAAAAAAAAUG/8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAwDAQACEQMRAD8AhATmNAAAAAAAAAAAAAAAAf/Z";
 
   return (
     <div dir="rtl" style={{ background: "#ff6b00", color: "#fff", minHeight: "100vh", padding: 24, fontFamily: "sans-serif" }}>
@@ -74,6 +78,26 @@ export default async function TvCheckPage({ params }: { params: Promise<{ key: s
           ) : (
             <div style={PX} />
           )}
+        </Cell>
+
+        <Cell n="٧" label="JPEG مدمجة (بلا شبكة)">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={tinyJpeg} alt="" style={PX} />
+        </Cell>
+
+        <Cell n="٨" label="JPEG صغيرة (٣٠٠ بكسل)">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/check/small.jpg" alt="" style={PX} />
+        </Cell>
+
+        <Cell n="٩" label="JPEG متوسطة (٧٠٠ بكسل)">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/check/mid.jpg" alt="" style={PX} />
+        </Cell>
+
+        <Cell n="١٠" label="JPEG كبيرة (١٢٠٠ بكسل)">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/check/big.jpg" alt="" style={PX} />
         </Cell>
       </div>
 
