@@ -148,10 +148,25 @@ export function SetupClient({
           <CopyButton value={installCommand} label="نسخ أمر التركيب" />
         </div>
         <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
-          <li>• يكتشف طابعة الفواتير ويشاركها باسم POS80</li>
-          <li>• ينزّل وكيل الطباعة ويشغّله مع إقلاع الجهاز</li>
+          <li>• يكتشف طابعة الفواتير، ويشاركها فقط إن لم تكن مشاركة</li>
+          <li>• ينزّل وكيل الطباعة على المنفذ <b>9988</b> ويشغّله مع إقلاع الجهاز</li>
           <li>• يختبر فتح الدرج ويصنع اختصار «كاشير ستيشن»</li>
+          <li>• رسائله <b>بالإنجليزية</b> — نافذة PowerShell لا ترسم العربية</li>
         </ul>
+
+        {/* Written down because it is the promise the shop is trading on: they
+            run the previous system on this same till, and an install that
+            disturbs it costs them an evening of real business. Every line here
+            was a real collision found and fixed on installation night. */}
+        <div className="mt-3 rounded-xl border-2 border-emerald-600/40 bg-emerald-50/60 p-3 text-sm dark:bg-emerald-950/20">
+          <p className="font-black text-emerald-800 dark:text-emerald-300">🛡️ لا يمسّ النظام القديم</p>
+          <ul className="mt-1.5 space-y-1 text-muted-foreground">
+            <li>• ستيشن على المنفذ <b>9988</b> — والقديم يحتفظ بـ<b>9977</b></li>
+            <li>• لا يوقف أي برنامج آخر — وكيل ستيشن وحده من تركيب سابق</li>
+            <li>• <b>لا يغيّر الطابعة الافتراضية</b> — إلا بإضافة <code dir="ltr">-MakeDefault</code> عند الانتقال الكامل</li>
+            <li>• لا يعيد تسمية مشاركة قائمة ولا يلغيها</li>
+          </ul>
+        </div>
       </Step>
 
       {/* ── 2. detected printers ── */}
@@ -205,6 +220,20 @@ export function SetupClient({
 
       {/* ── 3. the map ── */}
       <Step n={3} title="ماذا يُطبع وأين">
+        {/* Both of these were discovered the hard way on installation night and
+            are written here so the next person does not rediscover them. */}
+        <div className="mb-3 space-y-2 rounded-xl border border-border bg-card p-3 text-sm">
+          <p>
+            <b>لا تحتاج مشاركة ويندوز.</b> اكتب <b>اسم الطابعة كما يسمّيها ويندوز</b> —
+            مثل <code dir="ltr">POS-23</code> — والطباعة تمرّ بمُخطِّط ويندوز مباشرة، بلا شبكة ولا صلاحيات.
+            وفي صفحة <b>الطابعات</b> تظهر الأسماء كأزرار: <b>ضغطة واحدة تملأ الخانة وتُفعّل الطابعة</b>.
+          </p>
+          <p>
+            <b>إن خرجت العربية صينية أو مبعثرة:</b> اضغط «اختبار 1256»، فتطبع الورقة سطراً عربياً تحت
+            كل رقم ترميز (22 · 26 · 32 · 37 · 41). <b>اقرأ الورقة</b> واكتب رقم السطر العربي في خانة
+            «رقم الترميز العربي». هذه الطابعات مصنوعة للسوق الصيني وتبدأ في وضعه.
+          </p>
+        </div>
         {unconfigured > 0 && (
           <p className="mb-3 flex items-start gap-2 rounded-xl border-2 border-amber-500 bg-amber-500/10 p-3 text-sm font-bold text-amber-700 dark:text-amber-300">
             <AlertTriangle className="mt-0.5 size-4 shrink-0" />
@@ -240,8 +269,46 @@ export function SetupClient({
         </a>
       </Step>
 
+      {/* ── 3b. who signs in ──
+          The logins were being asked for by message every time somebody new
+          started. They belong on the page the installer already has open. */}
+      <Step n={4} title="حسابات الدخول">
+        <div className="overflow-x-auto rounded-xl border border-border bg-card">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-right text-muted-foreground">
+                <th className="p-2 font-medium">الحساب</th>
+                <th className="p-2 font-medium">الدخول</th>
+                <th className="p-2 font-medium">يرى</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ["كاشير", "1", "الكاشير · التجهيز · المطبخ · الطلبات"],
+                ["مجهّز", "2", "التجهيز · المطبخ · شاشة الاستلام"],
+                ["إدارة", "3", "كل شيء عدا هذه الصفحة"],
+              ].map(([who, login, sees]) => (
+                <tr key={login} className="border-t border-border">
+                  <td className="p-2 font-black">{who}</td>
+                  <td className="p-2 font-mono font-black" dir="ltr">{login}</td>
+                  <td className="p-2 text-muted-foreground">{sees}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-2 text-sm text-muted-foreground">
+          كلمات المرور من نمط <code dir="ltr">station1</code> بحسب رقم الدخول. صفحة <b>الموظفون ← حسابات
+          الدخول</b> تنشئ حساباً جديداً وتغيّر كلمة مرور منسية — بنفس النموذج.
+        </p>
+        <p className="mt-2 rounded-xl border border-border bg-card p-3 text-sm">
+          <b>بوت تليغرام:</b> زر <b>«👤 مسؤولو البوت»</b> داخل البوت يضيف ويحذف. ليعرف أحدهم معرّفه:
+          يراسل البوت فيردّ عليه بالرقم. وحسابك الأصلي محميّ ولا يُحذف من هناك مهما جرى.
+        </p>
+      </Step>
+
       {/* ── 4. screens ── */}
-      <Step n={4} title="الشاشات">
+      <Step n={5} title="الشاشات">
         {/* The QR is scanned BY the other device, using its own camera. A
             ceiling television has no camera, so telling somebody to "scan it"
             there sends them up a ladder holding a phone for no reason. */}
@@ -258,6 +325,31 @@ export function SetupClient({
           <p>
             💻 <b>شاشة يشغّلها جهاز ويندوز</b> (ميني PC أو TV Stick): ألصق «أمر التثبيت كتطبيق» على ذلك
             الجهاز — يضبط ملء الشاشة والتشغيل التلقائي ومنع النوم دفعة واحدة.
+          </p>
+        </div>
+
+        {/* Every line here was a fault found on a real television, one
+            photograph at a time. Written down so the next screen installed in
+            this shop is checked in ten seconds instead of a day. */}
+        <div className="mb-3 space-y-2 rounded-xl border-2 border-primary/40 bg-card p-3 text-sm">
+          <p className="font-black">📺 شاشة الاستلام — ما تعلّمناه من تركيبها</p>
+          <p>
+            • العنوان القصير <code dir="ltr">/tv/&lt;المفتاح&gt;</code> بلا <code dir="ltr">?</code> ولا{" "}
+            <code dir="ltr">=</code> — الرمزان مخفيّان خلف صفحة رموز في ريموت التلفزيون.
+          </p>
+          <p>• الشاشة <b>تحدّث نفسها كل ١٠ ثوانٍ</b> بلا برمجة — التلفزيونات توقف المؤقّتات على صفحة لا يلمسها أحد.</p>
+          <p>
+            • <b>سنة صنع التلفزيون ليست سنة متصفحه.</b> شاشة ٢٠٢٥ قد تحمل متصفح ٢٠٢٠، وهذا سبب أغلب ما
+            واجهناه.
+          </p>
+          <p>
+            • <b>لا تضع صورة على مسار فيه كلمة</b> <code dir="ltr">ads</code> — مانع الإعلانات المدمج في
+            التلفزيون يحجبها قبل تحميلها. ملصقاتنا على <code dir="ltr">/posters/</code> لهذا السبب.
+          </p>
+          <p className="rounded-lg bg-secondary/60 p-2">
+            <b>عند تركيب أي شاشة جديدة:</b> افتح عليها <code dir="ltr">{"<عنوان الشاشة>/check"}</code> —
+            صفحة تفحص كل طبقة على حدة (التنسيق · SVG · الصور · JPEG · الحجم · الحجب بالاسم). المربّع
+            الفارغ يسمّي العطل في لمحة.
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -300,7 +392,7 @@ export function SetupClient({
 
       {/* ── 5. the phone that answers orders ── */}
       {callHook && (
-        <Step n={5} title="هاتف الطلبات — يظهر اسم المتصل على الكاشير">
+        <Step n={6} title="هاتف الطلبات — يظهر اسم المتصل على الكاشير">
           <p className="mb-3 text-sm text-muted-foreground">
             على موبايل المطعم: ثبّت <b>MacroDroid</b> من متجر بلاي، ثم أنشئ ماكرو واحداً بهذه القيم.
             المجاني يكفي. بعدها يرن الهاتف فيظهر اسم الزبون وعنوانه على شاشة الكاشير قبل أن ترفع السماعة.
@@ -411,7 +503,7 @@ export function SetupClient({
       )}
 
       {/* ── 6. final check ── */}
-      <Step n={callHook ? 6 : 5} title="الفحص قبل المغادرة">
+      <Step n={callHook ? 7 : 6} title="الفحص قبل المغادرة">
         <p className="mb-2 text-sm text-muted-foreground">اطلب: بيتزا + برجر + فرايس + زنجر. يجب أن تخرج ٥ أوراق من ٤ طابعات.</p>
         <ul className="space-y-1.5 text-sm">
           {[
@@ -422,6 +514,9 @@ export function SetupClient({
             "الشواية: الزنجر فقط",
             "الدرج فتح عند الدفع",
             "امسح الـQR ← الطلب صار «جاهز» على شاشة الاستلام",
+            "شاشة السقف: سلّم الطلب ← يختفي خلال ١٠ ثوانٍ وتعود الإعلانات",
+            "اتصل بخط المطعم ← يظهر شريط «زبون يتصل الآن» على الكاشير",
+            "افتح /printers على جهاز الكاشير ← «وكيل الطباعة يعمل» بالأخضر",
             "اقطع الإنترنت دقيقتين ← الكاشير يستمر ويطبع، ثم ترتفع الطلبات وحدها",
           ].map((t) => (
             <li key={t} className="flex items-start gap-2">
