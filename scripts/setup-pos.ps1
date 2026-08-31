@@ -1,12 +1,28 @@
 ﻿# ══════════════════════════════════════════════════════════════════════════
 #  مُعِدّ جهاز الكاشير — Station POS one-shot installer
-#  يكتشف طابعة الفواتير، يشاركها، يجعلها الافتراضية، يثبّت وكيل القاصة
-#  ويشغّله مع بدء التشغيل، يختبر فتح الدرج، ويصنع اختصار «كاشير ستيشن»
-#  بوضع الطباعة الصامتة. آمن لإعادة التشغيل في أي وقت.
+#  يكتشف طابعة الفواتير، يشاركها إن لم تكن مشاركة، يثبّت وكيل الطباعة على
+#  المنفذ 9988 ويشغّله مع بدء التشغيل، يختبر فتح الدرج، ويصنع اختصار
+#  «كاشير ستيشن». آمن لإعادة التشغيل في أي وقت.
+#
+#  ══ التعايش مع النظام القديم ══
+#  المحل يشغّل ستيشن تجريبياً بالتوازي مع نظامه الحالي على نفس الجهاز ونفس
+#  الطابعات. فكل ما يمسّ إعدادات ويندوز المشتركة صار اختيارياً، ومطفأً
+#  افتراضياً. ما يفعله هذا الملف تلقائياً لا يغيّر شيئاً يعتمد عليه الآخر:
+#    · وكيل ستيشن على 9988 — والقديم يحتفظ بـ 9977
+#    · لا يوقف إلا وكيل ستيشن نفسه من تركيب سابق
+#    · لا يشارك الطابعة إلا إن لم تكن مشاركة أصلاً (ولا يمسّ مشاركة قائمة)
+#    · لا يغيّر الطابعة الافتراضية — إلا بـ -MakeDefault صراحةً
 #
 #  التشغيل (PowerShell كمسؤول):
-#    powershell -ExecutionPolicy Bypass -File scripts\setup-pos.ps1   # run from the project folder
+#    powershell -ExecutionPolicy Bypass -File scripts\setup-pos.ps1
+#  وعند الانتقال الكامل إلى ستيشن لاحقاً، أضف:  -MakeDefault
 # ══════════════════════════════════════════════════════════════════════════
+param(
+  # يغيّر الطابعة الافتراضية للجهاز ويوقف تبديل ويندوز التلقائي لها.
+  # مطفأ افتراضياً: الطابعة الافتراضية إعداد يخصّ الجهاز كله، وقد يطبع النظام
+  # القديم عليها. تجربة نظام جديد لا يجوز أن تغيّر مسار طباعة نظام يعمل.
+  [switch]$MakeDefault
+)
 $ErrorActionPreference = "Continue"
 chcp 65001 | Out-Null
 
@@ -19,7 +35,9 @@ function Say($msg, $ok = $true) {
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) {
   if ($PSCommandPath) {
-    Start-Process powershell -Verb RunAs -ArgumentList "-ExecutionPolicy Bypass -File `"$PSCommandPath`""
+    # يمرَّر معه، وإلا ضاع الاختيار عند رفع الصلاحيات وعاد السكربت لسلوكه الافتراضي
+    $fwd = if ($MakeDefault) { " -MakeDefault" } else { "" }
+    Start-Process powershell -Verb RunAs -ArgumentList "-ExecutionPolicy Bypass -File `"$PSCommandPath`"$fwd"
     exit
   }
   Say "شغّل PowerShell كمسؤول (Run as Administrator) ثم أعد المحاولة" $false
@@ -64,13 +82,20 @@ if ($chosen.Shared -and $chosen.ShareName) {
   }
 }
 
-# ── 3) جعلها الطابعة الافتراضية وتثبيت ذلك ─────────────────────────────────
-try {
-  (New-Object -ComObject WScript.Network).SetDefaultPrinter($chosen.Name)
-  New-ItemProperty -Path "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Windows" -Name "LegacyDefaultPrinterMode" -Value 1 -PropertyType DWord -Force | Out-Null
-  Say "أصبحت الافتراضية (وأوقفنا تبديل Windows التلقائي لها)"
-} catch {
-  Say "تعذّر ضبط الافتراضية تلقائياً — اضبطها من إعدادات الطابعات" $false
+# ── 3) الطابعة الافتراضية — باختيارك وحدك ──────────────────────────────────
+# ستيشن يطبع تذاكره عبر وكيله (بايتات ESC/POS إلى المشاركة أو إلى IP:9100)،
+# ولا يمرّ بالطابعة الافتراضية إطلاقاً. فتغييرها لا يفيدنا، وقد يضرّ النظام
+# الآخر إن كان يطبع على «الافتراضية».
+if ($MakeDefault) {
+  try {
+    (New-Object -ComObject WScript.Network).SetDefaultPrinter($chosen.Name)
+    New-ItemProperty -Path "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Windows" -Name "LegacyDefaultPrinterMode" -Value 1 -PropertyType DWord -Force | Out-Null
+    Say "أصبحت الافتراضية (وأوقفنا تبديل Windows التلقائي لها)"
+  } catch {
+    Say "تعذّر ضبط الافتراضية تلقائياً — اضبطها من إعدادات الطابعات" $false
+  }
+} else {
+  Say "الطابعة الافتراضية لم تُغيَّر — النظام القديم يبقى كما هو (أضف -MakeDefault عند الانتقال الكامل)"
 }
 
 # ── 4) تنزيل وكيل الطباعة ───────────────────────────────────────────────────
