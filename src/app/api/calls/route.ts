@@ -184,7 +184,11 @@ export async function POST(req: Request) {
   // own notification is titled «مكالمة واردة» — a label, not a caller — and
   // taking it at face value put three rows reading «اتصال» on the till in one
   // evening, each looking like a customer nobody could call back.
-  const GENERIC = /^(مكالمة|اتصال|incoming|outgoing|ongoing|call|calling|dialing|unknown)/i;
+  // No  here, deliberately. In JavaScript  is a boundary between [A-Za-z0-9_]
+  // and anything else, and Arabic letters are not in that class — so  after
+  // «مكالمة» never matches and the whole filter silently did nothing. Caught by
+  // testing it against the real string rather than by reading it.
+  const GENERIC = /^\s*(مكالمة|اتصال|incoming|outgoing|ongoing|call|calling|dialing|unknown)(\s|$)/i;
   const isPerson = !!callerName && !GENERIC.test(callerName) && !/^[+\d\s-]+$/.test(callerName);
   if (!phone && isPerson) {
     const svc = createSupabaseServiceClient();
