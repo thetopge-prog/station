@@ -5,7 +5,9 @@ import type { PrintJob } from "./printer-actions";
 /**
  * Browser → local print agent.
  *
- * The agent listens on 127.0.0.1:9977 on the cashier PC (scripts/print-agent.ps1)
+ * The agent listens on 127.0.0.1:9988 on the cashier PC (scripts/print-agent.ps1).
+ * 9988, not 9977: the shop runs the previous system on the same till during the
+ * trial and its drawer agent holds 9977. Neither may disturb the other.
  * and is the only thing in the system that can reach a printer: the browser
  * cannot open a TCP socket, and the Next server runs on Netlify with no route
  * into the shop LAN.
@@ -18,7 +20,7 @@ import type { PrintJob } from "./printer-actions";
  * retried, never awaited before the order is considered done.
  */
 
-const AGENT = "http://127.0.0.1:9977";
+const AGENT = "http://127.0.0.1:9988";
 const QUEUE_KEY = "st-print-queue";
 const MAX_QUEUE = 40;
 

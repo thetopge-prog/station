@@ -33,7 +33,7 @@ export type MappedPrinter = {
 
 export type ScreenLink = { title: string; note: string; url: string; qr: string; kiosk: string };
 
-const AGENT = "http://127.0.0.1:9977";
+const AGENT = "http://127.0.0.1:9988";
 
 export type CallHook = { url: string; header: string; secret: string; body: string; whatsappBody: string };
 

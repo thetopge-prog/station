@@ -91,17 +91,19 @@ try {
 }
 
 # ── 5) تشغيله مع إقلاع الجهاز، والآن ───────────────────────────────────────
-# نظافة من نسخة سابقة: وكيل الدرج القديم كان يحجز نفس المنفذ 9977، فلو بقي
-# يعمل لأخذ الطلبات وردّ 404 على كل أمر طباعة.
-Remove-Item "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\station-drawer.cmd" -ErrorAction SilentlyContinue
+# وكيل ستيشن على المنفذ 9988، لا 9977.
+# 9977 يحجزه وكيل النظام الآخر العامل على نفس الجهاز، والمُثبِّت كان يقتله
+# ليأخذ المنفذ — أي أن تركيب ستيشن كان يُعطّل درج النظام الآخر. المحل يشغّل
+# النظامين معاً أثناء التجربة، فلا يجوز لأحدهما أن يمسّ الآخر.
+# يُقتل وكيل ستيشن وحده إن كان يعمل من تركيب سابق:
 Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" |
-  Where-Object { $_.CommandLine -like "*drawer-agent.ps1*" -or $_.CommandLine -like "*print-agent.ps1*" } |
+  Where-Object { $_.CommandLine -like "*print-agent.ps1*" } |
   ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 
 & powershell -NoProfile -ExecutionPolicy Bypass -File $agentPath -Install -DrawerShare $share | Out-Null
 Start-Sleep -Seconds 3
 try {
-  Invoke-WebRequest "http://127.0.0.1:9977/ping" -UseBasicParsing -TimeoutSec 5 | Out-Null
+  Invoke-WebRequest "http://127.0.0.1:9988/ping" -UseBasicParsing -TimeoutSec 5 | Out-Null
   Say "وكيل الطباعة يعمل، ويبدأ تلقائياً مع الجهاز (المشاركة: $share)"
 } catch {
   Say "الوكيل لم يستجب بعد — أعد تشغيل الجهاز، فهو مسجّل للعمل مع الإقلاع" $false
@@ -109,10 +111,10 @@ try {
 
 # ── 6) اختبار فتح الدرج ─────────────────────────────────────────────────────
 try {
-  Invoke-WebRequest "http://127.0.0.1:9977/kick" -UseBasicParsing -TimeoutSec 6 | Out-Null
+  Invoke-WebRequest "http://127.0.0.1:9988/kick" -UseBasicParsing -TimeoutSec 6 | Out-Null
   Say "أُرسلت نبضة الاختبار — إن انفتح الدرج الآن فكل شيء مضبوط 💰"
 } catch {
-  Say "لم يستجب الوكيل للاختبار — أعد تشغيل الجهاز وجرّب http://127.0.0.1:9977/kick" $false
+  Say "لم يستجب الوكيل للاختبار — أعد تشغيل الجهاز وجرّب http://127.0.0.1:9988/kick" $false
 }
 
 # ── 7) اختصار «كاشير ستيشن» بوضع الطباعة الصامتة ──────────────────────────
@@ -151,7 +153,7 @@ if ($browser) {
 
 Write-Host ""
 Write-Host "══════ اكتمل الإعداد ══════"
-Write-Host "الطابعة: $($chosen.Name)  |  المشاركة: $share  |  الوكيل: 127.0.0.1:9977"
+Write-Host "الطابعة: $($chosen.Name)  |  المشاركة: $share  |  الوكيل: 127.0.0.1:9988"
 Write-Host "الكاشير + وكيل الدرج يبدآن تلقائياً عند تشغيل ويندوز (بعد تسجيل الدخول)."
 Write-Host "المتبقي عليك: أول مرة سجّل الدخول في «كاشير ستيشن» وفعّل خياري 🖨️ و 💰 داخل الشاشة."
 Write-Host ""

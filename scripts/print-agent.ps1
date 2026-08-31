@@ -18,7 +18,7 @@
 #   powershell -ExecutionPolicy Bypass -File scripts\print-agent.ps1
 
 param(
-  [int]$Port = 9977,
+  [int]$Port = 9988,
   [string]$DrawerShare = "POS80",
   [switch]$Install
 )
