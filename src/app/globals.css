@@ -246,3 +246,35 @@ body {
     background: #fff;
   }
 }
+
+/* ── Old-browser viewport heights ──────────────────────────────────────────
+   `dvh` shipped in Chrome 108 (late 2022). The shop's waiting-room television
+   is newer than that as a product and older than that as a browser — smart-TV
+   sets run Chromium builds years behind their model year — and there
+   `min-height:100dvh` is simply an invalid declaration. The board then stood
+   only as tall as its own text: two little columns at the top of a 55-inch
+   screen and white space below.
+
+   `vh` has worked since 2012 and is what these screens actually need: a
+   television has no collapsing address bar, so the two units mean the same
+   thing there. Guarded by @supports so a phone still gets the dynamic unit,
+   where the difference is real. */
+@supports not (height: 100dvh) {
+  .min-h-dvh,
+  .min-h-\[100dvh\] {
+    min-height: 100vh;
+  }
+  .h-dvh,
+  .h-\[100dvh\] {
+    height: 100vh;
+  }
+  .max-h-\[90dvh\] {
+    max-height: 90vh;
+  }
+  .max-h-\[88dvh\] {
+    max-height: 88vh;
+  }
+  .max-h-\[85dvh\] {
+    max-height: 85vh;
+  }
+}

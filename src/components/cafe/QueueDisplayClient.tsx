@@ -29,13 +29,25 @@ import { useDisplayWatchdog } from "./use-display-watchdog";
 
 const POLL_MS = 5000;
 
-export function QueueDisplayClient({ displayKey = null }: { displayKey?: string | null }) {
+export function QueueDisplayClient({
+  displayKey = null,
+  initialRows = [],
+  initialAds = [],
+}: {
+  displayKey?: string | null;
+  /** the board as the server saw it — correct before any script runs */
+  initialRows?: QueueRow[];
+  initialAds?: DisplayAd[];
+}) {
   // an unattended screen has to notice its own failures — see the hook
   const { beat, fail } = useDisplayWatchdog();
-  const [rows, setRows] = useState<QueueRow[]>([]);
+  const [rows, setRows] = useState<QueueRow[]>(initialRows);
   const [now, setNow] = useState(() => Date.now());
   const [live, setLive] = useState(false);
-  const [loaded, setLoaded] = useState(false);
+  // already true when the server handed us a board: `loaded` gates the switch
+  // to the advert screen, and starting false made an idle screen show an empty
+  // board until the first client fetch landed
+  const [loaded, setLoaded] = useState(true);
   // ids already announced, so a re-render or a poll never re-rings the bell
   const announced = useRef<Set<string>>(new Set());
   const firstLoad = useRef(true);
@@ -101,6 +113,13 @@ export function QueueDisplayClient({ displayKey = null }: { displayKey?: string 
     };
   }, [refresh]);
 
+  // Tells the inline ES5 guard in QueueScreen that hydration succeeded, so it
+  // never starts its reload loop. If this line never runs, that guard is the
+  // only thing keeping the board from freezing.
+  useEffect(() => {
+    (window as unknown as { __stationLive?: boolean }).__stationLive = true;
+  }, []);
+
   // a TV is never clicked; unlock audio on any interaction the staff do make
   useEffect(() => {
     const unlock = () => {
@@ -123,7 +142,7 @@ export function QueueDisplayClient({ displayKey = null }: { displayKey?: string 
   // board. Nothing in progress → adverts. Never both at once — a customer
   // hunting for their number must not have to look past a poster.
   const busy = rows.length > 0;
-  if (loaded && !busy) return <AdScreen now={now} displayKey={displayKey} />;
+  if (loaded && !busy) return <AdScreen now={now} displayKey={displayKey} initialAds={initialAds} />;
 
   return (
     <div dir="rtl" className="flex min-h-[100dvh] flex-col gap-4 bg-background p-4 lg:p-6">
@@ -175,8 +194,8 @@ export function QueueDisplayClient({ displayKey = null }: { displayKey?: string 
  * Falls back to a branded holding card when no ads are uploaded, so the screen
  * is never blank white.
  */
-function AdScreen({ now, displayKey }: { now: number; displayKey: string | null }) {
-  const [ads, setAds] = useState<DisplayAd[]>([]);
+function AdScreen({ now, displayKey, initialAds = [] }: { now: number; displayKey: string | null; initialAds?: DisplayAd[] }) {
+  const [ads, setAds] = useState<DisplayAd[]>(initialAds);
   const [i, setI] = useState(0);
 
   useEffect(() => {
