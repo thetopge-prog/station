@@ -64,7 +64,9 @@ export default async function SetupPage() {
       note: displayKey
         ? "الشاشة المعلّقة — الرابط يحمل مفتاحها، تفتح بلا تسجيل دخول"
         : "⚠ لا يوجد STATION_DISPLAY_KEY — ستطلب الشاشة تسجيل دخول",
-      path: displayKey ? `/queue?key=${encodeURIComponent(displayKey)}` : "/queue",
+      // /tv/<key>, not /queue?key= — this address gets typed into a television
+      // with a remote control, where every symbol costs a keyboard page
+      path: displayKey ? `/tv/${encodeURIComponent(displayKey)}` : "/queue",
     },
     { title: "منيو الزبون", note: "التابلت على الطاولة، أو ملصق QR", path: "/menu" },
   ];

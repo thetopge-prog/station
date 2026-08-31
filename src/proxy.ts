@@ -21,7 +21,7 @@ import { AUTH_STORAGE_KEY, parseSessionCookie } from "@/lib/supabase/constants";
 // redirect to a sign-in page is not something an Android automation can follow.
 // /queue — the ceiling display. It carries its own STATION_DISPLAY_KEY instead
 // of a 7-day staff cookie, because nobody can reach it to sign in again.
-const PUBLIC_PREFIXES = ["/sign-in", "/menu", "/kiosk", "/card", "/api/orders", "/api/calls", "/queue"];
+const PUBLIC_PREFIXES = ["/sign-in", "/menu", "/kiosk", "/card", "/api/orders", "/api/calls", "/queue", "/tv"];
 const LOGIN_PATHS = new Set(["/", "/sign-in"]);
 
 function isPublic(pathname: string): boolean {

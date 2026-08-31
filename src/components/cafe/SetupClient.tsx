@@ -90,7 +90,7 @@ export function SetupClient({
   const unconfigured = printers.filter((p) => !p.host && !p.share).length;
   // shown without the scheme: a TV keyboard makes "https://" eight wasted
   // keystrokes, and every browser adds it back
-  const tvUrl = screens.find((s) => s.url.includes("/queue"))?.url.replace(/^https?:\/\//, "") ?? null;
+  const tvUrl = screens.find((s) => s.url.includes("/tv/") || s.url.includes("/queue"))?.url.replace(/^https?:\/\//, "") ?? null;
 
   return (
     <div className="space-y-8 pb-16">
