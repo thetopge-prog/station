@@ -71,13 +71,12 @@ export default async function TvCheckPage({ params }: { params: Promise<{ key: s
           )}
         </Cell>
 
+        {/* Fixed at a storage URL on purpose: the posters have since moved to
+            our own origin, and this cell has to keep answering the question it
+            was added for — does anything from Supabase storage render here? */}
         <Cell n="٦" label="JPEG من التخزين مباشرة">
-          {ads[0] ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={ads[0].src.replace(/^\/img\//, "https://ahrxdwvxbykdktyclzdi.supabase.co/storage/v1/object/public/menu/")} alt="" style={PX} />
-          ) : (
-            <div style={PX} />
-          )}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="https://ahrxdwvxbykdktyclzdi.supabase.co/storage/v1/object/public/menu/ads/tv/1.jpg" alt="" style={PX} />
         </Cell>
 
         <Cell n="٧" label="JPEG مدمجة (بلا شبكة)">
