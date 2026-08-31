@@ -30,11 +30,19 @@ export type Codepage = "cp1256" | "utf8";
 export const COLS_80MM = 42;
 
 /**
- * The `ESC t n` values that mean "Arabic" on one 80mm clone or another —
- * CP864 and CP1256 sit at different numbers depending on the firmware. The
- * test slip prints a line under each so the paper answers the question.
+ * Every code-page slot worth trying, 0 to 55.
+ *
+ * The first pass offered five likely numbers and the shop reported "different
+ * languages each time" — Cyrillic, Greek, Thai — and never Arabic. Which is
+ * fair: CP864 and CP1256 sit wherever a given firmware felt like putting them,
+ * and five guesses out of two hundred was optimistic.
+ *
+ * So scan the whole plausible range. It is a long slip, printed once in the
+ * life of a printer, and it ends the question — either a line comes out Arabic
+ * or none does, and "none does" is itself the answer: that printer has no
+ * Arabic page and the text has to go as an image instead.
  */
-export const ARABIC_CODEPAGES = [22, 26, 32, 37, 41] as const;
+export const ARABIC_CODEPAGES = Array.from({ length: 56 }, (_, i) => i);
 
 const ESC = 0x1b;
 const GS = 0x1d;
@@ -384,10 +392,10 @@ export function testSlip(printerNameAr: string, codepage: Codepage, codepageCmd:
 
   if (codepage === "cp1256" && codepageCmd == null) {
     s.rule();
-    s.left().line("اقرأ الأسطر أدناه واختر رقم السطر العربي:");
+    s.left().line("اقرأ الأسطر واكتب رقم السطر العربي:");
     for (const n of ARABIC_CODEPAGES) {
       s.raw(...CMD.codepage(n));
-      s.line(`${n} : برجر جبن`);
+      s.line(`${String(n).padStart(2, "0")} برجر`);
     }
     s.raw(...CMD.init, ...CMD.cancelKanji);
     s.center();
