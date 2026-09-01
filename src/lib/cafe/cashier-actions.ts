@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/lib/types";
 import { requireStaff } from "./auth";
@@ -93,11 +93,65 @@ async function payOrder(
 
 export type CheckoutResult =
   // orderId is what the POS feeds to buildOrderJobs for the 5-printer split
-  | { ok: true; orderId: string; orderNumber: string; total: number; awarded: number; pickupCode: string | null }
+  | {
+      ok: true;
+      orderId: string;
+      orderNumber: string;
+      total: number;
+      awarded: number;
+      pickupCode: string | null;
+      /** the sale went through but could not be attributed to a shift */
+      warning?: string;
+    }
   | { ok: false; error: string };
 
 /** Cashier: create an order and mark it paid in one step (pay at counter).
  *  A table number means dine-in — it feeds the live tables screen. */
+
+/**
+ * The three facts that turn a paid order into an accountable one.
+ *
+ * Written with the SERVICE client, not the caller's. `orders` grants
+ * `authenticated` SELECT and nothing else — there is no update grant and no
+ * update policy anywhere in the schema — so the direct table update that lived
+ * here was refused every single time, silently, because nobody read the error.
+ *
+ * Every paid order in the shop carried payment_method NULL and session_id NULL.
+ * The Z-report keys on session_id, so it counted nothing; expected cash was
+ * computed without the takings, and the cashier was shown a SURPLUS the size of
+ * everything they had sold. The delivery-partner ledger keys on partner_id, so
+ * it was empty too.
+ *
+ * The gate is requireStaff() in the callers, which is the same boundary
+ * expense-actions.ts relies on for the same reason.
+ *
+ * A failure here does not undo a sale that already happened — the money is in
+ * the drawer either way — but it is never swallowed again.
+ */
+async function stampPayment(
+  orderId: string,
+  employeeId: string,
+  payMethod: PayMethod,
+  partnerId: string | null,
+): Promise<string | null> {
+  const svc = createSupabaseServiceClient();
+  const { error } = await svc
+    .from("orders")
+    .update({
+      payment_method: payMethod,
+      // The order belongs to the shift that took it — a partner order shows in
+      // the shift's count, never in its cash.
+      session_id: await openSessionIdFor(employeeId),
+      partner_id: payMethod === "partner" ? partnerId : null,
+    })
+    .eq("id", orderId);
+  if (error) {
+    console.error("stampPayment failed", { orderId, message: error.message });
+    return error.message;
+  }
+  return null;
+}
+
 export async function cashierCheckout(input: {
   lines: OrderLineInput[];
   discount?: number;
@@ -133,24 +187,21 @@ export async function cashierCheckout(input: {
   const paid = await payOrder(supabase, placed[0].order_id, input.discount ?? 0, input.customerId ?? null, input.extra ?? 0, input.extraNote ?? null);
   if (!paid.ok) return paid;
 
-  // Stamp the money facts AFTER payment succeeds. Both are what the Z-report is
-  // built from: without payment_method there is no such thing as "cash sales",
-  // and without session_id the takings cannot be attributed to a drawer.
-  await supabase
-    .from("orders")
-    .update({
-      payment_method: input.payMethod ?? "cash",
-      // The order still belongs to the shift that took it — a partner order
-      // appears in the shift's order count, just never in its cash.
-      session_id: await openSessionIdFor(staff.employeeId),
-      partner_id: input.payMethod === "partner" ? input.partnerId ?? null : null,
-    })
-    .eq("id", placed[0].order_id);
+  // Stamp the money facts AFTER payment succeeds — see stampPayment.
+  const stampErr = await stampPayment(
+    placed[0].order_id,
+    staff.employeeId,
+    input.payMethod ?? "cash",
+    input.partnerId ?? null,
+  );
 
   revalidatePath("/cashier");
   revalidatePath("/dashboard");
   return {
     ok: true,
+    // The sale stands; the attribution may not. Surfaced rather than hidden,
+    // because an unattributed sale becomes a shortage on somebody's shift.
+    warning: stampErr ? "الطلب مدفوع لكنه لم يُنسب للوردية — راجع المطوّر." : undefined,
     orderId: placed[0].order_id,
     orderNumber: String(placed[0].order_seq).padStart(3, "0"),
     // the 3-character code the customer quotes at handover (0043)
@@ -180,17 +231,14 @@ export async function payPendingOrder(
   const supabase = await createSupabaseServerClient();
   const paid = await payOrder(supabase, orderId, discount, customerId);
   if (!paid.ok) return paid;
-  await supabase
-    .from("orders")
-    .update({
-      payment_method: payMethod,
-      session_id: await openSessionIdFor(staff.employeeId),
-      partner_id: payMethod === "partner" ? partnerId : null,
-    })
-    .eq("id", orderId);
+  const stampErr = await stampPayment(orderId, staff.employeeId, payMethod, partnerId);
   revalidatePath("/cashier");
   revalidatePath("/dashboard");
-  return { ok: true as const, awarded: paid.awarded };
+  return {
+    ok: true as const,
+    awarded: paid.awarded,
+    warning: stampErr ? "الطلب مدفوع لكنه لم يُنسب للوردية — راجع المطوّر." : undefined,
+  };
 }
 
 export async function cancelOrder(orderId: string) {

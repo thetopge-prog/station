@@ -85,7 +85,8 @@ function arabicError(msg: string): string {
   if (/session already open/i.test(msg)) return "لديك وردية مفتوحة بالفعل — أنهِها أولاً من زر «إنهاء الوردية».";
   if (/no employee record/i.test(msg)) return "حسابك غير مرتبط بموظف — راجع صفحة الموظفين.";
   if (/not staff/i.test(msg)) return "غير مصرّح — سجّل الدخول من جديد.";
-  if (/session not found|already closed/i.test(msg)) return "هذه الوردية مُغلقة أصلاً — حدّث الصفحة.";
+  if (/already closed|session not found/i.test(msg)) return "هذه الوردية مُغلقة أصلاً — حدّث الصفحة.";
+  if (/not staff/i.test(msg)) return "انتهت جلستك — سجّل الدخول من جديد.";
   return msg;
 }
 
@@ -147,7 +148,10 @@ export async function sessionReport(sessionId: string): Promise<SessionReport | 
   await requireStaff();
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.rpc("session_report", { p_session: sessionId });
-  if (error) return null;
+  // Returning null for every kind of failure collapsed «your token expired»,
+  // «you are not staff» and «no such session» into one «…» on screen. The
+  // caller shows whatever this throws, so the cashier reads the actual reason.
+  if (error) throw new Error(arabicError(error.message));
   return (data?.[0] as SessionReport | undefined) ?? null;
 }
 
