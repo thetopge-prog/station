@@ -53,6 +53,13 @@
 }
 
 .dark {
+  /* هذان السطران هما أصل كل عطل ليلي في النظام.
+     --station-kraft و --station-cocoa كانا في :root وحده، فتتجمّد الخلفية
+     بنّية فاتحة بينما ينقلب كل حبر إلى الأبيض. بطاقة «نقطة التعادل» بلغت
+     ١٫٠٣ — أي نصّ غير مرئي إطلاقاً، لا صعب القراءة. */
+  --station-kraft: #6b4f36;
+  --station-cocoa: #f3e6da;
+
   --background: #1a1109;
   --foreground: #fdf6f0;
 
@@ -354,19 +361,29 @@ body {
  * الأرقام مزيج مسبق للبرتقالي على الأبيض، وللبرتقالي على البنّي في الليلي.
  */
 :root {
+  --primary-ink: #c25100;
   --primary-05: #fff5ee;
   --primary-10: #ffeee2;
   --primary-15: #ffe7d5;
   --primary-20: #ffe0c8;
+  --kraft-10: #f9f1e9;
+  --kraft-25: #f0e2d3;
+  --kraft-30: #ecdccb;
+  --kraft-50: #e2cbb2;
   --destructive-10: #fbe7e5;
   --destructive-15: #f9dbd8;
   --destructive-20: #f7cfcb;
 }
 :root.dark {
+  --primary-ink: #ff9d4d;
   --primary-05: #2a1b12;
   --primary-10: #341f13;
   --primary-15: #3e2415;
   --primary-20: #482916;
+  --kraft-10: #2a2018;
+  --kraft-25: #34281d;
+  --kraft-30: #392c20;
+  --kraft-50: #47372a;
   --destructive-10: #331a18;
   --destructive-15: #3d1d1a;
   --destructive-20: #47201c;
@@ -379,5 +396,19 @@ body {
 .bg-primary\/15 { background-color: var(--primary-15) !important; }
 .bg-primary\/20 { background-color: var(--primary-20) !important; }
 .bg-destructive\/10 { background-color: var(--destructive-10) !important; }
+
+/* kraft: اللون الذي اشتكى منه صاحب المحل.
+   bg-kraft/10 كان يُرسم #d4a373 كاملاً — لوحاً بنّياً لا وشاحاً بنسبة ١٠٪ —
+   فيختفي النص فوقه. نفس علّة bg-primary/N بالضبط، ولون آخر. */
+.bg-kraft\/10 { background-color: var(--kraft-10) !important; }
+.bg-kraft\/25 { background-color: var(--kraft-25) !important; }
+.bg-kraft\/30 { background-color: var(--kraft-30) !important; }
+.bg-kraft\/50 { background-color: var(--kraft-50) !important; }
+
+/* برتقالي الكتابة أغمق من برتقالي العلامة.
+   #ff6b00 لون زرّ ممتاز ولون حبر رديء: على الأبيض ٢٫٨٥ وعلى الوشاح الفاتح
+   ٢٫٥٣. والزرّ لا يتأثّر — فهو text-primary-foreground أبيض على bg-primary.
+   الذي يتغيّر هو النص وحده، ويبقى برتقالياً. */
+.text-primary { color: var(--primary-ink) !important; }
 .bg-destructive\/15 { background-color: var(--destructive-15) !important; }
 .bg-destructive\/20 { background-color: var(--destructive-20) !important; }

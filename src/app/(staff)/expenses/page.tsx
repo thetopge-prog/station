@@ -22,7 +22,12 @@ export default async function ExpensesPage() {
     if (!isDemoServer()) {
       const staff = await getStaff();
       isAdmin = staff?.role === "admin";
-      [expenses, closures, monthlyCosts] = await Promise.all([listExpenses(), getRegisterClosures(), getMonthlyCosts()]);
+      // التكاليف الثابتة (إيجار · كهرباء · مولد · ماء) للإدارة وحدها.
+      // كانت تُجلب دائماً وتُمرَّر إلى المكوّن، والمكوّن يُخفي المحرِّر خلف
+      // isAdmin — لكن المبالغ نفسها كانت تُسلسَل داخل حمولة صفحة يفتحها
+      // الكاشير. إخفاءٌ في الواجهة فوق بيانات مُرسَلة ليس إخفاءً.
+      [expenses, closures] = await Promise.all([listExpenses(), getRegisterClosures()]);
+      if (isAdmin) monthlyCosts = await getMonthlyCosts();
     }
   } catch {
     // signed-out / demo — empty state

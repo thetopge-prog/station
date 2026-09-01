@@ -116,7 +116,7 @@ export function InventoryClient({ isAdmin }: { isAdmin: boolean }) {
       ) : (
         <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
           {sorted.map((r) => (
-            <StockCard key={r.id} row={r} onOpen={() => setOpen(r)} />
+            <StockCard key={r.id} row={r} onOpen={() => setOpen(r)} isAdmin={isAdmin} />
           ))}
         </div>
       )}
@@ -141,7 +141,7 @@ export function InventoryClient({ isAdmin }: { isAdmin: boolean }) {
 
 /* ── cards ────────────────────────────────────────────────────────────────── */
 
-function StockCard({ row, onOpen }: { row: StockRow; onOpen: () => void }) {
+function StockCard({ row, onOpen, isAdmin }: { row: StockRow; onOpen: () => void; isAdmin: boolean }) {
   const d = daysUntil(row.nearest_expiry);
   const expired = d !== null && d < 0;
   const soon = d !== null && d >= 0 && d <= 3;
@@ -175,7 +175,8 @@ function StockCard({ row, onOpen }: { row: StockRow; onOpen: () => void }) {
         </Badge>
         {expired && <Badge tone="bad">منتهية منذ {Math.abs(d!)} يوم</Badge>}
         {soon && <Badge tone="warn">{d === 0 ? "تنتهي اليوم" : `تنتهي خلال ${d} يوم`}</Badge>}
-        {row.avg_unit_cost > 0 && <Badge tone="plain">{formatIqdLabel(row.avg_unit_cost)} / {row.unit}</Badge>}
+        {/* الكلفة ربح مقلوب: من يعرف كلفة المادة يعرف هامش الصنف. للإدارة وحدها. */}
+        {isAdmin && row.avg_unit_cost > 0 && <Badge tone="plain">{formatIqdLabel(row.avg_unit_cost)} / {row.unit}</Badge>}
       </div>
     </button>
   );

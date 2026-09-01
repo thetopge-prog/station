@@ -150,15 +150,19 @@ export function DailyCountClient({ initial, cashier }: { initial: DailyCount; ca
         <div className="rounded-2xl border border-border bg-card p-4">
           <h2 className="mb-2 font-black">اليوم</h2>
           <Row label="المبيعات" value={formatIqdLabel(d.sales)} />
-          <Row label="الأرباح" value={formatIqdLabel(d.profit)} />
-          <Row label="الثابتة (أجور وإيجار)" value={`- ${formatIqdLabel(d.fixed_cost)}`} tone="minus" />
-          <Row label="الصافي" value={formatIqdLabel(d.net)} tone="big" />
+          {/* الأرباح للإدارة وحدها — والخادم لا يرسلها أصلاً لغيرها، فهذه
+              الشروط تصف ما وصل لا ما يُخفى. */}
+          {d.profit !== null && <Row label="الأرباح" value={formatIqdLabel(d.profit)} />}
+          {d.fixed_cost !== null && (
+            <Row label="الثابتة (أجور وإيجار)" value={`- ${formatIqdLabel(d.fixed_cost)}`} tone="minus" />
+          )}
+          {d.net !== null && <Row label="الصافي" value={formatIqdLabel(d.net)} tone="big" />}
           <Row label="الطلبات" value={String(d.orders_count)} />
           <Row label="الزبائن" value={String(d.guests)} />
         </div>
         <div className="rounded-2xl border border-border bg-card p-4">
           <h2 className="mb-2 font-black">أرصدة</h2>
-          <Row label="قيمة المخزون" value={formatIqdLabel(d.stock_value)} />
+          {d.stock_value !== null && <Row label="قيمة المخزون" value={formatIqdLabel(d.stock_value)} />}
           <Row label="لنا على شركات التوصيل" value={formatIqdLabel(d.partners_owed)} />
           <Row label="لنا على الزبائن" value={formatIqdLabel(d.customers_owed)} />
         </div>
@@ -220,9 +224,9 @@ export function DailyCountClient({ initial, cashier }: { initial: DailyCount; ca
           title="اليوم"
           rows={[
             ["المبيعات", formatIqdLabel(d.sales)],
-            ["الأرباح", formatIqdLabel(d.profit)],
-            ["الثابتة (أجور وإيجار)", `- ${formatIqdLabel(d.fixed_cost)}`],
-            ["الصافي", formatIqdLabel(d.net)],
+            ...(d.profit !== null ? [["الأرباح", formatIqdLabel(d.profit)] as [string, string]] : []),
+            ...(d.fixed_cost !== null ? [["الثابتة (أجور وإيجار)", `- ${formatIqdLabel(d.fixed_cost)}`] as [string, string]] : []),
+            ...(d.net !== null ? [["الصافي", formatIqdLabel(d.net)] as [string, string]] : []),
             ["عدد الطلبات", String(d.orders_count)],
             ["عدد الزبائن", String(d.guests)],
           ]}
@@ -230,7 +234,7 @@ export function DailyCountClient({ initial, cashier }: { initial: DailyCount; ca
         <A4Table
           title="أرصدة"
           rows={[
-            ["قيمة المخزون", formatIqdLabel(d.stock_value)],
+            ...(d.stock_value !== null ? [["قيمة المخزون", formatIqdLabel(d.stock_value)] as [string, string]] : []),
             ["لنا على شركات التوصيل", formatIqdLabel(d.partners_owed)],
             ["لنا على الزبائن", formatIqdLabel(d.customers_owed)],
           ]}

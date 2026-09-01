@@ -474,10 +474,10 @@ export function dailyCountDoc(d: {
   orders_count: number;
   guests: number;
   sales: number;
-  profit: number;
-  fixed_cost: number;
-  net: number;
-  stock_value: number;
+  profit: number | null;
+  fixed_cost: number | null;
+  net: number | null;
+  stock_value: number | null;
   partners_owed: number;
   customers_owed: number;
   note: string | null;
@@ -516,16 +516,20 @@ export function dailyCountDoc(d: {
   s.rule("=");
   s.bold(true).line("اليوم").bold(false);
   s.pair("المبيعات", money(d.sales));
-  s.pair("الأرباح", money(d.profit));
-  s.pair("الثابتة (أجور وإيجار)", `- ${money(d.fixed_cost)}`);
-  s.rule();
-  s.bold(true).pair("الصافي", money(d.net)).bold(false);
+  // الأرباح للإدارة وحدها. الشريط ورقة تُترك على الكاونتر، فحذفها هنا ليس
+  // تفصيلاً في الواجهة — بل الفرق بين رقم يُقرأ مرّة ورقم يبقى على الطاولة.
+  if (d.profit !== null) s.pair("الأرباح", money(d.profit));
+  if (d.fixed_cost !== null) s.pair("الثابتة (أجور وإيجار)", `- ${money(d.fixed_cost)}`);
+  if (d.net !== null) {
+    s.rule();
+    s.bold(true).pair("الصافي", money(d.net)).bold(false);
+  }
   s.pair("عدد الطلبات", String(d.orders_count));
   s.pair("عدد الزبائن", String(d.guests));
 
   s.rule("=");
   s.bold(true).line("أرصدة").bold(false);
-  s.pair("قيمة المخزون", money(d.stock_value));
+  if (d.stock_value !== null) s.pair("قيمة المخزون", money(d.stock_value));
   s.pair("لنا على شركات التوصيل", money(d.partners_owed));
   s.pair("لنا على الزبائن", money(d.customers_owed));
 

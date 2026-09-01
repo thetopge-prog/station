@@ -39,10 +39,19 @@ export type DailyCount = {
   /** float + cash − expenses − deposited, summed across the day's shifts */
   expected_cash: number;
   sales: number;
-  profit: number;
-  fixed_cost: number;
-  net: number;
-  stock_value: number;
+  /**
+   * الأرباح للإدارة وحدها — null لغيرها.
+   *
+   * صاحب المحل: «لا أريد الأرباح تظهر في حساب الكاشير». وإخفاؤها في الواجهة
+   * وحدها لا يكفي: الرقم يسافر في حمولة الصفحة ويُقرأ من مصدرها. فيُحذف من
+   * المصدر، ولا يغادر الخادم أصلاً.
+   */
+  profit: number | null;
+  fixed_cost: number | null;
+  net: number | null;
+  stock_value: number | null;
+  /** هل يرى صاحب هذه النسخة الأرباح؟ */
+  is_admin: boolean;
   partners_owed: number;
   customers_owed: number;
   /** what the person doing the count typed, if they have been here already */
@@ -52,8 +61,14 @@ export type DailyCount = {
   closed_at: string | null;
 };
 
-export async function getDailyCount(day = businessDay()): Promise<DailyCount> {
-  await requireRole("cashier");
+/**
+ * النسخة الكاملة — للخادم وحده.
+ *
+ * تُستعمل للّقطة المُجمَّدة وللطباعة بحساب الإدارة. لا تُعاد إلى المتصفح أبداً
+ * كما هي: اللقطة يجب أن تبقى كاملة (وإلا صار جردٌ حفظه كاشير ناقصاً إلى
+ * الأبد)، والشاشة يجب أن تُقصّ.
+ */
+async function getDailyCountFull(day: string): Promise<DailyCount> {
   const svc = createSupabaseServiceClient();
 
   const [sessionsRes, summaryRes, fixedRes, stockRes, partnersRes, debtsRes, guestsRes, savedRes, ordersRes] =
@@ -151,7 +166,16 @@ export async function getDailyCount(day = businessDay()): Promise<DailyCount> {
     count_deposited: savedRes.data?.deposited ?? 0,
     note: savedRes.data?.note ?? null,
     closed_at: savedRes.data?.closed_at ?? null,
+    is_admin: true,
   };
+}
+
+/** ما يراه من فتح الصفحة: كامل للإدارة، وبلا أرباح لغيرها. */
+export async function getDailyCount(day = businessDay()): Promise<DailyCount> {
+  const staff = await requireRole("cashier");
+  const full = await getDailyCountFull(day);
+  if (staff.role === "admin") return full;
+  return { ...full, profit: null, fixed_cost: null, net: null, stock_value: null, is_admin: false };
 }
 
 /**
@@ -171,7 +195,7 @@ export async function saveDailyCount(input: {
 }) {
   await requireRole("cashier");
   const day = input.day ?? businessDay();
-  const snapshot = await getDailyCount(day);
+  const snapshot = await getDailyCountFull(day);
 
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("save_daily_count", {
@@ -203,7 +227,7 @@ export async function saveDailyCount(input: {
  */
 export async function buildDailyCountPrint(day = businessDay()) {
   const staff = await requireRole("cashier");
-  const d = await getDailyCount(day);
+  const d = staff.role === "admin" ? await getDailyCountFull(day) : await getDailyCount(day);
   const job = await buildDailyCountJob(
     dailyCountDoc({
       ...d,

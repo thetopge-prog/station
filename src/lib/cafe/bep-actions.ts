@@ -1,7 +1,7 @@
 "use server";
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { requireStaff } from "./auth";
+import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
+import { requireAdmin } from "./auth";
 
 /**
  * Break-even and the recommendation engine.
@@ -35,18 +35,26 @@ export type Recommendation = {
   reason: string;
 };
 
+/**
+ * الإدارة وحدها، وبمفتاح الخدمة.
+ *
+ * كان requireStaff وبجلسة المستخدم — أي أن الدالة كانت ممنوحة لـ`authenticated`،
+ * فيستدعيها الكاشير من أدوات المطوّر ويقرأ الإيراد والكلفة والربح الإجمالي
+ * مباشرة، دون المرور بأي شاشة. نقلُها إلى مفتاح الخدمة هو ما يسمح بسحب المنح
+ * من `authenticated` نهائياً.
+ */
 export async function getBep(): Promise<Bep | null> {
-  await requireStaff();
-  const supabase = await createSupabaseServerClient();
+  await requireAdmin();
+  const supabase = createSupabaseServiceClient();
   const { data, error } = await supabase.rpc("bep_today");
   if (error) return null;
   return (data?.[0] as Bep | undefined) ?? null;
 }
 
-/** Staff view: names, margins and why each is being pushed. */
+/** Admin view: names, margins and why each is being pushed. Margins are profit. */
 export async function getRecommendations(limit = 6): Promise<Recommendation[]> {
-  await requireStaff();
-  const supabase = await createSupabaseServerClient();
+  await requireAdmin();
+  const supabase = createSupabaseServiceClient();
   const { data } = await supabase.rpc("recommended_items", { p_limit: limit });
   return (data ?? []) as Recommendation[];
 }
