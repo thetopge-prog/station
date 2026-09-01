@@ -3,44 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import {
-  Bike,
-  Armchair,
-  Bell,
-  Boxes,
-  BellOff,
-  BellRing,
-  Calculator,
-  ChefHat,
-  ClipboardList,
-  CreditCard,
-  Percent,
-  Wrench,
-  HelpCircle,
-  LayoutDashboard,
-  LogOut,
-  Moon,
-  MonitorPlay,
-  MoreHorizontal,
-  PackageCheck,
-  Printer,
-  QrCode,
-  Sparkles,
-  Sun,
-  HandCoins,
-  UtensilsCrossed,
-  Users,
-  Wallet,
-  ClipboardCheck,
-  X,
-  type LucideIcon,
-} from "lucide-react";
+import { Bell, BellOff, BellRing, LogOut, Moon, MoreHorizontal, Sun, X } from "lucide-react";
+import { navFor } from "@/lib/cafe/nav";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { HubBadge } from "./HubBadge";
 import { formatIqdLabel } from "@/lib/cafe/money";
 import type { ShiftLine } from "@/lib/cafe/session-actions";
 import { useCafeUI } from "@/components/CafeUIProvider";
-import { canAccess, type StaffRole } from "@/lib/cafe/roles";
+import { type StaffRole } from "@/lib/cafe/roles";
 import { listPendingOrders } from "@/lib/cafe/cashier-actions";
 import { savePushSubscription, removePushSubscription } from "@/lib/cafe/push-actions";
 import { StationMark } from "./Logo";
@@ -85,35 +55,6 @@ function chime() {
   }
 }
 
-/**
- * `allow` lists the job types that see a link. null = every signed-in staff
- * member. The owner (admin) always sees everything, so no entry lists it.
- */
-type NavItem = { href: string; label: string; short: string; allow: StaffRole[] | null; icon: LucideIcon };
-const NAV: NavItem[] = [
-  { href: "/dashboard", label: "لوحة التحكم", short: "التحكم", allow: [], icon: LayoutDashboard },
-  { href: "/cashier", label: "الكاشير", short: "الكاشير", allow: ["cashier"], icon: Calculator },
-  { href: "/expediter", label: "التجهيز", short: "التجهيز", allow: ["expediter", "cashier"], icon: PackageCheck },
-  { href: "/kds", label: "المطبخ", short: "المطبخ", allow: ["chef", "expediter", "cashier"], icon: ChefHat },
-  { href: "/queue", label: "شاشة الاستلام", short: "الاستلام", allow: ["expediter", "cashier"], icon: MonitorPlay },
-  { href: "/clean", label: "تنظيف الطاولات", short: "التنظيف", allow: ["cleaner", "cashier"], icon: Sparkles },
-  { href: "/orders", label: "الطلبات الواردة", short: "الطلبات", allow: ["cashier", "expediter"], icon: ClipboardList },
-  { href: "/tables", label: "الطاولات", short: "الطاولات", allow: ["cashier", "cleaner"], icon: Armchair },
-  { href: "/loyalty", label: "الولاء", short: "الولاء", allow: ["cashier"], icon: CreditCard },
-  { href: "/offers", label: "العروض", short: "العروض", allow: ["cashier"], icon: Percent },
-  { href: "/debts", label: "سجل الديون", short: "الديون", allow: ["cashier"], icon: HandCoins },
-  { href: "/partners", label: "شركات التوصيل", short: "الشركات", allow: [], icon: Bike },
-  { href: "/menu-admin", label: "المنيو", short: "المنيو", allow: [], icon: UtensilsCrossed },
-  { href: "/daily", label: "جرد اليوم", short: "الجرد", allow: ["cashier"], icon: ClipboardCheck },
-  { href: "/expenses", label: "المصروفات", short: "المصروفات", allow: ["cashier"], icon: Wallet },
-  { href: "/employees", label: "الموظفون", short: "الموظفون", allow: [], icon: Users },
-  { href: "/inventory", label: "المخزون", short: "المخزون", allow: ["chef", "cashier", "expediter"], icon: Boxes },
-  { href: "/printers", label: "الطابعات", short: "الطابعات", allow: [], icon: Printer },
-  { href: "/setup", label: "التركيب", short: "التركيب", allow: [], icon: Wrench },
-  { href: "/qr", label: "رموز QR", short: "QR", allow: [], icon: QrCode },
-  { href: "/help", label: "التعليمات", short: "تعليمات", allow: null, icon: HelpCircle },
-];
-
 export function StaffShell({
   role,
   name,
@@ -134,10 +75,7 @@ export function StaffShell({
   const pathname = usePathname();
   const router = useRouter();
   const { setTheme } = useCafeUI();
-  const links = NAV.filter(
-    (n) => (n.href !== "/setup" || isDeveloper) && (canAccess(role, n.allow ?? []) || n.allow === null),
-  );
-  const bottomTabs = links.filter((l) => l.href !== "/help").slice(0, 4); // first 4 as bottom tabs, rest in «المزيد»
+  const { primary, groups } = navFor(role, isDeveloper);
   const [moreOpen, setMoreOpen] = useState(false);
 
   // Keep the session alive on staff screens: instantiating the browser client
@@ -171,10 +109,13 @@ export function StaffShell({
   const [pendingCount, setPendingCount] = useState(0);
   const [toast, setToast] = useState<{ seq: number; table: string | null } | null>(null);
   const knownIds = useRef<Set<string> | null>(null);
-  // Only where somebody can act on it. A chef on /kds cannot take a pending
-  // self-order, and polling it there cost five round trips every ten seconds
-  // on a database ~320ms away — on every screen in the shop at once.
-  const wantsPending = pathname.startsWith("/cashier") || pathname.startsWith("/orders") || pathname.startsWith("/dashboard");
+  // Only where somebody can act on it. A chef cannot take a pending self-order,
+  // and polling for them cost five round trips every fifteen seconds on a
+  // database ~320ms away — on every screen in the shop at once.
+  //
+  // By ROLE, not by path: «الطلبات» is now a button on every screen these three
+  // roles open, and a button that cannot say «٣ تنتظر» is worse than no button.
+  const wantsPending = role === "cashier" || role === "expediter" || role === "admin";
 
   useEffect(() => {
     if (!wantsPending) return;
@@ -256,21 +197,25 @@ export function StaffShell({
       <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur print:hidden">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2.5">
           <div className="flex min-w-0 items-center gap-4">
-            <Link href="/dashboard" className="flex shrink-0 items-center gap-2 whitespace-nowrap text-lg font-extrabold text-primary">
+            <Link href={primary[0]?.href ?? "/help"} className="flex shrink-0 items-center gap-2 whitespace-nowrap text-lg font-extrabold text-primary">
               <StationMark className="size-9" />
               ستيشن
             </Link>
-            <nav className="hidden gap-1 overflow-x-auto md:flex">
-              {links.map((l) => (
+            {/* الأساسية وحدها. كان هنا شريط بأربعة عشر زراً يُسحب أفقياً — والسحب
+                بحثاً عن زر ليس تنقلاً، والبقية صارت خلف «المزيد» مرتّبة. */}
+            <nav className="hidden items-center gap-1 md:flex">
+              {primary.map((l) => (
                 <Link
                   key={l.href}
                   href={l.href}
-                  className={`relative whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                  {...(l.external ? { target: "_blank", rel: "noopener" } : {})}
+                  className={`touch-pos relative flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2 text-sm font-bold transition ${
                     pathname.startsWith(l.href)
                       ? "bg-primary text-primary-foreground"
                       : "text-foreground/80 hover:bg-secondary"
                   }`}
                 >
+                  <l.icon className="size-4" />
                   {l.label}
                   {l.href === "/orders" && pendingCount > 0 && (
                     <span className="absolute -left-1 -top-1 flex size-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
@@ -279,6 +224,13 @@ export function StaffShell({
                   )}
                 </Link>
               ))}
+              <button
+                onClick={() => setMoreOpen(true)}
+                className="touch-pos flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2 text-sm font-bold text-foreground/80 transition hover:bg-secondary"
+              >
+                <MoreHorizontal className="size-4" />
+                المزيد
+              </button>
             </nav>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -349,14 +301,15 @@ export function StaffShell({
 
       {/* app-like bottom tab bar (mobile only) */}
       <nav className="fixed inset-x-0 bottom-0 z-30 flex border-t border-border bg-background/95 backdrop-blur md:hidden print:hidden">
-        {bottomTabs.map((l) => {
+        {primary.map((l) => {
           const active = pathname.startsWith(l.href);
           const Icon = l.icon;
           return (
             <Link
               key={l.href}
               href={l.href}
-              className={`relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-semibold transition ${
+              {...(l.external ? { target: "_blank", rel: "noopener" } : {})}
+              className={`touch-pos relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-semibold transition ${
                 active ? "text-primary" : "text-muted-foreground"
               }`}
             >
@@ -372,50 +325,65 @@ export function StaffShell({
         })}
         <button
           onClick={() => setMoreOpen(true)}
-          className="relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-semibold text-muted-foreground"
+          className="touch-pos relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-semibold text-muted-foreground"
         >
           <MoreHorizontal className="size-5" />
           المزيد
         </button>
       </nav>
 
-      {/* «المزيد» sheet — the full menu */}
+      {/* «المزيد» — الخريطة كاملة، مقسّمة برفوف. وعلى الشاشتين: كانت
+          md:hidden، فورث الكمبيوتر أسوأ الشكلين وهو صاحب أكبر شاشة. */}
       {moreOpen && (
-        <div className="fixed inset-0 z-40 md:hidden print:hidden" onClick={() => setMoreOpen(false)}>
+        <div className="fixed inset-0 z-40 print:hidden" onClick={() => setMoreOpen(false)}>
           <div className="absolute inset-0 bg-black/40" />
-          <div className="absolute inset-x-0 bottom-0 rounded-t-3xl bg-card p-4 pb-8 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-3xl bg-card p-4 pb-8 shadow-2xl md:inset-x-auto md:left-1/2 md:top-16 md:w-[46rem] md:max-w-[92vw] md:-translate-x-1/2 md:rounded-3xl md:pb-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="mb-3 flex items-center justify-between">
               <span className="font-bold">{name}</span>
-              <button onClick={() => setMoreOpen(false)} aria-label="إغلاق" className="rounded-lg border border-border p-1.5 hover:bg-secondary">
+              <button onClick={() => setMoreOpen(false)} aria-label="إغلاق" className="touch-pos rounded-lg border border-border p-1.5 hover:bg-secondary">
                 <X className="size-4" />
               </button>
             </div>
-            <div className="grid grid-cols-3 gap-2">
-              {links.map((l) => {
-                const Icon = l.icon;
-                const active = pathname.startsWith(l.href);
-                return (
-                  <Link
-                    key={l.href}
-                    href={l.href}
-                    onClick={() => setMoreOpen(false)}
-                    className={`relative flex flex-col items-center gap-1.5 rounded-2xl border p-3 text-xs font-semibold transition ${
-                      active ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-secondary"
-                    }`}
-                  >
-                    <Icon className="size-6" />
-                    {l.label}
-                  </Link>
-                );
-              })}
-              <button
-                onClick={signOut}
-                className="flex flex-col items-center gap-1.5 rounded-2xl border border-border p-3 text-xs font-semibold text-destructive hover:bg-secondary"
-              >
-                <LogOut className="size-6" />
-                تسجيل الخروج
-              </button>
-            </div>
+            {groups.map((g) => (
+              <section key={g.title} className="mb-4">
+                <h3 className="mb-2 text-xs font-black text-muted-foreground">{g.title}</h3>
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
+                  {g.items.map((l) => {
+                    const Icon = l.icon;
+                    const active = pathname.startsWith(l.href);
+                    return (
+                      <Link
+                        key={l.href}
+                        href={l.href}
+                        {...(l.external ? { target: "_blank", rel: "noopener" } : {})}
+                        onClick={() => setMoreOpen(false)}
+                        className={`touch-pos relative flex flex-col items-center gap-1.5 rounded-2xl border p-3 text-center text-xs font-semibold transition ${
+                          active ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-secondary"
+                        }`}
+                      >
+                        <Icon className="size-6" />
+                        {l.label}
+                        {l.href === "/orders" && pendingCount > 0 && (
+                          <span className="absolute -left-1 -top-1 flex size-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
+                            {pendingCount}
+                          </span>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+            <button
+              onClick={signOut}
+              className="touch-pos flex w-full items-center justify-center gap-2 rounded-2xl border border-border p-3 text-sm font-semibold text-destructive hover:bg-secondary"
+            >
+              <LogOut className="size-5" />
+              تسجيل الخروج
+            </button>
           </div>
         </div>
       )}

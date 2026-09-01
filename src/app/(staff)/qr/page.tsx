@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/cafe/auth";
 import QRCode from "qrcode";
 import { headers } from "next/headers";
 import { PrintButton } from "@/components/cafe/PrintButton";
@@ -14,6 +15,7 @@ export default async function QrPage({
 }: {
   searchParams: Promise<{ base?: string; path?: string }>;
 }) {
+  await requireAdmin();
   const sp = await searchParams;
   const h = await headers();
   const host = h.get("host") ?? "localhost:3000";

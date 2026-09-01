@@ -6,13 +6,14 @@ import {
   type RegisterClosure,
   type MonthlyCost,
 } from "@/lib/cafe/expense-actions";
-import { getStaff } from "@/lib/cafe/auth";
+import { getStaff, requireRole } from "@/lib/cafe/auth";
 import { isDemoServer } from "@/lib/cafe/demo";
 import { ExpensesClient } from "@/components/cafe/ExpensesClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function ExpensesPage() {
+  if (!isDemoServer()) await requireRole("cashier");
   let expenses: ExpenseRow[] = [];
   let closures: { today: RegisterClosure | null; previous: RegisterClosure | null } = { today: null, previous: null };
   let monthlyCosts: MonthlyCost[] = [];

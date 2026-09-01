@@ -1,4 +1,4 @@
-import { getStaff } from "@/lib/cafe/auth";
+import { getStaff, requireRole } from "@/lib/cafe/auth";
 import { isDemoServer } from "@/lib/cafe/demo";
 import { listCustomers, countCustomers, type CustomerRow } from "@/lib/cafe/loyalty-actions";
 import { LoyaltyClient } from "@/components/cafe/LoyaltyClient";
@@ -6,6 +6,7 @@ import { LoyaltyClient } from "@/components/cafe/LoyaltyClient";
 export const dynamic = "force-dynamic";
 
 export default async function LoyaltyPage() {
+  if (!isDemoServer()) await requireRole("cashier");
   let customers: CustomerRow[] = [];
   let customerCount = 0;
   let isAdmin = false;
