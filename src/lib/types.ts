@@ -248,6 +248,13 @@ export type Database = {
         Update: Partial<{ route: string; status: number; body: string | null; note: string | null }>;
         Relationships: [];
       };
+      // جرد آخر اليوم مع لقطة أرقامه (0056)
+      daily_counts: {
+        Row: { business_day: string; counted_cash: number; deposited: number; note: string | null; snapshot: Json | null; closed_at: string | null; by_employee: string | null; created_at: string; updated_at: string };
+        Insert: { business_day: string; counted_cash?: number; deposited?: number; note?: string | null; snapshot?: Json | null; closed_at?: string | null; by_employee?: string | null };
+        Update: Partial<{ counted_cash: number; deposited: number; note: string | null; snapshot: Json | null; closed_at: string | null }>;
+        Relationships: [];
+      };
       // من كان يجهّز في يوم عمل — يؤشّرهم الكاشير (0050)
       duty_expediters: {
         Row: { business_day: string; employee_id: string; created_at: string };
@@ -426,6 +433,9 @@ export type Database = {
       // يستبدل قائمة مجهّزي اليوم كاملة (0050)
       set_duty_expediters: { Args: { p_day: string; p_ids: string[] }; Returns: undefined };
       log_webhook: { Args: { p_route: string; p_status: number; p_body: string; p_note: string }; Returns: undefined };
+      // الجرد اليومي (0056)
+      save_daily_count: { Args: { p_day: string; p_counted: number; p_deposited: number; p_note: string | null; p_snapshot: Json; p_close?: boolean }; Returns: undefined };
+      stock_value: { Args: Record<string, never>; Returns: number };
       place_order: {
         Args: {
           p_channel: OrderChannel; p_lines: Json; p_customer?: string | null; p_table?: string | null;

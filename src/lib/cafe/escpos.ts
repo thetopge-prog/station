@@ -446,3 +446,100 @@ export function testSlipDoc(printerNameAr: string): TicketDoc {
   s.line("إن قرأتَ هذا السطر فالطابعة جاهزة");
   return { lines: s.doc, qr: "https://station.iq", kick: false };
 }
+
+/**
+ * «جرد اليوم» على شريط ٨٠ ملم — الورقة التي تُوقَّع وتُعلَّق.
+ *
+ * Built here rather than beside the daily-count action because `Slip` is
+ * private to this file. It stays private on purpose: the layout rules — column
+ * width, the pair() padding, what the agent's renderer does with `h` — all live
+ * here, and a second builder outside would drift from them within a month.
+ *
+ * The shape is deliberately the same as the Z-report a cashier already reads
+ * every night: opening float at the top, money in, money out, expected, counted,
+ * difference. Somebody who can read one can read the other without being taught.
+ */
+export function dailyCountDoc(d: {
+  day: string;
+  shopName: string;
+  opening_float: number;
+  cash_sales: number;
+  card_sales: number;
+  partner_sales: number;
+  expenses: number;
+  deposited: number;
+  debts_issued: number;
+  expected_cash: number;
+  counted_cash: number;
+  orders_count: number;
+  guests: number;
+  sales: number;
+  profit: number;
+  fixed_cost: number;
+  net: number;
+  stock_value: number;
+  partners_owed: number;
+  customers_owed: number;
+  note: string | null;
+  by: string;
+}): TicketDoc {
+  const s = new Slip("utf8", COLS_80MM);
+  const money = (n: number) => `${new Intl.NumberFormat("en-US").format(Math.round(n))} د.ع`;
+
+  s.center().size(2, 2).bold(true).line("جرد اليوم").bold(false).size(1, 1);
+  s.line(d.shopName);
+  s.line(d.day);
+  s.rule("=");
+
+  s.right();
+  s.bold(true).line("الصندوق").bold(false);
+  s.pair("المبلغ الافتتاحي", money(d.opening_float));
+  s.pair("مبيعات نقدية", money(d.cash_sales));
+  s.pair("مصروفات", `- ${money(d.expenses)}`);
+  s.pair("مودع للإدارة", `- ${money(d.deposited)}`);
+  s.rule();
+  s.size(1, 2).bold(true).pair("المتوقع في الصندوق", money(d.expected_cash)).bold(false).size(1, 1);
+  s.size(1, 2).bold(true).pair("المعدود فعلاً", money(d.counted_cash)).bold(false).size(1, 1);
+
+  // The number the whole sheet exists for. Named plainly in both directions so
+  // nobody has to work out the sign under pressure.
+  const diff = d.counted_cash - d.expected_cash;
+  s.size(2, 2).bold(true).line(diff === 0 ? "مطابق ✓" : diff > 0 ? `زيادة ${money(diff)}` : `عجز ${money(-diff)}`);
+  s.bold(false).size(1, 1);
+
+  s.rule("=");
+  s.bold(true).line("خارج الصندوق").bold(false);
+  s.pair("مبيعات كي كارد", money(d.card_sales));
+  s.pair("على شركات التوصيل", money(d.partner_sales));
+  s.pair("ديون صدرت اليوم", money(d.debts_issued));
+
+  s.rule("=");
+  s.bold(true).line("اليوم").bold(false);
+  s.pair("المبيعات", money(d.sales));
+  s.pair("الأرباح", money(d.profit));
+  s.pair("الثابتة (أجور وإيجار)", `- ${money(d.fixed_cost)}`);
+  s.rule();
+  s.bold(true).pair("الصافي", money(d.net)).bold(false);
+  s.pair("عدد الطلبات", String(d.orders_count));
+  s.pair("عدد الزبائن", String(d.guests));
+
+  s.rule("=");
+  s.bold(true).line("أرصدة").bold(false);
+  s.pair("قيمة المخزون", money(d.stock_value));
+  s.pair("لنا على شركات التوصيل", money(d.partners_owed));
+  s.pair("لنا على الزبائن", money(d.customers_owed));
+
+  if (d.note) {
+    s.rule("=");
+    s.bold(true).line("ملاحظة").bold(false);
+    s.line(d.note);
+  }
+
+  s.rule("=");
+  s.center();
+  s.line(`الجرد: ${d.by}`);
+  s.line("");
+  // A line to sign on — the reason this is printed rather than looked at.
+  s.line("التوقيع: ........................");
+  return { lines: s.doc, qr: null, kick: false };
+}

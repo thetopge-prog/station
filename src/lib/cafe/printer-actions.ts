@@ -124,6 +124,28 @@ export async function buildTestJob(printerId: string): Promise<PrintJob | null> 
 }
 
 /**
+ * The daily count, on the till's own printer.
+ *
+ * Goes to the RECEIPT printer by kind rather than by id: whoever prints this is
+ * standing at the counter at the end of the night, and should not have to know
+ * which of four devices is which.
+ */
+export async function buildDailyCountJob(doc: TicketDoc): Promise<PrintJob | null> {
+  await requireStaff();
+  const p = (await listPrinters()).find((x) => x.kind === "receipt" && x.is_active);
+  if (!p) return null;
+  return {
+    printerId: p.id,
+    printerName: p.name_ar,
+    host: p.host,
+    port: p.port,
+    share: p.share,
+    copies: 1,
+    doc,
+  };
+}
+
+/**
  * The main event: split one paid order across the printers.
  *
  * Reads through the SERVICE client because it joins menu_items → categories to

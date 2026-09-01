@@ -31,6 +31,7 @@ import {
   UtensilsCrossed,
   Users,
   Wallet,
+  ClipboardCheck,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -103,6 +104,7 @@ const NAV: NavItem[] = [
   { href: "/debts", label: "سجل الديون", short: "الديون", allow: ["cashier"], icon: HandCoins },
   { href: "/partners", label: "شركات التوصيل", short: "الشركات", allow: [], icon: Bike },
   { href: "/menu-admin", label: "المنيو", short: "المنيو", allow: [], icon: UtensilsCrossed },
+  { href: "/daily", label: "جرد اليوم", short: "الجرد", allow: ["cashier"], icon: ClipboardCheck },
   { href: "/expenses", label: "المصروفات", short: "المصروفات", allow: ["cashier"], icon: Wallet },
   { href: "/employees", label: "الموظفون", short: "الموظفون", allow: [], icon: Users },
   { href: "/inventory", label: "المخزون", short: "المخزون", allow: ["chef", "cashier", "expediter"], icon: Boxes },
