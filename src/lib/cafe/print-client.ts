@@ -20,11 +20,19 @@ import type { PrintJob } from "./printer-actions";
  * retried, never awaited before the order is considered done.
  */
 
+/** how long a queued ticket is still worth printing */
+const STALE_MS = 10 * 60 * 1000;
 const AGENT = "http://127.0.0.1:9988";
 const QUEUE_KEY = "st-print-queue";
 const MAX_QUEUE = 40;
 
-export type PrintOutcome = { sent: number; queued: number; agent: boolean };
+export type PrintOutcome = {
+  sent: number;
+  queued: number;
+  agent: boolean;
+  /** printers with no host and no share — configured by nobody, so nothing printed */
+  skipped: string[];
+};
 
 /** Is the local agent running? Cached per page load; used to warn the cashier. */
 export async function agentAlive(timeoutMs = 900): Promise<boolean> {
@@ -85,21 +93,37 @@ async function postJob(job: PrintJob): Promise<boolean> {
  * catches up on its own without anyone pressing anything.
  */
 export async function printJobs(jobs: PrintJob[]): Promise<PrintOutcome> {
-  const pending = [...readQueue(), ...jobs];
+  // A kitchen ticket is worthless once the food is out. Replaying an hour-old
+  // queue printed tickets for meals already eaten, on top of the live order —
+  // and the cook cannot tell which is which. Keep only the newest job per
+  // printer, and only while it could still matter.
+  const fresh = readQueue().filter((j) => Date.now() - (j.queuedAt ?? 0) < STALE_MS);
+  const byPrinter = new Map<string, PrintJob>();
+  for (const j of fresh) byPrinter.set(j.printerId, j);
+  const pending = [...byPrinter.values(), ...jobs];
+
   const failed: PrintJob[] = [];
+  const skipped: string[] = [];
   let sent = 0;
 
   for (const job of pending) {
-    // an unconfigured printer (no host, no share) is skipped, not queued:
-    // retrying it forever would mask the fact that nobody set it up
-    if (!job.host && !job.share) continue;
+    // An unconfigured printer (no host, no share) is skipped, not queued:
+    // retrying it forever would mask the fact that nobody set it up. But it
+    // used to be skipped SILENTLY — not counted as sent, not counted as
+    // queued — so a receipt printer saved with an empty share printed nothing,
+    // raised no warning, and did not even trigger the window.print() fallback,
+    // because another printer's success had already made `sent` non-zero.
+    if (!job.host && !job.share) {
+      skipped.push(job.printerName);
+      continue;
+    }
     const ok = await postJob(job);
     if (ok) sent += job.copies;
-    else failed.push(job);
+    else failed.push({ ...job, queuedAt: job.queuedAt ?? Date.now() });
   }
 
   writeQueue(failed);
-  return { sent, queued: failed.length, agent: failed.length === 0 || sent > 0 };
+  return { sent, queued: failed.length, agent: failed.length === 0 || sent > 0, skipped };
 }
 
 /** Open the cash drawer without printing (kept from the cafe build). */

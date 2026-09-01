@@ -149,13 +149,22 @@ export function CashierClient({
           kickDrawer: drawerKickRef.current && payMethodRef.current === "cash",
         });
         if (cancelled) return;
-        const out = jobs.length ? await printJobs(jobs) : { sent: 0, queued: 0, agent: false };
+        const out = jobs.length ? await printJobs(jobs) : { sent: 0, queued: 0, agent: false, skipped: [] };
         if (cancelled) return;
-        if (out.sent === 0) window.print();
-        // a category nobody routed prints nowhere — say so at the counter
-        // rather than letting the kitchen discover it
-        if (unrouted.length) setPrintWarn(`لا توجد محطة لـ: ${unrouted.join("، ")}`);
-        else if (out.queued > 0) setPrintWarn(`${out.queued} تذكرة لم تُطبع — الطابعة غير متاحة.`);
+        // Nothing reached a printer at all → fall back to the browser. `sent`
+        // used to be enough on its own, but it sums across ALL printers, so a
+        // grill ticket succeeding hid a receipt printer that was never sent to.
+        if (out.sent === 0 || out.skipped.length > 0) window.print();
+        // All three warnings, not one of them. These were an if/else chain, so a
+        // shop with any permanently-unrouted category (sauces legitimately are)
+        // could NEVER see «تذكرة لم تُطبع» — the printer-down warning was dead
+        // in exactly the shops most likely to need it.
+        const warn = [
+          out.skipped.length ? `لم تُضبط طابعة: ${[...new Set(out.skipped)].join("، ")}` : "",
+          out.queued > 0 ? `${out.queued} تذكرة لم تُطبع — الطابعة غير متاحة.` : "",
+          unrouted.length ? `لا توجد محطة لـ: ${unrouted.join("، ")}` : "",
+        ].filter(Boolean);
+        if (warn.length) setPrintWarn(warn.join(" · "));
       } catch {
         if (!cancelled) window.print();
       }

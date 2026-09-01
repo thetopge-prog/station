@@ -42,6 +42,8 @@ export type PrintJob = {
   port: number;
   share: string | null;
   copies: number;
+  /** set when a job goes into the retry queue; a stale kitchen ticket is dropped, not reprinted */
+  queuedAt?: number;
   /** base64 ESC/POS — the legacy path, kept for the drawer pulse */
   data?: string;
   /**

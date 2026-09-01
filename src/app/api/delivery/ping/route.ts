@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const partner = await partnerFromKey(req);
   if (!partner) {
-    log("/api/delivery/ping", 403, "", "مفتاح غير معروف");
+    await log("/api/delivery/ping", 403, "", "مفتاح غير معروف");
     return NextResponse.json({ ok: false, error: "unknown key" }, { status: 403 });
   }
   return NextResponse.json({ ok: true, partner: partner.name_ar, delivery_fee: partner.delivery_fee });

@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const partner = await partnerFromKey(req);
   if (!partner) {
-    log("/api/delivery/courier", 403, "", "مفتاح غير معروف");
+    await log("/api/delivery/courier", 403, "", "مفتاح غير معروف");
     return NextResponse.json({ ok: false, error: "unknown key" }, { status: 403 });
   }
 
@@ -41,7 +41,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     .maybeSingle();
 
   if (!order) {
-    log("/api/delivery/courier", 404, raw, `طلب ليس لـ${partner.name_ar}`);
+    await log("/api/delivery/courier", 404, raw, `طلب ليس لـ${partner.name_ar}`);
     return NextResponse.json({ ok: false, error: "order not found for this partner" }, { status: 404 });
   }
 
@@ -54,10 +54,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     .eq("id", order.id);
 
   if (error) {
-    log("/api/delivery/courier", 500, raw, error.message);
+    await log("/api/delivery/courier", 500, raw, error.message);
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
-  log("/api/delivery/courier", 200, raw, `مندوب لطلب #${order.order_seq} — ${partner.name_ar}`);
+  await log("/api/delivery/courier", 200, raw, `مندوب لطلب #${order.order_seq} — ${partner.name_ar}`);
   return NextResponse.json({ ok: true, number: String(order.order_seq).padStart(3, "0") });
 }

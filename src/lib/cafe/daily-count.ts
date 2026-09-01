@@ -76,11 +76,32 @@ export async function getDailyCount(day = businessDay()): Promise<DailyCount> {
       svc.from("orders").select("subtotal, discount, extra, payment_method").eq("business_day", day).eq("status", "paid"),
     ]);
 
+  /*
+   * Every one of these must have worked, or the sheet lies.
+   *
+   * All seven used to be read as `.data ?? 0` with the error dropped. One
+   * transient failure on range_summary printed «مبيعات ٠» at midnight; the
+   * cashier signs it, closes the day — and a closed day cannot be reopened
+   * (0056). Worse, if only the orders read failed, cash_sales went to zero
+   * while opening_float did not, so the drawer showed a SURPLUS the size of
+   * the day's takings — the exact shape of the bug stampPayment already fixed
+   * once. A page that fails to load is a nuisance; a page that quietly reads
+   * zero is a forged document.
+   */
+  for (const [what, res] of [
+    ["الورديات", sessionsRes], ["ملخّص اليوم", summaryRes], ["الكلفة الثابتة", fixedRes],
+    ["قيمة المخزون", stockRes], ["أرصدة الشركات", partnersRes], ["ديون الزبائن", debtsRes],
+    ["عدد الزبائن", guestsRes], ["الجرد المحفوظ", savedRes], ["طلبات اليوم", ordersRes],
+  ] as const) {
+    if (res.error) throw new Error(`تعذّر جلب ${what}: ${res.error.message}`);
+  }
+
   const sessions = sessionsRes.data ?? [];
   const empIds = [...new Set(sessions.map((s) => s.cashier_id))];
-  const { data: emps } = empIds.length
+  const { data: emps, error: empErr } = empIds.length
     ? await svc.from("employees").select("id, name_ar").in("id", empIds)
-    : { data: [] };
+    : { data: [], error: null };
+  if (empErr) throw new Error(`تعذّر جلب أسماء الكاشيرين: ${empErr.message}`);
   const nameOf = new Map((emps ?? []).map((e) => [e.id, e.name_ar]));
 
   const paid = ordersRes.data ?? [];
@@ -96,11 +117,12 @@ export async function getDailyCount(day = businessDay()): Promise<DailyCount> {
   const expenses = summary?.expenses ?? 0;
 
   // Debts issued today, which left the drawer as goods and not as money.
-  const { data: debtRows } = await svc
+  const { data: debtRows, error: debtErr } = await svc
     .from("debt_entries")
     .select("amount, kind")
     .eq("business_day", day)
     .eq("kind", "debit");
+  if (debtErr) throw new Error(`تعذّر جلب ديون اليوم: ${debtErr.message}`);
 
   const positive = (rows: { balance: number }[] | null) =>
     (rows ?? []).reduce((t, r) => t + Math.max(0, +r.balance), 0);

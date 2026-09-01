@@ -333,15 +333,22 @@ async function loadOwners(): Promise<Set<string>> {
   try {
     for (const r of (await rest("bot_owners?select=chat_id")) as Row[]) set.add(String(r.chat_id));
   } catch {
-    // قاعدة لا تستجيب: يبقى المالك الأصلي قادراً على الدخول
+    // قاعدة لا تستجيب: يبقى المالك الأصلي (TG_OWNER_IDS) قادراً على الدخول،
+    // ولا نُخزّن المجموعة الناقصة — وإلا بقي كل من أُضيف من داخل البوت
+    // محروماً حتى تُعاد الدالة، أو (قبل الإصلاح) صار الجميع مالكاً.
+    return set;
   }
   ownerCache = set;
   return set;
 }
 async function authorized(chatId: number | string): Promise<boolean> {
   const owners = await loadOwners();
-  // لا مالك أصلي ولا جدول؟ البوت مفتوح كما كان قبل هذا كله
-  return owners.size === 0 || owners.has(String(chatId));
+  // NOT «no owners means everyone». This function is deployed --no-verify-jwt
+  // and runs on the service-role key, so an empty owner set used to make the
+  // shop's P&L, its prices and its menu open to anyone holding the URL — and
+  // the set is empty whenever the bot_owners read merely FAILS. Fail closed: a
+  // locked-out owner is a phone call, an open bot is the till.
+  return owners.has(String(chatId));
 }
 
 /** شاشة المسؤولين. */
@@ -946,7 +953,7 @@ Deno.serve(async (req) => {
 
   // nightly (or manual) daily report — pg_cron calls this with the job secret
   if (url.searchParams.get("job") === "daily") {
-    if (HOOK_SECRET && req.headers.get("x-job-secret") !== HOOK_SECRET) {
+    if (req.headers.get("x-job-secret") !== HOOK_SECRET || !HOOK_SECRET) {
       return new Response("forbidden", { status: 403 });
     }
     try {
@@ -960,7 +967,7 @@ Deno.serve(async (req) => {
 
   // telegram webhook updates
   if (req.method !== "POST") return new Response("ok", { status: 200 });
-  if (HOOK_SECRET && req.headers.get("x-telegram-bot-api-secret-token") !== HOOK_SECRET) {
+  if (req.headers.get("x-telegram-bot-api-secret-token") !== HOOK_SECRET || !HOOK_SECRET) {
     return new Response("forbidden", { status: 403 });
   }
   try {

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BellRing } from "lucide-react";
 import { formatIqdLabel } from "@/lib/cafe/money";
+import { kickDrawer } from "@/lib/cafe/print-client";
 import {
   listPendingOrders,
   payPendingOrder,
@@ -63,12 +64,16 @@ export function IncomingOrdersClient() {
     drawerKickRef.current = drawerKick;
     localStorage.setItem("st-drawer", drawerKick ? "1" : "0");
   }, [drawerKick]);
-  function kickDrawer() {
+  function openDrawer() {
     // guard against a double-open if the pay action fires twice in quick succession
     if (!drawerKickRef.current || kickBusyRef.current) return;
     kickBusyRef.current = true;
     setTimeout(() => { kickBusyRef.current = false; }, 2500);
-    fetch("http://127.0.0.1:9977/kick", { mode: "no-cors" }).catch(() => {});
+    // 9988, via the shared helper. This called 9977 directly — the port
+    // print-client.ts:9 records as belonging to the PREVIOUS system's drawer
+    // agent, which the two systems were explicitly kept apart over. So our
+    // drawer never opened from this screen, and theirs might have.
+    void kickDrawer();
   }
 
   // print queued tickets one by one
@@ -119,7 +124,7 @@ export function IncomingOrdersClient() {
     const res = await payPendingOrder(id, 0, null, method);
     if (!res.ok) setQueueErr(res.error);
     else {
-      if (method === "cash") kickDrawer();
+      if (method === "cash") openDrawer();
       // print the paid receipt for the customer (silent under --kiosk-printing)
       if (o) setTickets((q) => [...q, ticketFor(o)]);
     }

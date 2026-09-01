@@ -19,7 +19,7 @@ const WINDOW_HOURS = 6;
 export async function GET(req: Request) {
   const partner = await partnerFromKey(req);
   if (!partner) {
-    log("/api/delivery/orders", 403, "", "مفتاح غير معروف");
+    await log("/api/delivery/orders", 403, "", "مفتاح غير معروف");
     return NextResponse.json({ ok: false, error: "unknown key" }, { status: 403 });
   }
 
@@ -40,7 +40,7 @@ export async function GET(req: Request) {
     .limit(100);
 
   if (error) {
-    log("/api/delivery/orders", 500, error.message, "فشل القراءة");
+    await log("/api/delivery/orders", 500, error.message, "فشل القراءة");
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
@@ -56,7 +56,9 @@ export async function GET(req: Request) {
     byOrder.set(i.order_id, arr);
   }
 
-  log("/api/delivery/orders", 200, "", `${orders?.length ?? 0} طلب لـ${partner.name_ar}`);
+  // No log on success. A partner polls this every 30s — 120 rows an hour into
+  // a table that keeps only the newest 20, globally. It erased the /api/calls
+  // failures the log exists to capture, within minutes. Failures still log.
 
   return NextResponse.json({
     ok: true,

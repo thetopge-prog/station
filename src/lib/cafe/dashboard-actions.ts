@@ -71,16 +71,26 @@ export async function getTodaySinceReset(): Promise<DaySummary> {
     .limit(1);
   const cutoff = resets?.[0]?.reset_at ?? dayStart;
 
-  const { data: orders } = await svc
+  const { data: orders, error: ordErr } = await svc
     .from("orders")
-    .select("subtotal, cost_total")
+    .select("subtotal, discount, extra, cost_total")
     .eq("status", "paid")
     .gte("paid_at", cutoff);
-  const sales = (orders ?? []).reduce((s, o) => s + (o.subtotal ?? 0), 0);
+  if (ordErr) throw new Error(`تعذّر جلب طلبات اليوم: ${ordErr.message}`);
+  // subtotal − discount + extra: the same expression range_summary,
+  // session_report, bep_today, partner_balances and the daily count all use.
+  // This card alone summed the raw subtotal, so every discount the shop granted
+  // made the dashboard's «اليوم» disagree with the Z-report and the جرد sheet
+  // by exactly that amount — two screens, two numbers, same day, no way to tell
+  // which the cash should match.
+  const money = (o: { subtotal: number | null; discount: number | null; extra: number | null }) =>
+    (o.subtotal ?? 0) - (o.discount ?? 0) + (o.extra ?? 0);
+  const sales = (orders ?? []).reduce((s, o) => s + money(o), 0);
   const cost = (orders ?? []).reduce((s, o) => s + (o.cost_total ?? 0), 0);
   const orders_count = (orders ?? []).length;
 
-  const { data: exps } = await svc.from("expenses").select("amount").gte("created_at", cutoff);
+  const { data: exps, error: expErr } = await svc.from("expenses").select("amount").gte("created_at", cutoff);
+  if (expErr) throw new Error(`تعذّر جلب مصاريف اليوم: ${expErr.message}`);
   const expenses = (exps ?? []).reduce((s, e) => s + (e.amount ?? 0), 0);
 
   const profit = sales - cost;

@@ -30,11 +30,17 @@ export async function partnerFromKey(req: Request): Promise<Partner | null> {
   return hit ? { id: hit.id, name_ar: hit.name_ar, delivery_fee: hit.delivery_fee ?? 0 } : null;
 }
 
-/** Diagnostics for a partner integrating against us, written down once. */
-export function log(route: string, status: number, body: string, note: string) {
+/**
+ * Diagnostics for a partner integrating against us, written down once.
+ *
+ * Awaited. `void svc.rpc(...)` is fire-and-forget, and in a serverless function
+ * the response returning freezes the isolate — so the row frequently never
+ * landed at all, which is a peculiar way for a diagnostic to fail.
+ */
+export async function log(route: string, status: number, body: string, note: string) {
   try {
     const svc = createSupabaseServiceClient();
-    void svc.rpc("log_webhook", {
+    await svc.rpc("log_webhook", {
       p_route: route,
       p_status: status,
       // the partner's own key must not be written into a table staff can read

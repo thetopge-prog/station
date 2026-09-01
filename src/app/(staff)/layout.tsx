@@ -13,7 +13,11 @@ export const metadata = { manifest: "/admin-manifest.webmanifest" };
 
 export default async function StaffLayout({ children }: { children: React.ReactNode }) {
   const pushKey = process.env.WEB_PUSH_PUBLIC_KEY ?? null;
-  if (isDemoServer()) {
+  // Never in production. isDemoServer() is just «NEXT_PUBLIC_SUPABASE_URL is
+  // unset», read at RUNTIME — so a config slip on the host would otherwise hand
+  // out an admin shell with no authentication at all. proxy.ts:73 already
+  // fences its own dev bypass this way; this one did not.
+  if (isDemoServer() && process.env.NODE_ENV !== "production") {
     // Demo trial (no Supabase configured): browsable shell, no real data.
     return (
       <StaffShell role="admin" name="وضع تجريبي" pushKey={pushKey}>
