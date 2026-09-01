@@ -101,9 +101,9 @@ export type Database = {
         Relationships: [];
       };
       delivery_partners: {
-        Row: Timestamped & { name_ar: string; phone: string | null; is_active: boolean; sort: number; note: string | null };
+        Row: Timestamped & { name_ar: string; phone: string | null; is_active: boolean; delivery_fee: number; api_key: string | null; dispatch_url: string | null; dispatch_headers: Json | null; sort: number; note: string | null };
         Insert: { id?: string; name_ar: string; phone?: string | null; is_active?: boolean; sort?: number; note?: string | null; created_at?: string };
-        Update: Partial<{ name_ar: string; phone: string | null; is_active: boolean; sort: number; note: string | null }>;
+        Update: Partial<{ name_ar: string; phone: string | null; is_active: boolean; delivery_fee: number; api_key: string | null; dispatch_url: string | null; dispatch_headers: Json | null; sort: number; note: string | null }>;
         Relationships: [];
       };
       partner_settlements: {
@@ -308,7 +308,7 @@ export type Database = {
           eta_minutes: number | null; customer_phone: string | null; address_note: string | null;
           updated_at: string; source: "hub" | "cloud";
           order_source: "pos" | "web" | "whatsapp"; customer_name: string | null; notified_at: string | null;
-          payment_method: "cash" | "card" | "partner" | null; session_id: string | null; partner_id: string | null;
+          payment_method: "cash" | "card" | "partner" | null; session_id: string | null; partner_id: string | null; courier_requested_at: string | null; courier_ref: string | null;
         };
         Insert: {
           id?: string; business_day?: string; order_seq: number; channel: OrderChannel; status?: OrderStatus;
@@ -324,7 +324,7 @@ export type Database = {
         Update: Partial<{
           status: OrderStatus; discount: number; extra: number; extra_note: string | null;
           customer_id: string | null; paid_at: string | null; shortage_ack_at: string | null;
-          prep_status: PrepStatus; expediter_id: string | null; eta_minutes: number | null; updated_at: string; payment_method: "cash" | "card" | "partner" | null; session_id: string | null; partner_id: string | null;
+          prep_status: PrepStatus; expediter_id: string | null; eta_minutes: number | null; updated_at: string; payment_method: "cash" | "card" | "partner" | null; session_id: string | null; partner_id: string | null; courier_requested_at: string | null; courier_ref: string | null;
         }>;
         Relationships: [];
       };
@@ -451,9 +451,14 @@ export type Database = {
       ack_shortage: { Args: { p_order: string }; Returns: undefined };
       // 0045 — delivery aggregators billed postpaid
       save_partner: {
-        Args: { p_id: string | null; p_name: string; p_phone?: string | null; p_active?: boolean; p_note?: string | null };
+        Args: {
+          p_id: string | null; p_name: string; p_phone?: string | null; p_active?: boolean; p_note?: string | null;
+          p_fee?: number | null; p_dispatch_url?: string | null; p_dispatch_headers?: Json | null;
+        };
         Returns: string;
       };
+      // يولّد مفتاح الشركة أو يستبدله (0054)
+      rotate_partner_key: { Args: { p_partner: string }; Returns: string };
       settle_partner: {
         Args: { p_partner: string; p_amount: number; p_method?: "cash" | "transfer" | "other"; p_note?: string | null };
         Returns: number;

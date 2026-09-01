@@ -19,9 +19,11 @@ import { AUTH_STORAGE_KEY, parseSessionCookie } from "@/lib/supabase/constants";
 // carries its own shared secret and would break if redirected to /sign-in.
 // /api/calls — the same, for the shop phone posting a caller's number. A
 // redirect to a sign-in page is not something an Android automation can follow.
+// /api/delivery — a delivery company's own key, not a staff session. Without
+// this prefix every request from them would be answered with a sign-in page.
 // /queue — the ceiling display. It carries its own STATION_DISPLAY_KEY instead
 // of a 7-day staff cookie, because nobody can reach it to sign in again.
-const PUBLIC_PREFIXES = ["/sign-in", "/menu", "/kiosk", "/card", "/api/orders", "/api/calls", "/queue", "/tv"];
+const PUBLIC_PREFIXES = ["/sign-in", "/menu", "/kiosk", "/card", "/api/orders", "/api/calls", "/api/delivery", "/queue", "/tv"];
 const LOGIN_PATHS = new Set(["/", "/sign-in"]);
 
 function isPublic(pathname: string): boolean {
