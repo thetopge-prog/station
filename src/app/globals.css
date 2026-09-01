@@ -329,3 +329,55 @@ body {
    here (a duplicated declaration kept as a fallback, then four longhand offsets
    folded back into `inset: 0`), and inline styles are the only place it cannot
    reach. */
+
+/* ── ألوان الشفافية: تصحيح ما يكسره المُصغِّر ─────────────────────────────────
+ *
+ * `bg-primary/10` كان يُرسم برتقالياً **معتماً**، فيختفي `text-primary` فوقه.
+ * الزر «إضافة» في شاشة الكاشير خرج بلا كتابة، وهو واحد من ٤٢ موضعاً بنفس
+ * الشكل (نصّ بلون خلفيته) من أصل ٩١ موضعاً تستعمل الشفافية.
+ *
+ * السبب في الملف المبنيّ نفسه — قرأتُه:
+ *
+ *   .bg-primary,.bg-primary\/5 { background-color:var(--primary) }
+ *   .bg-primary\/5             { background-color:color-mix(…5%…) }
+ *   .bg-primary\/10            { background-color:var(--primary) }   ← الاحتياطي وحده
+ *
+ * تايلويند يُصدر لكل شفافية زوجاً: قيمة معتمة احتياطية للمتصفحات القديمة، ثم
+ * color-mix الحقيقية. والمُصغِّر يدمج الاحتياطيات المتطابقة ويبتلع الحقيقية —
+ * بقيت color-mix واحدة في الملف كله. وهذا هو الفخّ نفسه المكتوب أعلاه مرّتين:
+ * تصريحان لنفس الخاصية لا ينجوان معاً.
+ *
+ * فالعلاج ليس color-mix أخرى — بل **لون ثابت** لا زوج له ولا شيء يدمجه. وهو
+ * أيضاً ما يحتاجه تلفزيون المحل: كروميوم ٨٧ لا يعرف color-mix أصلاً، فكان
+ * سيرى المعتم حتى لو نجت القاعدة.
+ *
+ * الأرقام مزيج مسبق للبرتقالي على الأبيض، وللبرتقالي على البنّي في الليلي.
+ */
+:root {
+  --primary-05: #fff5ee;
+  --primary-10: #ffeee2;
+  --primary-15: #ffe7d5;
+  --primary-20: #ffe0c8;
+  --destructive-10: #fbe7e5;
+  --destructive-15: #f9dbd8;
+  --destructive-20: #f7cfcb;
+}
+:root.dark {
+  --primary-05: #2a1b12;
+  --primary-10: #341f13;
+  --primary-15: #3e2415;
+  --primary-20: #482916;
+  --destructive-10: #331a18;
+  --destructive-15: #3d1d1a;
+  --destructive-20: #47201c;
+}
+
+/* !important لأن المُسطِّح يمنح قواعد تايلويند خصوصية مصطنعة
+   (‎:not(#\#)‎ أربع مرّات) لا تُهزَم بقاعدة عادية. */
+.bg-primary\/5 { background-color: var(--primary-05) !important; }
+.bg-primary\/10 { background-color: var(--primary-10) !important; }
+.bg-primary\/15 { background-color: var(--primary-15) !important; }
+.bg-primary\/20 { background-color: var(--primary-20) !important; }
+.bg-destructive\/10 { background-color: var(--destructive-10) !important; }
+.bg-destructive\/15 { background-color: var(--destructive-15) !important; }
+.bg-destructive\/20 { background-color: var(--destructive-20) !important; }
