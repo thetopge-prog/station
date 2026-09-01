@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PhoneCall, X } from "lucide-react";
 import { chimeCall, unlockAudio } from "@/lib/cafe/chime";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { latestCall, markCallHandled, type IncomingCall, type LastLine } from "@/lib/cafe/call-actions";
 import { CallerCard } from "./CallerCard";
 
@@ -72,6 +73,33 @@ export function CallBanner({
     return () => {
       clearTimeout(kick);
       clearInterval(t);
+    };
+  }, [poll]);
+
+  /*
+   * Instant, by subscription rather than by asking.
+   *
+   * The poll alone meant up to four seconds plus a round trip to Tokyo, and
+   * the phone is only ringing for twenty. The name would land after the
+   * cashier had already picked up and asked for it by mouth — which is the
+   * exact thing this whole feature exists to prevent.
+   *
+   * Same mechanism the kitchen and the queue TV have used since 0028. The poll
+   * stays as the safety net for a dropped socket or a sleeping tablet.
+   */
+  useEffect(() => {
+    let channel: ReturnType<ReturnType<typeof createSupabaseBrowserClient>["channel"]> | null = null;
+    try {
+      const supabase = createSupabaseBrowserClient();
+      channel = supabase
+        .channel("station-calls")
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "incoming_calls" }, () => void poll())
+        .subscribe();
+    } catch {
+      // demo mode / no Supabase — the poll carries it
+    }
+    return () => {
+      if (channel) void createSupabaseBrowserClient().removeChannel(channel);
     };
   }, [poll]);
 

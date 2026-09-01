@@ -50,6 +50,8 @@ export type IncomingCall = {
   name: string | null;
   address: string | null;
   points: number | null;
+  /** the loyalty record behind this number, when there is one */
+  customerId: string | null;
 };
 
 export async function latestCall(): Promise<IncomingCall | null> {
@@ -71,14 +73,15 @@ export async function latestCall(): Promise<IncomingCall | null> {
   // Looked up now rather than trusted from insert time: the customer may have
   // been created, renamed or given an address in the seconds since the ring.
   const { data: c } = call.customer_id
-    ? await svc.from("customers").select("name_ar, address, points").eq("id", call.customer_id).maybeSingle()
+    ? await svc.from("customers").select("id, name_ar, address, points").eq("id", call.customer_id).maybeSingle()
     : phone
-      ? await svc.from("customers").select("name_ar, address, points").eq("phone", phone).maybeSingle()
+      ? await svc.from("customers").select("id, name_ar, address, points").eq("phone", phone).maybeSingle()
       : { data: null };
 
   return {
     id: call.id,
     phone,
+    customerId: call.customer_id ?? c?.id ?? null,
     at: call.created_at,
     // a WhatsApp caller saved in the phone's contacts arrives as a name and
     // no number; showing it beats showing nothing
@@ -118,7 +121,29 @@ export async function recentDistinctOrders(phone: string | null, customerId?: st
     // orders the same thing most weeks
     .limit(15);
 
-  const { data: orders } = customerId ? await q.eq("customer_id", customerId) : await q.eq("customer_phone", phone!.trim());
+  /*
+   * Match on EITHER the loyalty record or the phone on the order.
+   *
+   * Searching by phone alone found nothing, ever, for a customer served at the
+   * counter: cashierCheckout calls place_order without p_phone, so a till order
+   * carries a customer_id and a null customer_phone. The card then told a
+   * regular of two years «هذه أول مرة يطلب فيها».
+   *
+   * The id is resolved from the number when the caller did not bring one, so
+   * this works whichever way the order was taken.
+   */
+  let cid = customerId ?? null;
+  if (!cid && phone) {
+    const { data: cust } = await svc.from("customers").select("id").eq("phone", phone.trim()).maybeSingle();
+    cid = cust?.id ?? null;
+  }
+  const filters = [
+    cid ? `customer_id.eq.${cid}` : null,
+    phone ? `customer_phone.eq.${phone.trim()}` : null,
+  ].filter(Boolean);
+  if (!filters.length) return [];
+
+  const { data: orders } = await q.or(filters.join(","));
   if (!orders?.length) return [];
 
   const { data: allItems } = await svc

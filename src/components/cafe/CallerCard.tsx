@@ -58,13 +58,13 @@ export function CallerCard({
   useEffect(() => {
     // fetched HERE, not in the strip's four-second poll
     let alive = true;
-    void recentDistinctOrders(call.phone)
+    void recentDistinctOrders(call.phone, call.customerId)
       .then((o) => alive && setOrders(o))
       .catch(() => alive && setOrders([]));
     return () => {
       alive = false;
     };
-  }, [call.phone]);
+  }, [call.phone, call.customerId]);
 
   async function save() {
     const res = await saveCallerDetails(phone, name, address);

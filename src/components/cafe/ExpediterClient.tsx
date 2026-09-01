@@ -80,8 +80,18 @@ export function ExpediterClient({ name }: { name: string }) {
       if (busy) return;
       setBusy(id);
       try {
-        await fn(id);
+        // The result was thrown away and a thrown error escaped as an unhandled
+        // rejection, so «تأكيد وإعادة استلام» could refuse and look identical to
+        // a button that simply does not work. The expediter is holding a bag;
+        // they need the reason on the same screen, in the same second.
+        const res = await fn(id);
+        if (!res.ok) {
+          setScan({ kind: "err", text: (res as { error?: string }).error ?? "تعذّر إتمام العملية" });
+          return;
+        }
         await refresh();
+      } catch (e) {
+        setScan({ kind: "err", text: e instanceof Error ? e.message : "تعذّر إتمام العملية" });
       } finally {
         setBusy(null);
       }
@@ -125,8 +135,11 @@ export function ExpediterClient({ name }: { name: string }) {
         return setScan({ kind: "ok", text: `طلب ${String(target.order_seq).padStart(3, "0")} جاهز مسبقاً` });
       }
 
+      const res = await confirmAssembled(id);
+      if (!res.ok) {
+        return setScan({ kind: "err", text: (res as { error?: string }).error ?? "تعذّر التأكيد" });
+      }
       setScan({ kind: "ok", text: `طلب ${String(target.order_seq).padStart(3, "0")} → جاهز ✓` });
-      await confirmAssembled(id);
       await refresh();
     },
     [rows, refresh],
