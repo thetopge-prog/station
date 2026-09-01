@@ -1,20 +1,25 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { listDisplayAds, listQueue, type DisplayAd, type QueueRow } from "@/lib/cafe/queue-actions";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { chimeReady, unlockAudio } from "@/lib/cafe/chime";
 import { BRAND } from "@/lib/brand";
 import { StationSmiley } from "./Logo";
 import { useDisplayWatchdog } from "./use-display-watchdog";
+import { fitColumn, pageOf, type QueueTier } from "@/lib/cafe/queue-display";
 
 /**
  * شاشة استعداد الزبائن — the waiting-area TV.
  *
- * Two columns: «قيد التجهيز» on the right (RTL reading order puts it first) and
- * «جاهز للاستلام» on the left, styled loud enough to read across a room. Each
- * ready card shows what the spec asks for: order number, security code, cashier
- * name, expediter name.
+ * Two columns: «تحت التحضير» on the right (RTL reading order puts it first) and
+ * «جاهز» on the left, styled loud enough to read across a room. A ready card
+ * carries the order number and the pickup code and nothing else — see the note
+ * on ReadyCard for why the staff names are deliberately absent.
+ *
+ * Neither column has a fixed size. Each measures its own box and takes the
+ * biggest cards that fit; when even the smallest will not fit, it pages. The
+ * board therefore cannot outgrow the screen, which it used to do silently.
  *
  * Liveness is belt-and-braces on purpose — this screen is the one thing a
  * waiting customer stares at, so it must never look frozen:
@@ -28,6 +33,14 @@ import { useDisplayWatchdog } from "./use-display-watchdog";
  */
 
 const POLL_MS = 5000;
+/**
+ * كم تبقى الصفحة قبل أن تتبدّل.
+ *
+ * عشر ثوانٍ عمداً: هي نفسها دورة ترويسة Refresh على التلفزيون (TV_RELOAD_S)، فكل
+ * إعادة تحميل تقع على الصفحة التالية بالضبط بدل أن تقاطع واحدة في منتصفها.
+ * مكرَّرة هنا رقماً لا مستوردة، لأن الاستيراد من QueueScreen يصنع حلقة.
+ */
+const ROTATE_S = 10;
 
 export function QueueDisplayClient({
   displayKey = null,
@@ -90,7 +103,7 @@ export function QueueDisplayClient({
   useEffect(() => {
     const kick = setTimeout(() => void refresh(), 0);
     const poll = setInterval(() => void refresh(), POLL_MS);
-    const clock = setInterval(() => setNow(Date.now()), 30_000);
+    const clock = setInterval(() => setNow(Date.now()), ROTATE_S * 1000);
     return () => {
       clearTimeout(kick);
       clearInterval(poll);
@@ -115,13 +128,6 @@ export function QueueDisplayClient({
       if (channel) void createSupabaseBrowserClient().removeChannel(channel);
     };
   }, [refresh]);
-
-  // Tells the inline ES5 guard in QueueScreen that hydration succeeded, so it
-  // never starts its reload loop. If this line never runs, that guard is the
-  // only thing keeping the board from freezing.
-  useEffect(() => {
-    (window as unknown as { __stationLive?: boolean }).__stationLive = true;
-  }, []);
 
   // a TV is never clicked; unlock audio on any interaction the staff do make
   useEffect(() => {
@@ -152,29 +158,11 @@ export function QueueDisplayClient({
       <Header live={live} now={now} />
 
       <div className="queue-body grid gap-4 lg:gap-6">
-        {/* قيد التجهيز — calm, kraft-toned */}
-        <Column
-          title="تحت التحضير"
-          count={preparing.length}
-          tone="preparing"
-          empty={loaded ? "لا توجد طلبات تحت التحضير" : "…"}
-        >
-          {preparing.map((r) => (
-            <PreparingCard key={r.id} row={r} now={now} />
-          ))}
-        </Column>
-
-        {/* جاهز للاستلام — the loud one */}
-        <Column
-          title="جاهز"
-          count={ready.length}
-          tone="ready"
-          empty={loaded ? "لا توجد طلبات جاهزة" : "…"}
-        >
-          {ready.map((r) => (
-            <ReadyCard key={r.id} row={r} />
-          ))}
-        </Column>
+        {/* Each column measures its own box and picks the biggest cards that
+            fit. A busy kitchen must never shrink the ready numbers — those are
+            the ones a customer acts on — so the two decide independently. */}
+        <Column title="تحت التحضير" tone="preparing" items={preparing} now={now} empty={loaded ? "لا توجد طلبات تحت التحضير" : "…"} />
+        <Column title="جاهز" tone="ready" items={ready} now={now} empty={loaded ? "لا توجد طلبات جاهزة" : "…"} />
       </div>
 
       <p className="text-center text-lg font-bold text-muted-foreground">
@@ -318,26 +306,53 @@ function Header({ live, now }: { live: boolean; now: number }) {
 
 function Column({
   title,
-  count,
   tone,
+  items,
+  now,
   empty,
-  children,
 }: {
   title: string;
-  count: number;
   tone: "preparing" | "ready";
+  items: QueueRow[];
+  now: number;
   empty: string;
-  children: React.ReactNode;
 }) {
   const ready = tone === "ready";
+  const listRef = useRef<HTMLDivElement>(null);
+  const [availH, setAvailH] = useState(0);
+
+  /*
+   * Measure the box, then choose the cards — never the other way round.
+   *
+   * The height is read off the real element on every paint because it is the
+   * one number no amount of arithmetic gets right: this same board runs on a
+   * 55-inch television reporting a 960×540 viewport, on a laptop, and on a
+   * phone. An earlier version computed it on paper, decided nine cards fit,
+   * and clipped six of them.
+   *
+   * The measured element holds no cards, so what it measures does not depend
+   * on what we then put in it — no feedback loop, no flicker.
+   */
+  useLayoutEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const read = () => setAvailH((h) => (el.clientHeight === h ? h : el.clientHeight));
+    read();
+    window.addEventListener("resize", read);
+    return () => window.removeEventListener("resize", read);
+  });
+
+  const { tier, perPage } = fitColumn(items.length, availH, { extraCols: ready ? 1 : 0 });
+  const { shown, page, pages } = pageOf(items, perPage, ROTATE_S, now);
+
   return (
     <section
-      className={`flex min-h-0 flex-col rounded-2xl border-2 p-4 ${
+      className={`flex min-h-0 flex-col overflow-hidden rounded-2xl border-2 p-4 ${
         ready ? "border-primary bg-secondary/60" : "border-kraft/50 bg-card"
       }`}
     >
-      <h2 className="mb-4 flex items-center justify-between gap-3">
-        <span className={`text-3xl font-black lg:text-4xl ${ready ? "text-primary" : "text-cocoa dark:text-foreground"}`}>
+      <h2 className="mb-3 flex shrink-0 items-center justify-between gap-3">
+        <span className={`text-3xl font-black ${ready ? "text-primary" : "text-cocoa dark:text-foreground"}`}>
           {title}
         </span>
         <span
@@ -345,53 +360,92 @@ function Column({
             ready ? "bg-primary text-primary-foreground" : "bg-kraft/30 text-cocoa dark:text-foreground"
           }`}
         >
-          {count}
+          {items.length}
         </span>
       </h2>
-      {count === 0 ? (
-        <p className="flex flex-1 items-center justify-center rounded-xl border-2 border-dashed border-border p-8 text-2xl font-bold text-muted-foreground">
-          {empty}
-        </p>
-      ) : (
-        <ul className="grid min-h-0 flex-1 content-start gap-3 overflow-y-auto sm:grid-cols-2">{children}</ul>
-      )}
+
+      <div ref={listRef} className="min-h-0 flex-1 overflow-hidden">
+        {items.length === 0 ? (
+          <p className="flex h-full items-center justify-center rounded-xl border-2 border-dashed border-border p-8 text-2xl font-bold text-muted-foreground">
+            {empty}
+          </p>
+        ) : (
+          /* Inline grid-template-columns: how many fit across is a runtime
+             number, and Tailwind can only name the ones it saw at build time. */
+          <ul
+            className="grid content-start gap-3"
+            style={{ gridTemplateColumns: `repeat(${tier.cols}, minmax(0, 1fr))` }}
+          >
+            {shown.map((r) =>
+              ready ? <ReadyCard key={r.id} row={r} tier={tier} /> : <PreparingCard key={r.id} row={r} now={now} tier={tier} />,
+            )}
+          </ul>
+        )}
+      </div>
+
+      {/* The row is always rendered, even with one page, so that measuring the
+          list above it does not depend on how many pages there turn out to be.
+          Without this the height changes the paging and the paging changes the
+          height. */}
+      <div className="mt-2 flex h-7 shrink-0 items-center justify-center gap-2" aria-hidden={pages < 2}>
+        {pages > 1 && (
+          <>
+            {Array.from({ length: pages }, (_, i) => (
+              <span
+                key={i}
+                className={`size-2.5 rounded-full ${
+                  i === page ? (ready ? "bg-primary" : "bg-cocoa dark:bg-foreground") : "bg-border"
+                }`}
+              />
+            ))}
+            {/* Without a page marker a customer whose number is on page two
+                believes it has vanished. The dots are the promise it returns. */}
+            <span className="mr-2 text-lg font-black tabular-nums text-muted-foreground" dir="ltr">
+              {page + 1}/{pages}
+            </span>
+          </>
+        )}
+      </div>
     </section>
   );
 }
 
 /* ── cards ────────────────────────────────────────────────────────────────── */
 
-function PreparingCard({ row, now }: { row: QueueRow; now: number }) {
+function PreparingCard({ row, now, tier }: { row: QueueRow; now: number; tier: QueueTier }) {
   const mins = Math.max(0, Math.floor((now - new Date(row.created_at).getTime()) / 60000));
   return (
-    <li className="rounded-2xl border-2 border-kraft/40 bg-background p-4 text-center">
-      <p className="text-6xl font-black tabular-nums text-cocoa dark:text-foreground">
+    <li
+      className="flex flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-kraft/40 bg-background px-2 text-center"
+      style={{ height: tier.cardH }}
+    >
+      <p className="font-black leading-none tabular-nums text-cocoa dark:text-foreground" style={{ fontSize: tier.font }}>
         {String(row.order_seq).padStart(3, "0")}
       </p>
       {row.pickup_code && (
-        <p className="mt-1 text-xl font-bold tabular-nums text-muted-foreground" dir="ltr">
+        <p className="mt-1 font-bold leading-none tabular-nums text-muted-foreground" style={{ fontSize: tier.code }} dir="ltr">
           {row.pickup_code}
         </p>
       )}
-      <p className="mt-2 text-base font-bold text-muted-foreground">
+      <p className="mt-1.5 font-bold leading-none text-muted-foreground" style={{ fontSize: tier.meta }}>
         {row.table_no ? `طاولة ${row.table_no}` : CHANNEL_AR[row.channel] ?? ""} · {mins} د
       </p>
     </li>
   );
 }
 
-function ReadyCard({ row }: { row: QueueRow }) {
+function ReadyCard({ row, tier }: { row: QueueRow; tier: QueueTier }) {
   return (
     <li
-      className="rounded-2xl bg-primary p-4 text-center text-primary-foreground shadow-station-lg"
-      style={{ animation: "st-ready-in 420ms ease-out, st-ready-glow 1.6s ease-in-out 2" }}
+      className="flex flex-col items-center justify-center overflow-hidden rounded-2xl bg-primary px-2 text-center text-primary-foreground shadow-station-lg"
+      style={{ height: tier.cardH, animation: "st-ready-in 420ms ease-out, st-ready-glow 1.6s ease-in-out 2" }}
     >
-      <p className="text-7xl font-black leading-none tabular-nums lg:text-8xl">
+      <p className="font-black leading-none tabular-nums" style={{ fontSize: tier.font }}>
         {String(row.order_seq).padStart(3, "0")}
       </p>
 
       {row.pickup_code && (
-        <p className="mx-auto mt-3 w-fit rounded-full bg-white px-5 py-1 text-3xl font-black tabular-nums text-primary" dir="ltr">
+        <p className="mx-auto mt-1.5 w-fit rounded-full bg-white px-3 py-0.5 font-black leading-none tabular-nums text-primary" style={{ fontSize: tier.code }} dir="ltr">
           {row.pickup_code}
         </p>
       )}
@@ -401,7 +455,7 @@ function ReadyCard({ row }: { row: QueueRow }) {
           something to read past first. Who served them is on the receipt and
           in the dashboard, where it is actually used. */}
 
-      {row.table_no && <p className="mt-2 text-lg font-black">طاولة {row.table_no}</p>}
+      {row.table_no && <p className="mt-1 font-black leading-none" style={{ fontSize: tier.meta }}>طاولة {row.table_no}</p>}
     </li>
   );
 }

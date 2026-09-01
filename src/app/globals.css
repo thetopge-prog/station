@@ -289,20 +289,26 @@ body {
    The vh fallback needs @supports and cannot be written as two declarations of
    the same property — the minifier drops the first one, which is how I shipped
    a fallback that was not in the built file at all. */
+/* A DEFINITE height, not a minimum — and that one word is the whole bug.
+   With min-height the board could grow past the bottom of the television, and
+   it did: on a busy evening the lower half of «جاهز» sat below the screen edge
+   where nobody could see it. The `overflow-y-auto` that was meant to catch
+   this could never engage, because a flex child cannot resolve a bounded
+   height when no ancestor has a definite one — and the Refresh header wipes
+   any scroll position every ten seconds anyway. Nothing may overflow now; the
+   columns shrink their cards and page instead (see fitTier / pageOf). */
 .queue-screen {
-  min-height: 100dvh;
+  height: 100dvh;
 }
 .queue-body {
   flex: 1 1 auto;
-  /* the header and the footer line take the rest */
-  min-height: 74dvh;
+  /* min-height:0 is what lets a flex child actually shrink. Without it the
+     default `auto` floors it at its content height and the cap does nothing. */
+  min-height: 0;
 }
 @supports not (height: 100dvh) {
   .queue-screen {
-    min-height: 100vh;
-  }
-  .queue-body {
-    min-height: 74vh;
+    height: 100vh;
   }
 }
 
