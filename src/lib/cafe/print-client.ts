@@ -59,18 +59,23 @@ function writeQueue(jobs: PrintJob[]) {
 }
 
 async function postJob(job: PrintJob): Promise<boolean> {
+  const payload = { method: "POST" as const, headers: { "Content-Type": "application/json" }, body: JSON.stringify(job) };
   try {
-    // no-cors: the agent answers with permissive headers, but we cannot read
-    // the response anyway, so success here means "the request left the browser"
-    await fetch(`${AGENT}/print`, {
-      method: "POST",
-      mode: "no-cors",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(job),
-    });
-    return true;
+    // The agent sends Access-Control-Allow-Origin: * and answers preflights, so
+    // its reply IS readable. It used to be sent no-cors, which threw the answer
+    // away — «printed» then meant only «the request left the browser», and a
+    // ticket the agent rejected looked exactly like one that came out on paper.
+    const res = await fetch(`${AGENT}/print`, payload);
+    return res.ok;
   } catch {
-    return false;
+    // An agent too old to answer a preflight would otherwise stop printing
+    // entirely. Blind send, as before — worse information, but not worse paper.
+    try {
+      await fetch(`${AGENT}/print`, { ...payload, mode: "no-cors" });
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
 

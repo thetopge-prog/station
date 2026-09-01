@@ -436,6 +436,9 @@ export type Database = {
       // الجرد اليومي (0056)
       save_daily_count: { Args: { p_day: string; p_counted: number; p_deposited: number; p_note: string | null; p_snapshot: Json; p_close?: boolean }; Returns: undefined };
       stock_value: { Args: Record<string, never>; Returns: number };
+      // قفل الشاشة (0057) — الرمز لا يُقرأ، يُسأل عنه فقط
+      verify_till_pin: { Args: { p_pin: string }; Returns: boolean };
+      set_till_pin: { Args: { p_current: string; p_next: string }; Returns: boolean };
       place_order: {
         Args: {
           p_channel: OrderChannel; p_lines: Json; p_customer?: string | null; p_table?: string | null;

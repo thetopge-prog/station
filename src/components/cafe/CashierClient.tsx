@@ -6,7 +6,7 @@ import type { MenuCategoryView, MenuItemView } from "@/lib/cafe/menu-data";
 import { formatIqdLabel } from "@/lib/cafe/money";
 import { cashierCheckout, type PayMethod } from "@/lib/cafe/cashier-actions";
 import type { Partner } from "@/lib/cafe/partner-actions";
-import { buildOrderJobs } from "@/lib/cafe/printer-actions";
+import { buildOrderJobs, buildReceiptJob } from "@/lib/cafe/printer-actions";
 import { printJobs, kickDrawer as kickDrawerAgent } from "@/lib/cafe/print-client";
 import { findCard, redeemReward, type Card } from "@/lib/cafe/loyalty-actions";
 import { QrScanner } from "./QrScanner";
@@ -165,6 +165,26 @@ export function CashierClient({
       clearTimeout(id);
     };
   }, [receipt]);
+
+  // إعادة طباعة إيصال الزبون: نسخة للزبون، وأخرى إن طلبها، بلا إعادة بيع
+  const [copies, setCopies] = useState(1);
+  const [reprint, setReprint] = useState<string | null>(null);
+  async function printCustomerReceipt() {
+    if (!receipt?.orderId) return;
+    setReprint("…");
+    try {
+      const job = await buildReceiptJob(receipt.orderId!, copies);
+      if (!job) {
+        setReprint("لا توجد طابعة كاشير مفعّلة.");
+        return;
+      }
+      const out = await printJobs([job]);
+      // out.sent يعني الآن «الوكيل قَبِلها» فعلاً، لا «غادرت المتصفح»
+      setReprint(out.sent > 0 ? `طُبعت ${copies} نسخة ✓` : "الطابعة لم تستجب — جرّب مرة أخرى.");
+    } catch {
+      setReprint("تعذّرت الطباعة.");
+    }
+  }
 
   const lines = Object.values(cart);
   const subtotal = useMemo(() => lines.reduce((s, l) => s + l.unitPrice * l.qty, 0), [lines]);
@@ -600,10 +620,29 @@ export function CashierClient({
                 {printWarn}
               </p>
             )}
-            <div className="mt-5 grid grid-cols-2 gap-2">
-              <button onClick={() => window.print()} className="flex items-center justify-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 font-semibold text-primary-foreground hover:opacity-90">
+            <div className="mt-4 flex items-center justify-center gap-2">
+              <span className="text-sm font-semibold text-muted-foreground">نسخ الزبون</span>
+              {[1, 2, 3].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setCopies(n)}
+                  className={`touch-pos size-11 rounded-xl border text-lg font-black transition ${
+                    copies === n ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-secondary"
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+            {reprint && <p className="mt-2 text-sm font-bold text-primary">{reprint}</p>}
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button onClick={printCustomerReceipt} className="touch-pos col-span-2 flex items-center justify-center gap-1.5 rounded-xl bg-primary px-4 py-3 font-bold text-primary-foreground hover:opacity-90">
                 <Printer className="size-4" />
-                طباعة
+                طباعة إيصال الزبون
+              </button>
+              <button onClick={() => window.print()} className="touch-pos flex items-center justify-center gap-1.5 rounded-xl border border-border px-4 py-2.5 font-semibold hover:bg-secondary">
+                <Printer className="size-4" />
+                طباعة المتصفح
               </button>
               <button onClick={() => setSuccess(null)} className="rounded-xl border border-border px-4 py-2.5 font-semibold hover:bg-secondary">
                 طلب جديد
@@ -638,6 +677,16 @@ function CashierItem({ item, category, onAdd }: { item: MenuItemView; category?:
   const unitPrice = variant?.price ?? item.price;
   const displayName = variant ? `${item.name_ar} - ${variant.name_ar}` : item.name_ar;
 
+  // The cashier taps fast and the cart is off to the side; without a mark on
+  // the button itself there is nothing to say the tap landed — so the same item
+  // gets tapped twice, or a missed tap goes unnoticed until the total is wrong.
+  const [added, setAdded] = useState(false);
+  useEffect(() => {
+    if (!added) return;
+    const t = setTimeout(() => setAdded(false), 1100);
+    return () => clearTimeout(t);
+  }, [added]);
+
   function add() {
     onAdd({
       key: `${item.id}|${variantId ?? ""}|${flavor ?? ""}`,
@@ -647,6 +696,7 @@ function CashierItem({ item, category, onAdd }: { item: MenuItemView; category?:
       flavor,
       unitPrice,
     });
+    setAdded(true);
   }
 
   return (
@@ -690,10 +740,14 @@ function CashierItem({ item, category, onAdd }: { item: MenuItemView; category?:
       )}
       <button
         onClick={add}
-        className="mt-2 flex items-center justify-center gap-1 rounded-lg bg-primary/10 px-2 py-1.5 text-sm font-semibold text-primary transition hover:bg-primary hover:text-primary-foreground"
+        className={`touch-pos mt-2 flex min-h-11 items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-sm font-bold transition ${
+          added
+            ? "bg-emerald-600 text-white"
+            : "bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground"
+        }`}
       >
-        <Plus className="size-4" />
-        إضافة
+        {added ? <Check className="size-4" /> : <Plus className="size-4" />}
+        {added ? "أُضيف" : "إضافة"}
       </button>
     </div>
   );

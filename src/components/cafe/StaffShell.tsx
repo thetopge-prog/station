@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, BellOff, BellRing, LogOut, Moon, MoreHorizontal, Sun, X } from "lucide-react";
+import { Bell, BellOff, BellRing, Lock, LogOut, Moon, MoreHorizontal, Sun, X } from "lucide-react";
 import { navFor } from "@/lib/cafe/nav";
+import { TillLockScreen, useTillLock } from "./TillLock";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { HubBadge } from "./HubBadge";
 import { formatIqdLabel } from "@/lib/cafe/money";
@@ -76,6 +77,7 @@ export function StaffShell({
   const router = useRouter();
   const { setTheme } = useCafeUI();
   const { primary, groups } = navFor(role, isDeveloper);
+  const till = useTillLock();
   const [moreOpen, setMoreOpen] = useState(false);
 
   // Keep the session alive on staff screens: instantiating the browser client
@@ -231,6 +233,15 @@ export function StaffShell({
                 <MoreHorizontal className="size-4" />
                 المزيد
               </button>
+              {/* يقفل الشاشة ولا يُنهي الوردية — الفرق كله */}
+              <button
+                onClick={till.lock}
+                title="قفل الشاشة دون تسجيل الخروج"
+                className="touch-pos flex items-center gap-2 whitespace-nowrap rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground transition hover:opacity-90"
+              >
+                <Lock className="size-4" />
+                {name}
+              </button>
             </nav>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -324,6 +335,13 @@ export function StaffShell({
           );
         })}
         <button
+          onClick={till.lock}
+          className="touch-pos relative flex flex-1 flex-col items-center gap-0.5 bg-primary py-2 text-[11px] font-bold text-primary-foreground md:hidden"
+        >
+          <Lock className="size-5" />
+          قفل
+        </button>
+        <button
           onClick={() => setMoreOpen(true)}
           className="touch-pos relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-semibold text-muted-foreground"
         >
@@ -387,6 +405,8 @@ export function StaffShell({
           </div>
         </div>
       )}
+
+      {till.locked && <TillLockScreen name={name} onUnlock={till.unlock} />}
 
       {/* new-order toast */}
       {toast && (

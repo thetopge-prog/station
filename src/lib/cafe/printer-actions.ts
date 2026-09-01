@@ -271,3 +271,23 @@ export async function buildOrderJobs(
   return { jobs, unrouted };
 }
 
+
+/**
+ * إيصال الزبون وحده — وبعدد النسخ المطلوب.
+ *
+ * الطلب يُطبع مرة واحدة تلقائياً عند الدفع. لكن الزبون يطلب نسخة ثانية، والورق
+ * ينحشر، والإيصال يضيع بين الطلبات — ولم يكن في النظام طريق لإعادة طباعته
+ * سوى إعادة البيع.
+ *
+ * يُعاد استعمال buildOrderJobs كما هو ثم يُنتقى إيصال الزبون منه: فتبقى أرقام
+ * الورقة الثانية مطابقة للأولى حرفاً بحرف، لأنها بُنيت بنفس الشيفرة.
+ */
+export async function buildReceiptJob(orderId: string, copies = 1): Promise<PrintJob | null> {
+  await requireStaff();
+  const { jobs } = await buildOrderJobs(orderId);
+  const receiptPrinter = (await listPrinters()).find((p) => p.kind === "receipt" && p.is_active);
+  if (!receiptPrinter) return null;
+  const job = jobs.find((j) => j.printerId === receiptPrinter.id);
+  // ٥ نسخ سقف مقصود: خطأ مطبعي لا يبتلع بكرة الورق
+  return job ? { ...job, copies: Math.min(5, Math.max(1, Math.round(copies) || 1)) } : null;
+}
