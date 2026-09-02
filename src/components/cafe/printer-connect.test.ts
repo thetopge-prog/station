@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { groupPrinters, type SetupPrinter } from "./SetupClient";
+import { groupPrinters, type ConnectRow } from "./PrinterConnect";
 
 /** الصفوف الخمسة كما هي في قاعدة المحل فعلاً. */
-const shop: SetupPrinter[] = [
+const shop: ConnectRow[] = [
   { id: "till", name_ar: "طابعة الكاشير", kind: "receipt", station_name: null, share: "POS80", host: null, is_active: true },
   { id: "pizza", name_ar: "فرن البيتزا", kind: "station", station_name: "فرن البيتزا", share: null, host: null, is_active: false },
   { id: "burger", name_ar: "مطبخ البرجر والفرايس", kind: "station", station_name: "محطة البرجر", share: null, host: null, is_active: false },
