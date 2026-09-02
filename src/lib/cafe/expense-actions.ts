@@ -5,6 +5,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { openSessionIdFor } from "./session-of";
 import { requireStaff, requireAdmin } from "./auth";
 import { businessDay } from "./time";
+import { STAFF_ADVANCE } from "./wages";
 
 export type ExpenseRow = {
   id: string;
@@ -16,6 +17,37 @@ export type ExpenseRow = {
 
 /** Any staff member records expenses (the cashier pays for ice, milk, …).
  *  Service client behind the staff gate — expenses has admin-only RLS. */
+/**
+ * سلفة موظف — سحب نقدي على الراتب.
+ *
+ * تمرّ من addExpense عمداً بدل جدول خاصّ بها: السلفة نقد يخرج من الدرج، وهذا
+ * تعريف المصروف. فترث ربطها بالوردية المفتوحة، وطرحها من النقد المتوقَّع،
+ * وظهورها في تقرير الوردية وفي جرد اليوم — كلها مبنية أصلاً.
+ *
+ * والفرق الوحيد أنها تحمل اسم صاحبها، ليُطرح المبلغ من راتبه آخر الشهر.
+ */
+export async function addStaffAdvance(input: { employeeId: string; amount: number; note?: string }) {
+  const staff = await requireStaff();
+  const amount = Math.max(0, Math.round(input.amount));
+  if (amount <= 0) return { ok: false as const, error: "أدخل مبلغاً صحيحاً." };
+  if (!input.employeeId) return { ok: false as const, error: "اختر الموظف." };
+
+  const svc = createSupabaseServiceClient();
+  const { error } = await svc.from("expenses").insert({
+    amount,
+    session_id: await openSessionIdFor(staff.employeeId),
+    category: STAFF_ADVANCE,
+    employee_id: input.employeeId,
+    note: input.note?.trim() || null,
+    business_day: businessDay(),
+    created_by: staff.employeeId,
+  });
+  if (error) return { ok: false as const, error: error.message };
+  revalidatePath("/expenses");
+  revalidatePath("/daily");
+  return { ok: true as const };
+}
+
 export async function addExpense(input: { amount: number; category?: string; note?: string }) {
   const staff = await requireStaff();
   const amount = Math.max(0, Math.round(input.amount));

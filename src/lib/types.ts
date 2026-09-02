@@ -348,9 +348,9 @@ export type Database = {
         Relationships: [];
       };
       expenses: {
-        Row: Timestamped & { session_id: string | null; business_day: string; amount: number; category: string | null; note: string | null; created_by: string | null };
-        Insert: { id?: string; business_day?: string; amount: number; category?: string | null; note?: string | null; created_by?: string | null; created_at?: string; session_id?: string | null };
-        Update: Partial<{ business_day: string; amount: number; category: string | null; note: string | null }>;
+        Row: Timestamped & { session_id: string | null; business_day: string; amount: number; category: string | null; note: string | null; created_by: string | null; employee_id: string | null };
+        Insert: { id?: string; business_day?: string; amount: number; category?: string | null; note?: string | null; created_by?: string | null; created_at?: string; session_id?: string | null; employee_id?: string | null };
+        Update: Partial<{ business_day: string; amount: number; category: string | null; note: string | null; employee_id: string | null }>;
         Relationships: [];
       };
       loyalty_events: {
@@ -436,6 +436,14 @@ export type Database = {
       // الجرد اليومي (0056)
       save_daily_count: { Args: { p_day: string; p_counted: number; p_deposited: number; p_note: string | null; p_snapshot: Json; p_close?: boolean }; Returns: undefined };
       stock_value: { Args: Record<string, never>; Returns: number };
+      // حساب كل شركة توصيل ليوم واحد (0061)
+      daily_partner_breakdown: {
+        Args: { p_day: string };
+        Returns: {
+          partner_id: string; name_ar: string; orders_count: number; sales: number;
+          cancelled_count: number; cancelled_amount: number; discounts: number; balance: number;
+        }[];
+      };
       // قفل الشاشة (0057) — الرمز لا يُقرأ، يُسأل عنه فقط
       verify_till_pin: { Args: { p_pin: string }; Returns: boolean };
       set_till_pin: { Args: { p_current: string; p_next: string }; Returns: boolean };

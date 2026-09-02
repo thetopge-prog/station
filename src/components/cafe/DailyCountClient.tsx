@@ -160,6 +160,62 @@ export function DailyCountClient({ initial, cashier }: { initial: DailyCount; ca
           <Row label="الطلبات" value={String(d.orders_count)} />
           <Row label="الزبائن" value={String(d.guests)} />
         </div>
+        {/* الصرفيات مقسّمة. كان المجموع وحده يُعرض، فلا يعرف أحد أين ذهب. */}
+        {d.expenses_by_category.length > 0 && (
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <h2 className="mb-2 font-black">الصرفيات</h2>
+            {d.expenses_by_category.map((e) => (
+              <Row key={e.category} label={e.category} value={formatIqdLabel(e.amount)} />
+            ))}
+            <Row label="المجموع" value={formatIqdLabel(d.expenses)} tone="big" />
+            {d.staff_advances > 0 && (
+              <Row label="منها سلف موظفين" value={formatIqdLabel(d.staff_advances)} />
+            )}
+          </div>
+        )}
+
+        {/* الإلغاء: يُعدّ ولا يُطرح — الطلب الملغى ليس مبيعة، لكنه حدث يُرى. */}
+        <div className="rounded-2xl border border-border bg-card p-4">
+          <h2 className="mb-2 font-black">الإلغاء والخصم</h2>
+          <Row label="طلبات ملغاة" value={String(d.cancelled_count)} />
+          <Row label="قيمتها" value={formatIqdLabel(d.cancelled_amount)} />
+          <Row label="خصومات مُنحت" value={formatIqdLabel(d.discounts)} />
+        </div>
+
+        {d.partners.length > 0 && (
+          <div className="rounded-2xl border border-border bg-card p-4 sm:col-span-2">
+            <h2 className="mb-2 font-black">شركات التوصيل</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-right text-xs font-black text-muted-foreground">
+                    <th className="py-1">الشركة</th>
+                    <th>طلبات</th>
+                    <th>المبيعات</th>
+                    <th>ملغاة</th>
+                    <th>خصم</th>
+                    <th>الباقي عليها</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {d.partners.map((p) => (
+                    <tr key={p.partner_id} className="border-t border-border">
+                      <td className="py-1.5 font-bold">{p.name_ar}</td>
+                      <td className="tabular-nums">{p.orders_count}</td>
+                      <td className="tabular-nums">{formatIqdLabel(p.sales)}</td>
+                      <td className="tabular-nums">
+                        {p.cancelled_count > 0 ? `${p.cancelled_count} · ${formatIqdLabel(p.cancelled_amount)}` : "—"}
+                      </td>
+                      <td className="tabular-nums">{formatIqdLabel(p.discounts)}</td>
+                      <td className="font-black tabular-nums">{formatIqdLabel(p.balance)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         <div className="rounded-2xl border border-border bg-card p-4">
           <h2 className="mb-2 font-black">أرصدة</h2>
           {d.stock_value !== null && <Row label="قيمة المخزون" value={formatIqdLabel(d.stock_value)} />}

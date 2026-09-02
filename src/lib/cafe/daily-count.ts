@@ -8,6 +8,7 @@ import type { SessionRow } from "./session-actions";
 import { dailyCountDoc } from "./escpos";
 import { buildDailyCountJob } from "./printer-actions";
 import { BRAND } from "@/lib/brand";
+import { STAFF_ADVANCE } from "./wages";
 
 /**
  * «جرد اليوم» — الورقة التي تُملأ آخر الليل.
@@ -22,6 +23,18 @@ import { BRAND } from "@/lib/brand";
  * daily_fixed_cost() — the same functions the dashboard and the nightly
  * Telegram report read, so three places can never disagree about one day.
  */
+
+export type PartnerDay = {
+  partner_id: string;
+  name_ar: string;
+  orders_count: number;
+  sales: number;
+  cancelled_count: number;
+  cancelled_amount: number;
+  discounts: number;
+  /** رصيدها الجاري كاملاً، لا اليوم وحده */
+  balance: number;
+};
 
 export type DailyCount = {
   day: string;
@@ -52,6 +65,17 @@ export type DailyCount = {
   stock_value: number | null;
   /** هل يرى صاحب هذه النسخة الأرباح؟ */
   is_admin: boolean;
+  /** الخصومات الممنوحة اليوم — تُطرح من المبيعات ولا تظهر في أي مكان آخر */
+  discounts: number;
+  /** الطلبات الملغاة والمُرجَعة: حدثٌ يُرى، لا مبيعة تُطرح */
+  cancelled_count: number;
+  cancelled_amount: number;
+  /** سلف الموظفين: نقد خرج من الدرج على حساب الراتب */
+  staff_advances: number;
+  /** الصرفيات مقسّمة — كان المجموع وحده يُعرض */
+  expenses_by_category: { category: string; amount: number }[];
+  /** حساب كل شركة توصيل لهذا اليوم */
+  partners: PartnerDay[];
   partners_owed: number;
   customers_owed: number;
   /** what the person doing the count typed, if they have been here already */
@@ -71,7 +95,8 @@ export type DailyCount = {
 async function getDailyCountFull(day: string): Promise<DailyCount> {
   const svc = createSupabaseServiceClient();
 
-  const [sessionsRes, summaryRes, fixedRes, stockRes, partnersRes, debtsRes, guestsRes, savedRes, ordersRes] =
+  const [sessionsRes, summaryRes, fixedRes, stockRes, partnersRes, debtsRes, guestsRes, savedRes, ordersRes,
+         partnerDayRes, expenseRowsRes, cancelledRes] =
     await Promise.all([
       svc
         .from("cashier_sessions")
@@ -89,6 +114,11 @@ async function getDailyCountFull(day: string): Promise<DailyCount> {
       svc.from("daily_counts").select("counted_cash, deposited, note, closed_at").eq("business_day", day).maybeSingle(),
       // the money split the Z-report makes per shift, made once for the day
       svc.from("orders").select("subtotal, discount, extra, payment_method").eq("business_day", day).eq("status", "paid"),
+      svc.rpc("daily_partner_breakdown", { p_day: day }),
+      // كل مصاريف اليوم بفئاتها وأصحابها — لا المجموع وحده
+      svc.from("expenses").select("amount, category, employee_id").eq("business_day", day),
+      // الملغى والمُرجَع: يُعدّ ولا يُطرح
+      svc.from("orders").select("subtotal, discount, extra").eq("business_day", day).in("status", ["cancelled", "refunded"]),
     ]);
 
   /*
@@ -107,6 +137,7 @@ async function getDailyCountFull(day: string): Promise<DailyCount> {
     ["الورديات", sessionsRes], ["ملخّص اليوم", summaryRes], ["الكلفة الثابتة", fixedRes],
     ["قيمة المخزون", stockRes], ["أرصدة الشركات", partnersRes], ["ديون الزبائن", debtsRes],
     ["عدد الزبائن", guestsRes], ["الجرد المحفوظ", savedRes], ["طلبات اليوم", ordersRes],
+    ["حساب الشركات", partnerDayRes], ["الصرفيات", expenseRowsRes], ["الطلبات الملغاة", cancelledRes],
   ] as const) {
     if (res.error) throw new Error(`تعذّر جلب ${what}: ${res.error.message}`);
   }
@@ -158,10 +189,28 @@ async function getDailyCountFull(day: string): Promise<DailyCount> {
     sales: summary?.sales ?? 0,
     profit: summary?.profit ?? 0,
     fixed_cost: fixed?.total ?? 0,
-    net: (summary?.profit ?? 0) - (fixed?.total ?? 0),
+    // من range_summary لا محسوباً هنا. كان `profit − fixed_cost` بينما البوت
+    // يحسب `profit − expenses` — كلمة واحدة برقمين، وهي شكوى «لا يطابق المرسل».
+    net: summary?.net ?? 0,
     stock_value: (stockRes.data as number | null) ?? 0,
     partners_owed: positive(partnersRes.data as { balance: number }[] | null),
     customers_owed: positive(debtsRes.data as { balance: number }[] | null),
+    discounts: paid.reduce((t, o) => t + +o.discount, 0),
+    cancelled_count: (cancelledRes.data ?? []).length,
+    cancelled_amount: (cancelledRes.data ?? []).reduce((t, o) => t + money(o), 0),
+    staff_advances: (expenseRowsRes.data ?? [])
+      .filter((e) => e.category === STAFF_ADVANCE)
+      .reduce((t, e) => t + (e.amount ?? 0), 0),
+    expenses_by_category: Object.entries(
+      (expenseRowsRes.data ?? []).reduce<Record<string, number>>((acc, e) => {
+        const k = e.category?.trim() || "غير مصنّف";
+        acc[k] = (acc[k] ?? 0) + (e.amount ?? 0);
+        return acc;
+      }, {}),
+    )
+      .map(([category, amount]) => ({ category, amount }))
+      .sort((a, b) => b.amount - a.amount),
+    partners: (partnerDayRes.data ?? []) as PartnerDay[],
     counted_cash: savedRes.data?.counted_cash ?? 0,
     count_deposited: savedRes.data?.deposited ?? 0,
     note: savedRes.data?.note ?? null,
