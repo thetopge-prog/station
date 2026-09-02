@@ -1,636 +1,188 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, Check, Monitor, Printer, RefreshCw, Smartphone, X } from "lucide-react";
-import { CopyButton } from "./CopyButton";
-import { recentWebhooks } from "@/lib/cafe/webhook-log";
+import { Check, Inbox, Printer, RefreshCw } from "lucide-react";
+import { connectPrinter } from "@/lib/cafe/printer-actions";
+import { agentPrinters, kickDrawer, printJobs, type AgentPrinter } from "@/lib/cafe/print-client";
 
 /**
- * /setup — the installation page, opened in the browser on the machine being
- * installed.
+ * التركيب — أزرار فقط.
  *
- * The reason it exists: every value this system needs during installation
- * already exists somewhere on the machine — the printer's IP is in Windows,
- * the screen size is in the browser, the shop's address is in the URL bar.
- * Making somebody read those off one screen and type them into another is
- * where installation nights go wrong.
+ * لم يبقَ من التركيب إلا ربط الطابعات وفتح الدرج. وكل ما عدا ذلك (الشاشات،
+ * ورموز QR، وهاتف المتصل، وحسابات الدخول) صار منجزاً أو انتقل إلى صفحته.
  *
- * So the page reads what it can and offers it as a button.
+ * والمركِّب يفعل شيئاً واحداً هنا: يضغط اسم الطابعة كما يراه ويندوز، فتُربط
+ * وتخرج ورقة تثبت أنها هي. لا حقول عنوان ولا منافذ ولا نسخ — تلك تسكن
+ * /printers لمن يحتاجها.
  */
 
-/** what Windows knows about a printer, via the local agent */
-type Found = { name: string; share: string | null; host: string | null; port: string | null; driver: string | null };
-
-/** what the database expects to print, so the two can be compared */
-export type MappedPrinter = {
-  name: string;
+export type SetupPrinter = {
+  id: string;
+  name_ar: string;
   kind: "receipt" | "station" | "expediter";
-  station: string | null;
-  categories: string[];
-  host: string | null;
+  station_name: string | null;
   share: string | null;
-  active: boolean;
+  host: string | null;
+  is_active: boolean;
 };
 
-export type WebhookRow = { id: number; at: string; status: number; body: string | null; note: string | null };
+/** مجموعة تُربط بضغطة واحدة — قد تكون صفّين على جهاز واحد. */
+type Group = { key: string; label: string; ids: string[]; share: string | null; ready: boolean };
 
-export type ScreenLink = { title: string; note: string; url: string; qr: string; kiosk: string };
+/**
+ * الكاشير والمجهّز صفّان في القاعدة وجهاز واحد على الطاولة.
+ *
+ * القاعدة تمنع أن يحمل صفّ receipt محطةً (قيد printers_station_match)، فالتذكرة
+ * والإيصال لا يمكن أن يكونا صفّاً واحداً — لكنهما يحملان المشاركة نفسها. فيُعرضان
+ * زرّاً واحداً، لأن الذي يقف أمام الجهاز يرى جهازاً واحداً.
+ */
+export function groupPrinters(printers: SetupPrinter[]): Group[] {
+  const till = printers.filter((p) => p.kind === "receipt" || p.kind === "expediter");
+  const groups: Group[] = [];
 
-const AGENT = "http://127.0.0.1:9988";
+  if (till.length > 0) {
+    groups.push({
+      key: "till",
+      label: "طابعة الكاشير و المجهّز",
+      ids: till.map((p) => p.id),
+      share: till.find((p) => p.share)?.share ?? null,
+      ready: till.every((p) => p.is_active && (p.share || p.host)),
+    });
+  }
 
-export type CallHook = { url: string; header: string; secret: string; body: string; whatsappBody: string };
+  for (const p of printers.filter((x) => x.kind === "station")) {
+    groups.push({
+      key: p.id,
+      label: `طابعة ${p.station_name ?? p.name_ar}`,
+      ids: [p.id],
+      share: p.share,
+      ready: p.is_active && !!(p.share || p.host),
+    });
+  }
+  return groups;
+}
 
-export function SetupClient({
-  installCommand,
-  printers,
-  screens,
-  origin,
-  callHook = null,
-}: {
-  installCommand: string;
-  printers: MappedPrinter[];
-  screens: ScreenLink[];
-  origin: string;
-  callHook?: CallHook | null;
-}) {
-  const [agent, setAgent] = useState<"checking" | "up" | "down">("checking");
-  const [found, setFound] = useState<Found[] | null>(null);
-  const [device, setDevice] = useState<{ w: number; h: number; touch: boolean; ua: string } | null>(null);
+export function SetupClient({ printers }: { printers: SetupPrinter[] }) {
+  const [found, setFound] = useState<AgentPrinter[]>([]);
+  const [agentUp, setAgentUp] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [said, setSaid] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    const t = setTimeout(
-      () =>
-        setDevice({
-          w: window.screen.width,
-          h: window.screen.height,
-          touch: navigator.maxTouchPoints > 0,
-          ua: navigator.userAgent,
-        }),
-      0,
-    );
-    return () => clearTimeout(t);
+  const scan = useCallback(async () => {
+    setAgentUp(null);
+    const list = await agentPrinters();
+    setFound(list);
+    setAgentUp(list.length > 0);
   }, []);
 
-  const probe = useCallback(async () => {
-    setAgent("checking");
+  // مؤجَّل بنبضة لا منادى في جسم التأثير: scan تضبط الحالة فوراً، و React 19
+  // يعدّ setState متزامناً داخل تأثير رسماً متتالياً. نفس الحيلة المستعملة في
+  // QueueDisplayClient لنفس السبب.
+  useEffect(() => {
+    const t = setTimeout(() => void scan(), 0);
+    return () => clearTimeout(t);
+  }, [scan]);
+
+  const groups = groupPrinters(printers);
+
+  async function connect(g: Group, share: string) {
+    setBusy(g.key);
+    setSaid((s) => ({ ...s, [g.key]: "" }));
     try {
-      // The agent is only reachable from the machine it runs on, which is
-      // exactly the test we want: "is THIS the cashier PC?"
-      const res = await fetch(`${AGENT}/printers`, { signal: AbortSignal.timeout(2500) });
-      setFound((await res.json()) as Found[]);
-      setAgent("up");
+      const res = await connectPrinter(g.ids, share);
+      if (!res.ok) {
+        setSaid((s) => ({ ...s, [g.key]: res.error }));
+        return;
+      }
+      if (!res.job) {
+        setSaid((s) => ({ ...s, [g.key]: "رُبطت — لكن تعذّر بناء ورقة الفحص." }));
+        return;
+      }
+      const out = await printJobs([res.job]);
+      // out.sent يعني «الوكيل قَبِلها» منذ أن صار الردّ يُقرأ، لا «غادرت المتصفح»
+      setSaid((s) => ({
+        ...s,
+        [g.key]: out.sent > 0 ? `رُبطت بـ${share} — اخرج الورقة ✓` : "رُبطت، لكن الطابعة لم تستجب.",
+      }));
     } catch {
-      setAgent("down");
-      setFound(null);
+      setSaid((s) => ({ ...s, [g.key]: "تعذّر الاتصال بوكيل الطباعة." }));
+    } finally {
+      setBusy(null);
     }
-  }, []);
-
-  useEffect(() => {
-    const t = setTimeout(() => void probe(), 0);
-    return () => clearTimeout(t);
-  }, [probe]);
-
-  // What the phone actually sent, most recent first. Refreshed on demand rather
-  // than polled: this is read while somebody stands next to the till making a
-  // test call, not left open all day.
-  const [hooks, setHooks] = useState<WebhookRow[]>([]);
-  const loadHooks = useCallback(async () => {
-    try {
-      setHooks(await recentWebhooks());
-    } catch {
-      /* not the developer, or the table is empty */
-    }
-  }, []);
-  useEffect(() => {
-    const t = setTimeout(() => void loadHooks(), 0);
-    return () => clearTimeout(t);
-  }, [loadHooks]);
-
-  const unconfigured = printers.filter((p) => !p.host && !p.share).length;
-  // shown without the scheme: a TV keyboard makes "https://" eight wasted
-  // keystrokes, and every browser adds it back
-  const tvUrl = screens.find((s) => s.url.includes("/tv/") || s.url.includes("/queue"))?.url.replace(/^https?:\/\//, "") ?? null;
+  }
 
   return (
-    <div className="space-y-8 pb-16">
-      <header>
-        <h1 className="text-2xl font-black">تركيب النظام</h1>
-        <p className="text-sm text-muted-foreground">افتح هذه الصفحة على الجهاز الذي تركّبه، واتبع الخطوات بالترتيب.</p>
+    <div className="mx-auto max-w-2xl space-y-4">
+      <header className="flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-black">التركيب</h1>
+        <button onClick={() => void scan()} className="touch-pos flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-sm font-bold hover:bg-secondary">
+          <RefreshCw className="size-4" />
+          إعادة الفحص
+        </button>
       </header>
 
-      {/* ── this device ── */}
-      <section className="rounded-2xl border-2 border-border bg-card p-4">
-        <h2 className="mb-3 flex items-center gap-2 font-black">
-          {device?.touch ? <Smartphone className="size-5 text-primary" /> : <Monitor className="size-5 text-primary" />}
-          هذا الجهاز
-        </h2>
-        <dl className="grid gap-2 text-sm sm:grid-cols-2">
-          <Row k="قياس الشاشة" v={device ? `${device.w} × ${device.h}` : "…"} />
-          <Row k="اللمس" v={device ? (device.touch ? "نعم — مناسب للمطبخ والتجهيز" : "لا — جهاز بلوحة مفاتيح") : "…"} />
-          <Row k="عنوان النظام" v={origin} />
-          <Row
-            k="وكيل الطباعة"
-            v={agent === "checking" ? "جارٍ الفحص…" : agent === "up" ? "يعمل ✅ — هذا جهاز الكاشير" : "غير موجود — هذا ليس جهاز الكاشير"}
-          />
-        </dl>
-      </section>
-
-      {/* ── 1. install ── */}
-      <Step n={1} title="تركيب جهاز الكاشير">
-        <p className="text-sm text-muted-foreground">
-          على جهاز الكاشير فقط. افتح <b>PowerShell كمسؤول</b>، ألصق السطر، اضغط Enter.
-          شاشات المطبخ والتجهيز والاستلام لا تطبع ولا تحتاج هذه الخطوة.
+      {agentUp === false && (
+        <p className="rounded-2xl border-2 border-destructive bg-destructive/10 p-4 text-sm font-bold text-destructive">
+          وكيل الطباعة لا يستجيب على هذا الجهاز. شغّله أولاً — بدونه لا يُربط شيء.
         </p>
-        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-start">
-          <code className="min-w-0 flex-1 overflow-x-auto rounded-xl bg-secondary p-3 text-left text-xs" dir="ltr">
-            {installCommand}
-          </code>
-          <CopyButton value={installCommand} label="نسخ أمر التركيب" />
-        </div>
-        <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
-          <li>• يكتشف طابعة الفواتير، ويشاركها فقط إن لم تكن مشاركة</li>
-          <li>• ينزّل وكيل الطباعة على المنفذ <b>9988</b> ويشغّله مع إقلاع الجهاز</li>
-          <li>• يختبر فتح الدرج ويصنع اختصار «كاشير ستيشن»</li>
-          <li>• رسائله <b>بالإنجليزية</b> — نافذة PowerShell لا ترسم العربية</li>
-        </ul>
+      )}
 
-        {/* Written down because it is the promise the shop is trading on: they
-            run the previous system on this same till, and an install that
-            disturbs it costs them an evening of real business. Every line here
-            was a real collision found and fixed on installation night. */}
-        <div className="mt-3 rounded-xl border-2 border-emerald-600/40 bg-emerald-50/60 p-3 text-sm dark:bg-emerald-950/20">
-          <p className="font-black text-emerald-800 dark:text-emerald-300">🛡️ لا يمسّ النظام القديم</p>
-          <ul className="mt-1.5 space-y-1 text-muted-foreground">
-            <li>• ستيشن على المنفذ <b>9988</b> — والقديم يحتفظ بـ<b>9977</b></li>
-            <li>• لا يوقف أي برنامج آخر — وكيل ستيشن وحده من تركيب سابق</li>
-            <li>• <b>لا يغيّر الطابعة الافتراضية</b> — إلا بإضافة <code dir="ltr">-MakeDefault</code> عند الانتقال الكامل</li>
-            <li>• لا يعيد تسمية مشاركة قائمة ولا يلغيها</li>
-          </ul>
-        </div>
-      </Step>
-
-      {/* ── 2. detected printers ── */}
-      <Step n={2} title="الطابعات الموجودة على هذا الجهاز">
-        <div className="mb-3 flex items-center gap-2">
-          <button onClick={() => void probe()} className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border px-3 text-sm font-bold hover:bg-secondary">
-            <RefreshCw className={`size-4 ${agent === "checking" ? "animate-spin" : ""}`} />
-            إعادة الفحص
-          </button>
-          {agent === "down" && <span className="text-sm font-bold text-amber-600 dark:text-amber-400">نفّذ الخطوة ١ أولاً</span>}
-        </div>
-
-        {agent === "up" && found?.length ? (
-          <div className="space-y-2">
-            {found.map((f) => (
-              <div key={f.name} className="rounded-xl border border-border bg-card p-3">
-                <p className="font-bold">{f.name}</p>
-                <p className="text-xs text-muted-foreground">{f.driver}</p>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  {f.host ? (
-                    <>
-                      <code className="rounded bg-secondary px-2 py-1 text-xs" dir="ltr">{f.host}</code>
-                      <CopyButton value={f.host} label="نسخ العنوان" />
-                    </>
-                  ) : null}
-                  {f.share ? (
-                    <>
-                      <code className="rounded bg-secondary px-2 py-1 text-xs" dir="ltr">{f.share}</code>
-                      <CopyButton value={f.share} label="نسخ المشاركة" />
-                    </>
-                  ) : null}
-                  {!f.host && !f.share ? (
-                    <span className="text-xs font-bold text-muted-foreground">
-                      بلا عنوان ولا مشاركة — شاركها من إعدادات ويندوز أولاً
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : agent === "up" ? (
-          <p className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
-            الوكيل يعمل لكن ويندوز لا يرى أي طابعة مثبّتة.
-          </p>
-        ) : (
-          <p className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
-            {agent === "checking" ? "جارٍ الفحص…" : "وكيل الطباعة لا يستجيب على هذا الجهاز."}
-          </p>
-        )}
-      </Step>
-
-      {/* ── 3. the map ── */}
-      <Step n={3} title="ماذا يُطبع وأين">
-        {/* Both of these were discovered the hard way on installation night and
-            are written here so the next person does not rediscover them. */}
-        <div className="mb-3 space-y-2 rounded-xl border border-border bg-card p-3 text-sm">
-          <p>
-            <b>لا تحتاج مشاركة ويندوز.</b> اكتب <b>اسم الطابعة كما يسمّيها ويندوز</b> —
-            مثل <code dir="ltr">POS-23</code> — والطباعة تمرّ بمُخطِّط ويندوز مباشرة، بلا شبكة ولا صلاحيات.
-            وفي صفحة <b>الطابعات</b> تظهر الأسماء كأزرار: <b>ضغطة واحدة تملأ الخانة وتُفعّل الطابعة</b>.
-          </p>
-          <p>
-            <b>إن خرجت العربية صينية أو مبعثرة:</b> اضغط «اختبار 1256»، فتطبع الورقة سطراً عربياً تحت
-            كل رقم ترميز (22 · 26 · 32 · 37 · 41). <b>اقرأ الورقة</b> واكتب رقم السطر العربي في خانة
-            «رقم الترميز العربي». هذه الطابعات مصنوعة للسوق الصيني وتبدأ في وضعه.
-          </p>
-        </div>
-        {unconfigured > 0 && (
-          <p className="mb-3 flex items-start gap-2 rounded-xl border-2 border-amber-500 bg-amber-500/10 p-3 text-sm font-bold text-amber-700 dark:text-amber-300">
-            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-            {unconfigured} طابعة بلا عنوان. انسخ القيم من الخطوة ٢ وألصقها في صفحة الطابعات.
-          </p>
-        )}
-        <div className="space-y-2">
-          {printers.map((p) => (
-            <div key={p.name} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-card p-3">
-              <div className="min-w-0">
-                <p className="flex items-center gap-1.5 font-bold">
-                  <Printer className="size-4 text-primary" />
-                  {p.name}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {p.kind === "receipt"
-                    ? "فاتورة الزبون"
-                    : p.kind === "expediter"
-                      ? "تذكرة التجهيز — الـQR واسم الكاشير والمجهّز"
-                      : p.categories.length
-                        ? p.categories.join(" · ")
-                        : "لا يوجد قسم موجّه إليها"}
-                </p>
-              </div>
-              <span className={`rounded-full px-2.5 py-1 text-xs font-black ${p.host || p.share ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" : "bg-amber-500/15 text-amber-700 dark:text-amber-300"}`}>
-                {p.host || p.share ? (p.active ? "جاهزة" : "معطّلة") : "بلا عنوان"}
+      {groups.map((g) => (
+        <section key={g.key} className={`rounded-2xl border-2 p-4 ${g.ready ? "border-primary bg-primary/5" : "border-border bg-card"}`}>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h2 className="flex items-center gap-2 font-black">
+              <Printer className="size-5" />
+              {g.label}
+            </h2>
+            {g.ready && (
+              <span className="flex items-center gap-1 text-sm font-black text-primary">
+                <Check className="size-4" />
+                {g.share}
               </span>
-            </div>
-          ))}
-        </div>
-        <a href="/printers" className="mt-3 inline-flex min-h-11 items-center rounded-lg bg-primary px-4 font-bold text-primary-foreground">
-          افتح صفحة الطابعات
-        </a>
-      </Step>
-
-      {/* ── 3b. who signs in ──
-          The logins were being asked for by message every time somebody new
-          started. They belong on the page the installer already has open. */}
-      <Step n={4} title="حسابات الدخول">
-        <div className="overflow-x-auto rounded-xl border border-border bg-card">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-right text-muted-foreground">
-                <th className="p-2 font-medium">الحساب</th>
-                <th className="p-2 font-medium">الدخول</th>
-                <th className="p-2 font-medium">يرى</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[
-                ["كاشير", "1", "الكاشير · التجهيز · المطبخ · الطلبات"],
-                ["مجهّز", "2", "التجهيز · المطبخ · شاشة الاستلام"],
-                ["إدارة", "3", "كل شيء عدا هذه الصفحة"],
-              ].map(([who, login, sees]) => (
-                <tr key={login} className="border-t border-border">
-                  <td className="p-2 font-black">{who}</td>
-                  <td className="p-2 font-mono font-black" dir="ltr">{login}</td>
-                  <td className="p-2 text-muted-foreground">{sees}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className="mt-2 text-sm text-muted-foreground">
-          كلمات المرور من نمط <code dir="ltr">station1</code> بحسب رقم الدخول. صفحة <b>الموظفون ← حسابات
-          الدخول</b> تنشئ حساباً جديداً وتغيّر كلمة مرور منسية — بنفس النموذج.
-        </p>
-        <p className="mt-2 rounded-xl border border-border bg-card p-3 text-sm">
-          <b>بوت تليغرام:</b> زر <b>«👤 مسؤولو البوت»</b> داخل البوت يضيف ويحذف. ليعرف أحدهم معرّفه:
-          يراسل البوت فيردّ عليه بالرقم. وحسابك الأصلي محميّ ولا يُحذف من هناك مهما جرى.
-        </p>
-      </Step>
-
-      {/* ── 4. screens ── */}
-      <Step n={5} title="الشاشات">
-        {/* The QR is scanned BY the other device, using its own camera. A
-            ceiling television has no camera, so telling somebody to "scan it"
-            there sends them up a ladder holding a phone for no reason. */}
-        <div className="mb-3 space-y-2 rounded-xl border border-border bg-card p-3 text-sm">
-          <p className="font-black">أي طريقة تستعمل؟ حسب الجهاز:</p>
-          <p>
-            📱 <b>جهاز فيه كاميرا</b> (تابلت المطبخ، التجهيز، منيو الزبون): افتح كاميرته وامسح الرمز من
-            <b> هذه الشاشة التي أمامك الآن</b> — الرمز يُعرض هنا ويُمسح هناك، لا العكس.
-          </p>
-          <p>
-            📺 <b>تلفاز ذكي على واي‑فاي المطعم</b>: لا تمسح شيئاً ولا تشغّل أمراً. افتح متصفح التلفاز
-            واكتب العنوان بالريموت مرة واحدة، ثم اجعله <b>الصفحة الرئيسية</b> للمتصفح.
-          </p>
-          <p>
-            💻 <b>شاشة يشغّلها جهاز ويندوز</b> (ميني PC أو TV Stick): ألصق «أمر التثبيت كتطبيق» على ذلك
-            الجهاز — يضبط ملء الشاشة والتشغيل التلقائي ومنع النوم دفعة واحدة.
-          </p>
-        </div>
-
-        {/* Every line here was a fault found on a real television, one
-            photograph at a time. Written down so the next screen installed in
-            this shop is checked in ten seconds instead of a day. */}
-        <div className="mb-3 space-y-2 rounded-xl border-2 border-primary/40 bg-card p-3 text-sm">
-          <p className="font-black">📺 شاشة الاستلام — ما تعلّمناه من تركيبها</p>
-          <p>
-            • العنوان القصير <code dir="ltr">/tv/&lt;المفتاح&gt;</code> بلا <code dir="ltr">?</code> ولا{" "}
-            <code dir="ltr">=</code> — الرمزان مخفيّان خلف صفحة رموز في ريموت التلفزيون.
-          </p>
-          <p>• الشاشة <b>تحدّث نفسها كل ١٠ ثوانٍ</b> بلا برمجة — التلفزيونات توقف المؤقّتات على صفحة لا يلمسها أحد.</p>
-          <p>
-            • <b>سنة صنع التلفزيون ليست سنة متصفحه.</b> شاشة ٢٠٢٥ قد تحمل متصفح ٢٠٢٠، وهذا سبب أغلب ما
-            واجهناه.
-          </p>
-          <p>
-            • <b>لا تضع صورة على مسار فيه كلمة</b> <code dir="ltr">ads</code> — مانع الإعلانات المدمج في
-            التلفزيون يحجبها قبل تحميلها. ملصقاتنا على <code dir="ltr">/posters/</code> لهذا السبب.
-          </p>
-          <p className="rounded-lg bg-secondary/60 p-2">
-            <b>عند تركيب أي شاشة جديدة:</b> افتح عليها <code dir="ltr">{"<عنوان الشاشة>/check"}</code> —
-            صفحة تفحص كل طبقة على حدة (التنسيق · SVG · الصور · JPEG · الحجم · الحجب بالاسم). المربّع
-            الفارغ يسمّي العطل في لمحة.
-          </p>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {screens.map((s) => (
-            <div key={s.url} className="rounded-2xl border border-border bg-card p-3">
-              <p className="font-black">{s.title}</p>
-              <p className="mb-2 text-xs text-muted-foreground">{s.note}</p>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={s.qr} alt="" aria-hidden className="mx-auto size-32 rounded-lg bg-white p-1" />
-              <div className="mt-2 flex items-center gap-2">
-                <code className="min-w-0 flex-1 overflow-x-auto rounded bg-secondary px-2 py-1 text-[11px]" dir="ltr">{s.url}</code>
-                <CopyButton value={s.url} label="نسخ" />
-              </div>
-              {/* a screen on the ceiling must never show a browser: this turns
-                  a Windows device into a dedicated appliance in one command */}
-              <div className="mt-2 border-t border-border pt-2">
-                <CopyButton value={s.kiosk} label="نسخ أمر التثبيت كتطبيق" className="w-full justify-center" />
-                <p className="mt-1 text-center text-[11px] text-muted-foreground">
-                  ملء الشاشة · بلا متصفح · يبدأ وحده · لا ينام
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-        {tvUrl && (
-          <div className="mt-4 rounded-2xl border-2 border-primary/40 bg-primary/5 p-4">
-            <p className="mb-1 font-black">📺 للتلفاز الذكي — اكتب هذا بالريموت</p>
-            <p className="mb-3 text-xs text-muted-foreground">
-              مرة واحدة فقط. بعدها: قائمة المتصفح ← اجعلها الصفحة الرئيسية.
-            </p>
-            <p className="overflow-x-auto rounded-xl bg-background p-3 text-center text-xl font-black tracking-wide" dir="ltr">
-              {tvUrl}
-            </p>
-            <div className="mt-2 flex justify-center">
-              <CopyButton value={tvUrl} label="نسخ العنوان" />
-            </div>
-          </div>
-        )}
-      </Step>
-
-      {/* ── 5. the phone that answers orders ── */}
-      {callHook && (
-        <Step n={6} title="هاتف الطلبات — يظهر اسم المتصل على الكاشير">
-          <p className="mb-3 text-sm text-muted-foreground">
-            على موبايل المطعم: ثبّت <b>MacroDroid</b> من متجر بلاي، ثم أنشئ ماكرو واحداً بهذه القيم.
-            المجاني يكفي. بعدها يرن الهاتف فيظهر اسم الزبون وعنوانه على شاشة الكاشير قبل أن ترفع السماعة.
-          </p>
-          <div className="space-y-2">
-{/* Named exactly, because the wrong one costs an evening.
-                  «Call Active» fires and shows the number on the phone's own
-                  screen — and does NOT fill [number]. MacroDroid leaves magic
-                  text it cannot resolve as literal text, so the request went
-                  out reading "[number]" seven times running while the log on
-                  the handset showed the real number each time. */}
-              <div className="rounded-xl border-2 border-destructive/50 bg-destructive/5 p-3 text-sm">
-                <p className="font-black text-destructive">⚠️ المُشغِّل الصحيح: «Incoming Call» — لا «Call Active»</p>
-                <p className="mt-1 text-muted-foreground">
-                  «Call Active» يعمل ويعرض الرقم على شاشة الهاتف، لكنه <b>لا يملأ</b>{" "}
-                  <code dir="ltr">[number]</code> — فيصل النصّ حرفياً ويُرفض الطلب.
-                </p>
-                <ol className="mt-2 space-y-1 text-muted-foreground">
-                  <li>
-                    <b>١.</b> Triggers ← احذف <code dir="ltr">Call Active</code> ← أضف{" "}
-                    <code dir="ltr">Call/SMS ← Call Incoming ← Any Number</code>
-                  </li>
-                  <li>
-                    <b>٢.</b> في إجراء HTTP Request افتح تبويب <b>Query Params</b> ← أضف مفتاحاً اسمه{" "}
-                    <code dir="ltr">phone</code>
-                  </li>
-                  <li>
-                    <b>٣.</b> في خانة قيمته اضغط زر <b>{"{ }"}</b> واختر رقم المتصل من القائمة —{" "}
-                    <b>لا تكتبه بيدك</b>. ماكرودرويد لا يعرض إلا الخانات الصالحة لمُشغِّلك، فلا يمكن أن
-                    تختار الخاطئة.
-                  </li>
-                </ol>
-                <p className="mt-2 rounded-lg bg-secondary/60 p-2 text-muted-foreground">
-                  وتبويب <b>Content Body</b> يبقى كما هو: كلمة السر وحدها. والرابط بلا{" "}
-                  <code dir="ltr">?phone=</code> إن استعملت Query Params.
-                </p>
-                {/* The permission that Android quietly requires. Since Android
-                    9 the incoming-number extra is null without READ_CALL_LOG,
-                    so the macro fires, the number field resolves, and it
-                    resolves to nothing — which reads like a broken macro and is
-                    not one. */}
-                {/* Verified on the shop's own handset with adb: trigger set to
-                    Call Incoming, READ_CALL_LOG / READ_PHONE_STATE /
-                    READ_PHONE_NUMBERS all granted, the number sitting in the
-                    call log — and [number] still resolved to "". Since Android
-                    10 the platform simply does not give the incoming number to
-                    ordinary apps. It is not a configuration we got wrong. */}
-                <p className="mt-2 rounded-lg border-2 border-primary/50 bg-card p-2">
-                  <b>إن بقي الرقم فارغاً — فهذا أندرويد لا الإعداد.</b> منذ أندرويد ١٠ لا يُعطي النظام
-                  رقم المتصل للتطبيقات العادية مهما مُنحت من أذونات. الطريق المفتوح هو{" "}
-                  <b>الإشعار</b> الذي يعرضه تطبيق الهاتف عند الرنين، وفيه الرقم نصّاً:
-                  <br />
-                  <b>أضف مُشغِّلاً ثالثاً:</b> <code dir="ltr">Notifications ← Notification Received</code> ←
-                  وأرسل معه <code dir="ltr">[notification_title]</code>.
-                  <br />
-                  {/* Read off the shop's handset: two packages are involved and
-                      only one of them rings. Choosing the obvious one gets you
-                      missed-call notifications and nothing at the moment it
-                      matters. */}
-                  <b>واختر التطبيق بدقّة:</b> إشعار الرنين تصدره{" "}
-                  <code dir="ltr">com.samsung.android.incallui</code> لا{" "}
-                  <code dir="ltr">com.samsung.android.dialer</code>. الأول يرنّ، والثاني يعرض المكالمات
-                  الفائتة بعد فوات الأوان. <b>أشّر الاثنين معاً</b> إن ظهرا في القائمة، وفعّل «إظهار
-                  تطبيقات النظام» إن لم يظهر الأول.
-                  <br />
-                  النظام <b>يستخرج الرقم من أي نصّ يصله</b>، فلا يهمّ شكل الإشعار.
-                </p>
-                <p className="mt-2 rounded-lg border border-amber-500/50 bg-amber-50/60 p-2 dark:bg-amber-950/20">
-                  <b>٤. الإذن الذي يطلبه أندرويد بصمت:</b> إعدادات الهاتف ← التطبيقات ← MacroDroid ←
-                  الأذونات ← فعّل <b>«الهاتف»</b> و<b>«سجلات المكالمات»</b>.
-                  <br />
-                  منذ أندرويد ٩، لا يُعطى رقم المتصل لأي تطبيق بلا إذن «سجلات المكالمات» — فيعمل الماكرو،
-                  وتُستبدل الخانة، <b>وتُستبدل بفراغ</b>. يبدو عطلاً في الماكرو وليس كذلك.
-                </p>
-              </div>
-            <HookRow k="المُشغِّل ١ — مكالمة" v="Call/SMS ← Call Incoming ← Any Number" copy={false} />
-            <HookRow k="المُشغِّل ٢ — رسالة" v="Call/SMS ← SMS Received ← Any Number" copy={false} />
-            <HookRow k="الإجراء (Action)" v="ابحث 🔍 عن http ← HTTP Request" copy={false} />
-            <HookRow k="تبويب Settings ← Request method" v="POST" copy={false} />
-            <HookRow k="تبويب Settings ← Enter url" v={callHook.url} />
-            <HookRow k="تبويب Header Params" v="اتركه فارغاً — كلمة السر داخل النص" copy={false} />
-            <HookRow k="تبويب Content Body ← النوع" v="application/json" />
-            <HookRow k="تبويب Content Body ← النص (انسخه كاملاً)" v={callHook.body} />
-            <HookRow k="تبويب Query Params" v="اتركه فارغاً" copy={false} />
-          </div>
-          {/* WhatsApp bypasses Android telephony entirely; its notification is
-              the only handle there is, and it is an honest partial answer. */}
-          <div className="mt-3 rounded-xl border-2 border-border bg-card p-3 text-sm">
-            <p className="font-black">📗 مكالمات واتساب — ماكرو ثانٍ منفصل</p>
-            <p className="mt-1 text-muted-foreground">
-              مكالمة واتساب لا تمرّ بنظام المكالمات في أندرويد، فلا يلتقطها المُشغِّل أعلاه — لكنها تُصدر
-              إشعاراً، وهذا ما نلتقطه.
-            </p>
-            <div className="mt-2 space-y-2">
-              <HookRow k="المُشغِّل" v="Notifications ← Notification Received ← WhatsApp" copy={false} />
-              <HookRow k="الإجراء" v="نفس HTTP Request بنفس الرابط" copy={false} />
-              <HookRow k="تبويب Content Body ← النص" v={callHook.whatsappBody} />
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              <b>حدّه الصادق:</b> إن كان الزبون محفوظاً في جهات اتصال هاتفك، يعطي واتساب <b>اسمه لا رقمه</b> —
-              فيظهر الاسم على الشاشة دون أن يُربط بسجلّه. أما غير المحفوظين — وهم أغلب الزبائن — فيصلون
-              برقمهم كاملاً.
-            </p>
-          </div>
-
-          <div className="mt-3 overflow-x-auto rounded-xl border border-border">
-            <table className="w-full text-right text-xs">
-              <thead className="bg-secondary/60 font-black">
-                <tr>
-                  <th className="p-2">الرمز في System Log</th>
-                  <th className="p-2">معناه</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-t border-border"><td className="p-2 font-black text-emerald-600">200</td><td className="p-2">سُجّل ✓</td></tr>
-                <tr className="border-t border-border"><td className="p-2 font-black">422</td><td className="p-2">مصرّح — لكن بلا رقم صالح (تجربة بلا مكالمة، أو رقم محجوب)</td></tr>
-                <tr className="border-t border-border"><td className="p-2 font-black">401</td><td className="p-2">كلمة السر لم تصل — تبويب Content Body فارغ</td></tr>
-                <tr className="border-t border-border"><td className="p-2 font-black">403</td><td className="p-2">كلمة السر وصلت وهي خاطئة — أعِد نسخها من هنا</td></tr>
-              </tbody>
-            </table>
-          </div>
-
-          {/* What the phone actually sent.
-              A status code alone is a riddle: MacroDroid reported «captured
-              07831551888» and «422» in the same second, both true, and the one
-              fact that reconciles them — the body — was invisible. Now it is
-              not. The secret is redacted before the row is written; this is a
-              diagnostic, not somewhere to leak it. */}
-          <div className="mt-3 rounded-xl border-2 border-primary/40 bg-card p-3">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <p className="text-sm font-black">📥 آخر ما وصل من الهاتف</p>
-              <button
-                onClick={() => void loadHooks()}
-                className="min-h-9 rounded-lg border border-border px-3 text-xs font-bold hover:bg-secondary"
-              >
-                تحديث
-              </button>
-            </div>
-            {hooks.length === 0 ? (
-              <p className="text-xs font-bold text-muted-foreground">
-                لا شيء بعد — اتصل بخط المطعم ثم اضغط «تحديث».
-              </p>
-            ) : (
-              <ul className="space-y-1.5">
-                {hooks.map((h) => (
-                  <li key={h.id} className="rounded-lg bg-secondary/60 p-2 text-xs">
-                    <p className="flex items-center gap-2 font-black">
-                      <span className={h.status === 200 ? "text-emerald-600" : "text-destructive"}>{h.status}</span>
-                      <span className="text-muted-foreground" dir="ltr">
-                        {new Date(h.at).toLocaleTimeString("en-GB", { timeZone: "Asia/Baghdad" })}
-                      </span>
-                      <span className="font-bold">{h.note}</span>
-                    </p>
-                    <p className="mt-0.5 break-all font-mono text-[11px] text-muted-foreground" dir="ltr">
-                      {h.body}
-                    </p>
-                  </li>
-                ))}
-              </ul>
             )}
           </div>
 
-          <div className="mt-3 space-y-2 rounded-xl border border-border bg-card p-3 text-sm">
-            <p>
-              <b>ما معنى [number]؟</b> هي <b>خانة فارغة</b> يملؤها MacroDroid برقم المتصل لحظة الرنين —
-              مثل «عزيزي [الاسم]» في رسالة جاهزة. لا تكتب رقماً حقيقياً مكانها.
-            </p>
-            <p>
-              اكتبها كما هي، أو — وهو الأضمن — اضغط أيقونة <b>{"{ }"}</b> بجانب خانة النص واختر
-              <b> رقم المتصل</b> من القائمة، فيضعها MacroDroid بنفسه بالاسم الصحيح.
-            </p>
-            <p>
-              <b>وأطفئ توفير البطارية:</b> إعدادات أندرويد ← التطبيقات ← MacroDroid ← البطارية ←
-              <b> «غير مقيّد»</b>. بدونها يوقف أندرويد التطبيق والهاتف في الدرج، فلا يعمل شيء ولا تظهر رسالة خطأ.
-            </p>
+          {/* أسماء ويندوز كما هي. أربع طابعات على هذا الجهاز أسماؤها POS80 و
+              POS80-25 و POS-24 و POS-23 — حرفان بينها، وخطأٌ في النسخ يرسل
+              البرجر إلى فرن البيتزا ولا يكتشفه أحد حتى يشتكي زبون. */}
+          <div className="flex flex-wrap gap-2">
+            {found.length === 0 && <p className="text-sm font-bold text-muted-foreground">لا توجد طابعات مكتشفة.</p>}
+            {found.map((f) => {
+              const share = f.share || f.name;
+              return (
+                <button
+                  key={f.name}
+                  disabled={busy === g.key}
+                  onClick={() => void connect(g, share)}
+                  className={`touch-pos rounded-xl border-2 px-3 py-2 text-sm font-bold transition disabled:opacity-50 ${
+                    g.share === share ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-secondary"
+                  }`}
+                >
+                  {busy === g.key ? "…" : share}
+                </button>
+              );
+            })}
           </div>
-        </Step>
-      )}
 
-      {/* ── 6. final check ── */}
-      <Step n={callHook ? 7 : 6} title="الفحص قبل المغادرة">
-        <p className="mb-2 text-sm text-muted-foreground">اطلب: بيتزا + برجر + فرايس + زنجر. يجب أن تخرج ٥ أوراق من ٤ طابعات.</p>
-        <ul className="space-y-1.5 text-sm">
-          {[
-            "الكاونتر: فاتورة الزبون — والعربي متصل",
-            "الكاونتر: تذكرة التجهيز، وعليها QR",
-            "فرن البيتزا: البيتزا فقط",
-            "مطبخ البرجر: البرجر والفرايس",
-            "الشواية: الزنجر فقط",
-            "الدرج فتح عند الدفع",
-            "امسح الـQR ← الطلب صار «جاهز» على شاشة الاستلام",
-            "شاشة السقف: سلّم الطلب ← يختفي خلال ١٠ ثوانٍ وتعود الإعلانات",
-            "اتصل بخط المطعم ← يظهر شريط «زبون يتصل الآن» على الكاشير",
-            "افتح /printers على جهاز الكاشير ← «وكيل الطباعة يعمل» بالأخضر",
-            "اقطع الإنترنت دقيقتين ← الكاشير يستمر ويطبع، ثم ترتفع الطلبات وحدها",
-          ].map((t) => (
-            <li key={t} className="flex items-start gap-2">
-              <Check className="mt-0.5 size-4 shrink-0 text-primary" />
-              {t}
-            </li>
-          ))}
-        </ul>
-      </Step>
+          {said[g.key] && <p className="mt-2 text-sm font-black text-primary">{said[g.key]}</p>}
+        </section>
+      ))}
+
+      <section className="rounded-2xl border-2 border-border bg-card p-4">
+        <h2 className="mb-2 flex items-center gap-2 font-black">
+          <Inbox className="size-5" />
+          الدرج
+        </h2>
+        <button
+          onClick={() => void kickDrawer()}
+          className="touch-pos w-full rounded-xl bg-primary px-4 py-3 font-black text-primary-foreground hover:opacity-90"
+        >
+          افتح الدرج
+        </button>
+        <p className="mt-2 text-xs font-bold text-muted-foreground">
+          الدرج يُفتح من طابعة الكاشير، فاربطها أولاً.
+        </p>
+      </section>
     </div>
   );
 }
-
-function HookRow({ k, v, copy = true }: { k: string; v: string; copy?: boolean }) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-card p-3">
-      <div className="min-w-0">
-        <p className="text-xs text-muted-foreground">{k}</p>
-        <p className="truncate font-mono text-sm font-bold" dir="ltr">{v}</p>
-      </div>
-      {copy && <CopyButton value={v} />}
-    </div>
-  );
-}
-
-function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
-  return (
-    <section>
-      <h2 className="mb-3 flex items-center gap-2 text-lg font-black">
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">{n}</span>
-        {title}
-      </h2>
-      <div className="rounded-2xl border border-border bg-background p-4">{children}</div>
-    </section>
-  );
-}
-
-function Row({ k, v }: { k: string; v: string }) {
-  return (
-    <div className="flex items-center justify-between gap-2 rounded-lg bg-secondary/50 px-3 py-2">
-      <dt className="text-muted-foreground">{k}</dt>
-      <dd className="min-w-0 truncate font-bold" dir="auto">{v}</dd>
-    </div>
-  );
-}
-
-export { X };

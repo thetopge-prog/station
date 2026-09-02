@@ -293,3 +293,31 @@ export async function buildReceiptJob(orderId: string, copies = 1): Promise<Prin
   // ٥ نسخ سقف مقصود: خطأ مطبعي لا يبتلع بكرة الورق
   return job ? { ...job, copies: Math.min(5, Math.max(1, Math.round(copies) || 1)) } : null;
 }
+
+/**
+ * «اتصل بهذه الطابعة» — خطوة التركيب كلها في نداء واحد.
+ *
+ * صفحة التركيب كانت سبع خطوات ونصّاً طويلاً؛ والمركِّب يريد شيئاً واحداً: أن
+ * يضغط اسم الطابعة كما تراه ويندوز فتُربط وتطبع ورقة تثبت ذلك.
+ *
+ * وتقبل أكثر من معرّف لأن الكاشير والمجهّز **جهاز واحد** في هذا المحل: صفّان
+ * في القاعدة (receipt و expediter) على المشاركة نفسها. ربطهما معاً يجعل الزرّ
+ * يطابق الواقع بدل أن يطلب من المركِّب أن يعرف أنهما اثنان.
+ */
+export async function connectPrinter(ids: string[], share: string) {
+  await requireAdmin();
+  const name = share.trim();
+  if (!name) return { ok: false as const, error: "اختر طابعة أولاً." };
+  const svc = createSupabaseServiceClient();
+  const { error } = await svc
+    .from("printers")
+    // host يُمسح: الاسم والعنوان طريقان متنافيان، وبقاء عنوان قديم يجعل الوكيل
+    // يحاول الشبكة أولاً وينتظر مهلتها قبل أن يصل إلى المشاركة الصحيحة
+    .update({ share: name, host: null, is_active: true, updated_at: new Date().toISOString() })
+    .in("id", ids);
+  if (error) return { ok: false as const, error: error.message };
+  revalidatePath("/setup");
+  revalidatePath("/printers");
+  const job = await buildTestJob(ids[0]);
+  return { ok: true as const, job };
+}

@@ -1,124 +1,37 @@
-import QRCode from "qrcode";
-import { headers } from "next/headers";
 import { requireDeveloper } from "@/lib/cafe/auth";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
-import { SetupClient, type MappedPrinter, type ScreenLink } from "@/components/cafe/SetupClient";
-
-export const dynamic = "force-dynamic";
+import { SetupClient, type SetupPrinter } from "@/components/cafe/SetupClient";
 
 /**
- * The installation page, opened on the machine being installed.
+ * /setup — التركيب.
  *
- * Everything on it is READ from somewhere real: the printer map comes from the
- * database, the addresses from the browser's own URL, and the installed
- * printers from the local agent. Nothing here is a screenshot of how the shop
- * was configured once — if somebody re-routes fries tomorrow, this page says so.
+ * كانت سبع خطوات: مفتاح الشاشة، ورموز QR، وحسابات الدخول، وتعليمات ماكرودرويد،
+ * وسرّ الويبهوك مكتوباً صريحاً على الشاشة، وقائمة فحص من أحد عشر بنداً. وكل ذلك
+ * صار منجزاً أو انتقل إلى مكانه الصحيح — لم يبقَ من التركيب إلا الطابعات.
  *
- * Developer only (0046). It carries no money, but it does carry the command
- * that installs software on a till — which is not a restaurant manager's job
- * even when the restaurant manager is the owner.
+ * فصارت الصفحة أزراراً: طابعة، طابعة، طابعة، ودرج. والأزرار تُبنى من جدول
+ * printers نفسه لا من أسماء مكتوبة هنا، فما تراه هو ما في المحل مهما تغيّر.
  */
-
-const INSTALL = `irm https://raw.githubusercontent.com/thetopge-prog/station/main/scripts/setup-pos.ps1 -OutFile "$env:TEMP\\st-setup.ps1"; powershell -ExecutionPolicy Bypass -File "$env:TEMP\\st-setup.ps1"`;
+export const dynamic = "force-dynamic";
 
 export default async function SetupPage() {
   await requireDeveloper();
-
-  const h = await headers();
-  const host = h.get("host") ?? "localhost:3000";
-  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") || /^\d/.test(host) ? "http" : "https");
-  const origin = `${proto}://${host}`;
-
   const svc = createSupabaseServiceClient();
-  const [{ data: printers }, { data: stations }, { data: cats }] = await Promise.all([
-    svc.from("printers").select("name_ar, kind, station_id, host, share, is_active").order("sort"),
-    svc.from("stations").select("id, name_ar"),
-    svc.from("categories").select("name_ar, station_id, is_active"),
-  ]);
+  const { data } = await svc
+    .from("printers")
+    .select("id, name_ar, kind, share, host, is_active, sort, stations(name_ar)")
+    .order("sort");
 
-  const stationName = new Map((stations ?? []).map((s) => [s.id, s.name_ar]));
-  const mapped: MappedPrinter[] = (printers ?? []).map((p) => ({
-    name: p.name_ar,
-    kind: p.kind as MappedPrinter["kind"],
-    station: p.station_id ? stationName.get(p.station_id) ?? null : null,
-    // the categories that will actually land on this printer — the routing is
-    // data, so this is the live answer rather than a remembered one
-    categories: (cats ?? []).filter((c) => c.is_active !== false && c.station_id && c.station_id === p.station_id).map((c) => c.name_ar),
-    host: p.host,
+  const rows = (data ?? []) as unknown as (SetupPrinter & { stations: { name_ar: string } | null })[];
+  const printers: SetupPrinter[] = rows.map((p) => ({
+    id: p.id,
+    name_ar: p.name_ar,
+    kind: p.kind,
+    station_name: p.stations?.name_ar ?? null,
     share: p.share,
-    active: p.is_active,
+    host: p.host,
+    is_active: p.is_active,
   }));
 
-  /**
-   * The ceiling display signs in with a key in its own URL, because nobody can
-   * reach it to sign in again and a staff cookie expires in seven days. That
-   * key is handed over HERE, on the developer's page, so it is never something
-   * to look up in a file at the top of a ladder.
-   */
-  const displayKey = process.env.STATION_DISPLAY_KEY;
-  const screenDefs = [
-    { title: "شاشة المطبخ", note: "لكل طباخ — يرى أصناف محطته فقط", path: "/kds" },
-    { title: "شاشة التجهيز", note: "هنا يُوصل قارئ الـQR", path: "/expediter" },
-    {
-      title: "شاشة الاستلام",
-      note: displayKey
-        ? "الشاشة المعلّقة — الرابط يحمل مفتاحها، تفتح بلا تسجيل دخول"
-        : "⚠ لا يوجد STATION_DISPLAY_KEY — ستطلب الشاشة تسجيل دخول",
-      // /tv/<key>, not /queue?key= — this address gets typed into a television
-      // with a remote control, where every symbol costs a keyboard page
-      path: displayKey ? `/tv/${encodeURIComponent(displayKey)}` : "/queue",
-    },
-    { title: "منيو الزبون", note: "التابلت على الطاولة، أو ملصق QR", path: "/menu" },
-  ];
-  const screens: ScreenLink[] = await Promise.all(
-    screenDefs.map(async (s) => {
-      const url = `${origin}${s.path}`;
-      return {
-        title: s.title,
-        note: s.note,
-        url,
-        qr: await QRCode.toDataURL(url, { margin: 1, width: 300, color: { dark: "#2C1E16", light: "#ffffff" } }),
-        // Turns a Windows screen into a dedicated appliance: full screen, no
-        // tabs, no address bar, starts itself, never sleeps. A ceiling screen
-        // showing a browser is a ceiling screen somebody will need a ladder for.
-        kiosk: `irm https://raw.githubusercontent.com/thetopge-prog/station/main/scripts/setup-display.ps1 -OutFile "$env:TEMP\st-display.ps1"; powershell -ExecutionPolicy Bypass -File "$env:TEMP\st-display.ps1" -Url "${url}"`,
-      };
-    }),
-  );
-
-  /**
-   * What the shop's Android needs so a ringing phone reaches the till.
-   *
-   * The secret is handed over here for the same reason the display key is:
-   * /setup is the developer's page, and the alternative is reading it out of a
-   * file on a laptop while standing next to a phone.
-   *
-   * The address is always the public one. The automation must work when the
-   * phone is on mobile data or in the kitchen's dead spot — and both the hub
-   * and the website write to the same database anyway, so there is nothing to
-   * gain by pointing it at a LAN address that changes when a router reboots.
-   */
-  const callHook = process.env.STATION_WEBHOOK_SECRET
-    ? {
-        /*
-         * The number rides in the URL, not the body.
-         *
-         * The shop's phone posted `"phone":"[number][sms_number]"` verbatim,
-         * three calls running: MacroDroid leaves magic text it does not
-         * recognise for the chosen trigger as LITERAL TEXT rather than
-         * emptying it, and the body field was where it happened. The URL field
-         * substitutes reliably. The secret stays in the body — a query string
-         * lands in access logs and proxy caches; a POST body does not.
-         */
-        url: "https://station-anbar.netlify.app/api/calls?phone=[number]",
-        header: "x-station-secret",
-        secret: process.env.STATION_WEBHOOK_SECRET,
-        body: `{"secret":"${process.env.STATION_WEBHOOK_SECRET}"}`,
-        // WhatsApp calls never reach Android's telephony, but they do raise a
-        // notification — that is the only handle there is.
-        whatsappBody: `{"secret":"${process.env.STATION_WEBHOOK_SECRET}","phone":"[notification_title]","name":"[notification_title]"}`,
-      }
-    : null;
-
-  return <SetupClient installCommand={INSTALL} printers={mapped} screens={screens} origin={origin} callHook={callHook} />;
+  return <SetupClient printers={printers} />;
 }
