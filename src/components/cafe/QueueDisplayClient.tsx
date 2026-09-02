@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { listDisplayAds, listQueue, type DisplayAd, type QueueRow } from "@/lib/cafe/queue-actions";
+import { sinceLabel } from "@/lib/cafe/time";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { chimeReady, unlockAudio } from "@/lib/cafe/chime";
 import { BRAND } from "@/lib/brand";
@@ -428,7 +429,7 @@ function PreparingCard({ row, now, tier }: { row: QueueRow; now: number; tier: Q
         </p>
       )}
       <p className="mt-1.5 font-bold leading-none text-muted-foreground" style={{ fontSize: tier.meta }}>
-        {row.table_no ? `طاولة ${row.table_no}` : CHANNEL_AR[row.channel] ?? ""} · {mins} د
+        {row.table_no ? `طاولة ${row.table_no}` : CHANNEL_AR[row.channel] ?? ""} · {sinceLabel(mins)}
       </p>
     </li>
   );

@@ -8,7 +8,6 @@ import { navFor } from "@/lib/cafe/nav";
 import { TillLockScreen, useTillLock } from "./TillLock";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { HubBadge } from "./HubBadge";
-import { formatIqdLabel } from "@/lib/cafe/money";
 import type { ShiftLine } from "@/lib/cafe/session-actions";
 import { useCafeUI } from "@/components/CafeUIProvider";
 import { type StaffRole } from "@/lib/cafe/roles";
@@ -247,26 +246,19 @@ export function StaffShell({
           <div className="flex shrink-0 items-center gap-2">
             {/* the drawer, on every screen — «هل الوردية مفتوحة؟» was answerable
                 only by walking to the till and opening one specific page */}
-            {shift &&
-              (shift.open ? (
-                <Link
-                  href="/cashier"
-                  title={shift.cashier ? `وردية ${shift.cashier}` : "وردية مفتوحة"}
-                  className="hidden items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-black text-emerald-700 sm:flex dark:text-emerald-300"
-                >
-                  💵 {formatIqdLabel(shift.float)}
-                  <span className="font-bold opacity-70">· {shift.sinceMinutes} د</span>
-                </Link>
-              ) : (
-                <Link
-                  href="/cashier"
-                  className="flex items-center gap-1.5 rounded-full bg-amber-500/20 px-2.5 py-1 text-xs font-black text-amber-800 dark:text-amber-200"
-                >
-                  ⚠️ لم تبدأ الوردية
-                </Link>
-              ))}
+            {/* الوردية: تحذير حين تكون مغلقة، وصمت حين تكون مفتوحة.
+                كان الشريط يعرض المبلغ ومعه عدّاد دقائق بلغ «٢١١٧ د» — رقمان
+                لا يُتّخذ بهما قرار عند الكاونتر، والاسم مكرّر إلى جوارهما.
+                والمفتوحة لا تحتاج إعلاناً: غياب التحذير هو الخبر. */}
+            {shift && !shift.open && (
+              <Link
+                href="/cashier"
+                className="flex items-center gap-1.5 rounded-full bg-amber-500/20 px-2.5 py-1 text-xs font-black text-amber-800 dark:text-amber-200"
+              >
+                ⚠️ لم تبدأ الوردية
+              </Link>
+            )}
             <HubBadge />
-            <span className="hidden text-sm text-muted-foreground sm:inline">{name}</span>
             <button
               onClick={() => setTheme(document.documentElement.classList.contains("dark") ? "Light" : "Dark")}
               aria-label="المظهر الليلي/النهاري"

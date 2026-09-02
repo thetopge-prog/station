@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Ban, Camera, Check, Hand, MessageCircle, PackageCheck, ScanLine, Timer } from "lucide-react";
 import { claimOrder, confirmAssembled, listPrepOrders, markItemUnavailable, markNotified, markOrderHanded, type PrepOrder } from "@/lib/cafe/prep-actions";
+import { sinceLabel } from "@/lib/cafe/time";
 import { curbsideReadyLink } from "@/lib/brand";
 import { useLiveOrders } from "./use-live-orders";
 import { orderIdFromScan, useBarcodeScanner } from "./use-barcode-scanner";
@@ -290,7 +291,7 @@ function OrderCard({
           )}
           <p className={`mt-1 flex items-center justify-end gap-1 text-sm font-bold ${late ? "text-destructive" : "text-muted-foreground"}`}>
             <Timer className="size-4" />
-            {mins} د
+            {sinceLabel(mins)}
           </p>
         </div>
       </header>

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BellRing } from "lucide-react";
 import { formatIqdLabel } from "@/lib/cafe/money";
+import { sinceLabel } from "@/lib/cafe/time";
 import { kickDrawer } from "@/lib/cafe/print-client";
 import {
   listPendingOrders,
@@ -181,7 +182,7 @@ export function IncomingOrdersClient() {
                 <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                   <span>{CHANNEL_AR[o.channel] ?? o.channel}</span>
                   <span>·</span>
-                  <span className={age >= 10 ? "font-bold text-destructive" : ""}>{age === 0 ? "الآن" : `منذ ${age} د`}</span>
+                  <span className={age >= 10 ? "font-bold text-destructive" : ""}>{age === 0 ? "الآن" : `منذ ${sinceLabel(age)}`}</span>
                 </div>
                 {o.note && (
                   <p className="mt-2 rounded-lg border border-amber-500/50 bg-amber-500/10 px-2.5 py-1.5 text-sm font-bold">📝 {o.note}</p>

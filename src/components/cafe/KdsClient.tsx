@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Flame, Timer } from "lucide-react";
 import { listPrepOrders, startCooking, type PrepOrder } from "@/lib/cafe/prep-actions";
+import { sinceLabel } from "@/lib/cafe/time";
 import { useLiveOrders } from "./use-live-orders";
 import { chimeNewOrder, unlockAudio } from "@/lib/cafe/chime";
 
@@ -106,7 +107,7 @@ function KdsCard({ order, now, onStart }: { order: PrepOrder; now: number; onSta
         <p className="text-5xl font-black leading-none tabular-nums">{String(order.order_seq).padStart(3, "0")}</p>
         <p className={`flex items-center gap-1 text-lg font-black ${mins >= 12 ? "text-destructive" : "text-muted-foreground"}`}>
           <Timer className="size-5" />
-          {mins} د
+          {sinceLabel(mins)}
         </p>
       </header>
 
