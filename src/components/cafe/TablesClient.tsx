@@ -76,7 +76,7 @@ export function TablesClient() {
           <span className="rounded-full bg-destructive/10 px-2.5 py-1 text-destructive">🔴 معلق: {busy}</span>
           <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-amber-600 dark:text-amber-400">🟠 جالسون: {seated}</span>
           <span className="rounded-full bg-success/10 px-2.5 py-1 text-success">🟢 متاحة: {free}</span>
-          <span className="rounded-full bg-primary/10 px-2.5 py-1 text-primary-ink">👥 الزبائن الآن: {guests}</span>
+          <span className="rounded-full bg-primary/10 px-2.5 py-1 text-primary">👥 الزبائن الآن: {guests}</span>
           <button onClick={() => setEditing(true)} className="flex items-center gap-1 rounded-full border border-border px-3 py-1 hover:bg-secondary">
             <Settings2 className="size-3.5" />
             تنظيم الطاولات

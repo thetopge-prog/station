@@ -617,7 +617,7 @@ export function CashierClient({
       {success && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6" onClick={() => setSuccess(null)}>
           <div className="w-full max-w-sm rounded-2xl bg-card p-6 text-center" onClick={(e) => e.stopPropagation()}>
-            <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary-ink">
+            <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary">
               <Check className="size-8" />
             </div>
             <h3 className="text-xl font-bold">تم الدفع</h3>
@@ -752,7 +752,7 @@ function CashierItem({ item, category, onAdd }: { item: MenuItemView; category?:
         className={`touch-pos mt-2 flex min-h-11 items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-sm font-bold transition ${
           added
             ? "bg-success text-success-foreground"
-            : "bg-primary/10 text-primary-ink hover:bg-primary hover:text-primary-foreground"
+            : "bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground"
         }`}
       >
         {added ? <Check className="size-4" /> : <Plus className="size-4" />}

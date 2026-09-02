@@ -129,7 +129,7 @@ export function MenuAdminClient({ categories }: { categories: AdminCategory[] })
                       <button
                         onClick={() => onToggle(it)}
                         className={`rounded-full px-2.5 py-0.5 text-xs font-semibold transition ${
-                          it.is_active ? "bg-primary/10 text-primary-ink" : "bg-muted text-muted-foreground"
+                          it.is_active ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
                         }`}
                       >
                         {it.is_active ? "مفعّل" : "معطّل"}

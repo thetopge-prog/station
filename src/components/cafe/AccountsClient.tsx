@@ -246,7 +246,7 @@ export function AccountsClient({ accounts }: { accounts: AccountRow[] }) {
               <p className="flex flex-wrap items-center gap-1.5 font-bold">
                 {a.name_ar}
                 {a.is_developer && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-black text-primary-ink">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-black text-primary">
                     <ShieldCheck className="size-3" />
                     مطوّر
                   </span>

@@ -250,7 +250,7 @@ export function MenuOrderClient({
       {confirmed && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6" onClick={() => setConfirmed(null)}>
           <div className="w-full max-w-sm rounded-2xl bg-card p-6 text-center" onClick={(e) => e.stopPropagation()}>
-            <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary-ink">
+            <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary">
               <Check className="size-8" />
             </div>
             <h3 className="text-xl font-bold">تم استلام طلبك</h3>
@@ -261,7 +261,7 @@ export function MenuOrderClient({
               <a
                 href={`/card/${confirmed.cardSerial}`}
                 target="_blank"
-                className="mt-3 block rounded-xl bg-primary/10 px-4 py-3 text-sm font-semibold text-primary-ink transition hover:bg-primary/20"
+                className="mt-3 block rounded-xl bg-primary/10 px-4 py-3 text-sm font-semibold text-primary transition hover:bg-primary/20"
               >
                 🎁 بطاقة ولائك جاهزة — اضغط لفتحها واحفظها في هاتفك
               </a>

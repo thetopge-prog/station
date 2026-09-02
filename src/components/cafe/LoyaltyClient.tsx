@@ -113,7 +113,7 @@ export function LoyaltyClient({ customers, isAdmin, customerCount }: { customers
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <h1 className="text-2xl font-bold">الولاء</h1>
-        <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-bold text-primary-ink">البطاقات: {customerCount}</span>
+        <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-bold text-primary">البطاقات: {customerCount}</span>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -146,7 +146,7 @@ export function LoyaltyClient({ customers, isAdmin, customerCount }: { customers
               {created.phone && (
                 <button
                   onClick={() => sendCardWhatsApp(created.phone, created.serial)}
-                  className="w-full rounded-lg bg-[#075E54] px-3 py-2 font-bold text-white transition hover:opacity-90"
+                  className="w-full rounded-lg bg-[#25D366] px-3 py-2 font-bold text-white transition hover:opacity-90"
                 >
                   📲 إرسال البطاقة للزبون عبر واتساب
                 </button>
@@ -179,7 +179,7 @@ export function LoyaltyClient({ customers, isAdmin, customerCount }: { customers
                 <span className="font-semibold">{found.name_ar ?? "زبون"}</span>
                 <button
                   onClick={() => sendCardWhatsApp(serialInput.trim().replace(/\s/g, ""), found.serial)}
-                  className="rounded-md bg-[#075E54] px-2 py-1 text-xs font-bold text-white hover:opacity-90"
+                  className="rounded-md bg-[#25D366] px-2 py-1 text-xs font-bold text-white hover:opacity-90"
                   hidden={!/^\d{6,}$/.test(serialInput.trim().replace(/\s/g, ""))}
                 >
                   واتساب
@@ -260,7 +260,7 @@ export function LoyaltyClient({ customers, isAdmin, customerCount }: { customers
                         {c.phone && (
                           <button
                             onClick={() => sendCardWhatsApp(c.phone!, c.card_serial)}
-                            className="rounded-md bg-[#075E54] px-2 py-1 text-xs font-bold text-white hover:opacity-90"
+                            className="rounded-md bg-[#25D366] px-2 py-1 text-xs font-bold text-white hover:opacity-90"
                           >
                             واتساب
                           </button>

@@ -175,7 +175,7 @@ export function ExpediterClient({ name }: { name: string }) {
           </button>
           <span
             className={`rounded-full px-3 py-1 text-xs font-bold ${
-              live ? "bg-primary/10 text-primary-ink" : "bg-muted text-muted-foreground"
+              live ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
             }`}
           >
             {live ? "● اتصال لحظي" : "○ تحديث دوري"}
@@ -188,7 +188,7 @@ export function ExpediterClient({ name }: { name: string }) {
         <p
           className={`rounded-2xl border-2 px-5 py-4 text-center text-xl font-black ${
             scan.kind === "ok"
-              ? "border-primary bg-primary/10 text-primary-ink"
+              ? "border-primary bg-primary/10 text-primary"
               : "border-destructive bg-destructive/10 text-destructive"
           }`}
         >
@@ -374,7 +374,7 @@ function OrderCard({
               className={`flex min-h-14 w-full items-center justify-center gap-2 rounded-xl text-lg font-black transition ${
                 order.notified_at
                   ? "border-2 border-border text-muted-foreground"
-                  : "bg-[#075E54] text-white shadow-station"
+                  : "bg-[#25D366] text-white shadow-station"
               }`}
             >
               <MessageCircle className="size-5" />

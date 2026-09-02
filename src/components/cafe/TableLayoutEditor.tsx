@@ -126,7 +126,7 @@ export function TableLayoutEditor({
               t.active
                 ? t.kind === "outdoor"
                   ? "border-amber-500 bg-amber-500/15 text-amber-700 dark:text-amber-300"
-                  : "border-primary bg-primary/15 text-primary-ink"
+                  : "border-primary bg-primary/15 text-primary"
                 : "border-border bg-muted text-muted-foreground opacity-50"
             }`}
           >

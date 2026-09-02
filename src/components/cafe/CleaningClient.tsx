@@ -96,7 +96,7 @@ export function CleaningClient() {
       {msg && (
         <p
           className={`rounded-2xl border-2 px-4 py-3 text-center font-black ${
-            msg.kind === "ok" ? "border-primary bg-primary/10 text-primary-ink" : "border-destructive bg-destructive/10 text-destructive"
+            msg.kind === "ok" ? "border-primary bg-primary/10 text-primary" : "border-destructive bg-destructive/10 text-destructive"
           }`}
         >
           {msg.text}

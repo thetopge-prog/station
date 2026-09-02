@@ -70,20 +70,32 @@ describe("alpha tints on theme tokens", () => {
   });
 
   /**
-   * حبر برتقالي على وشاح برتقالي — العطل الذي لا يُحلّ بتفتيح الوشاح.
+   * برتقالي العلامة يبقى، والحبر وحده يغمق.
    *
-   * --primary يعطي ٤٫٥٦ على الأبيض **الخالص**، فأيّ وشاح مهما خفّ ينزل به تحت
-   * ٤٫٥ لنصّ ١٢ بكسل. قِيس ٣٫٩٥ في عشرين موضعاً. و--primary-ink أغمق منه
-   * ويبلغ ٥٫١٠ على أغمق وشاح مستعمَل، والوشاح يبقى برتقالياً كما طلب صاحب
-   * المحل.
+   * #ff6b00 لون التغليف، ولا يُعايَر — قالها صاحب المحل بعد أن غمّقتُه. وهو
+   * سطحٌ ممتاز وحبرٌ رديء: ٢٫٨٦ على الأبيض. فالقاعدة الواحدة أدناه تغمّق النصّ
+   * وحده وتترك كل سطح برتقالياً. حذفتُها مرّةً وغمّقتُ العلامة بدلها؛ هذا
+   * الاختبار يمنع تكرار ذلك.
    */
-  it("never puts text-primary on a primary tint — use text-primary-ink", () => {
-    const bad: string[] = [];
-    for (const file of walk("src")) {
-      readFileSync(file, "utf8").split(NL).forEach((line, i) => {
-        if (/bg-primary\/\d/.test(line) && /\btext-primary(?![-\w])/.test(line)) bad.push(file + ":" + (i + 1));
-      });
-    }
-    expect(bad, "استعمل text-primary-ink فوق وشاح برتقالي:" + NL + bad.join(NL)).toEqual([]);
+  it("keeps brand orange and darkens only the ink", () => {
+    expect(css, "القاعدة التي تُبقي #ff6b00 سطحاً وتغمّق النصّ").toMatch(
+      /\.text-primary\s*\{\s*color:\s*var\(--primary-ink\)/,
+    );
+    expect(css.split("--primary-ink:").length - 1, "--primary-ink في :root و .dark").toBe(2);
+  });
+
+  /**
+   * قيمة تدرّج ليست لوناً — العطل الذي لا يراه فحص التباين.
+   *
+   * كتب مولّدي `--success-10: dark;` في الكتلة الليلية. و`dark` ليس لوناً، فـ
+   * `background-color: var(--success-10)` باطلة و`bg-success/10` **بلا خلفية**
+   * ليلاً. ولم يره الفحص لأن الخلفية الغائبة تُصعِّد القياس إلى خلفية الأب،
+   * فيمرّ النصّ. أعمى عن الغائب بحكم تصميمه.
+   */
+  it("every tint value is an actual colour", () => {
+    const bad = [...css.matchAll(/(--[a-z-]+-\d{2,3}):\s*([^;]+);/g)]
+      .filter((m) => !/^#[0-9a-f]{3,8}$/i.test(m[2].trim()))
+      .map((m) => m[1] + ": " + m[2].trim());
+    expect(bad, "قيمة تدرّج ليست لوناً:" + NL + bad.join(NL)).toEqual([]);
   });
 });

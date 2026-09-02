@@ -104,7 +104,7 @@ export function InventoryClient({ isAdmin }: { isAdmin: boolean }) {
       {msg && (
         <p
           className={`rounded-2xl border-2 px-4 py-3 font-bold ${
-            msg.kind === "ok" ? "border-primary bg-primary/10 text-primary-ink" : "border-destructive bg-destructive/10 text-destructive"
+            msg.kind === "ok" ? "border-primary bg-primary/10 text-primary" : "border-destructive bg-destructive/10 text-destructive"
           }`}
         >
           {msg.text}
@@ -400,7 +400,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function Badge({ tone, children }: { tone: "ok" | "warn" | "bad" | "plain"; children: React.ReactNode }) {
   const cls = {
-    ok: "bg-primary/10 text-primary-ink",
+    ok: "bg-primary/10 text-primary",
     warn: "bg-kraft/25 text-cocoa",
     bad: "bg-destructive/15 text-destructive",
     plain: "bg-muted text-muted-foreground",

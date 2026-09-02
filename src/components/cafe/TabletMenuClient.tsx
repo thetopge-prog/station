@@ -25,8 +25,8 @@ import { pickUpsell, recommendedFor, type Upsell } from "@/lib/cafe/upsell";
 // room. --activeink is the ink that sits ON orange (buttons, the active
 // category, the cart bar), so it has to stay white.
 const VARS: Record<string, string> = {
-  "--accent": "#C94F00", "--accent2": "#E06A16", "--panel": "#FFF3E9", "--panelsoft": "#FFFFFF",
-  "--text": "#2C1E16", "--muted": "#7A6152", "--line": "rgba(255,107,0,0.20)", "--active": "#C94F00", "--activeink": "#FFFFFF",
+  "--accent": "#FF6B00", "--accent2": "#FF8A33", "--panel": "#FFF3E9", "--panelsoft": "#FFFFFF",
+  "--text": "#2C1E16", "--muted": "#8A6F5E", "--line": "rgba(255,107,0,0.20)", "--active": "#FF6B00", "--activeink": "#FFFFFF",
 };
 const GRAD = "radial-gradient(1100px 700px at 88% -8%, rgba(255,107,0,0.13), transparent 55%), linear-gradient(160deg, #FFFDFB, #FFF4EA)";
 

@@ -25,12 +25,18 @@
   --popover: #ffffff;
   --popover-foreground: #2c1e16;
 
-  --primary: #c94f00;
-  /* حبر الشارات الصغيرة فوق وشاح برتقالي.
-     --primary نفسه يعطي 4.56 على الأبيض الخالص، فأيّ وشاح مهما خفّ ينزل به
-     تحت 4.5 لنصّ 12 بكسل. وهذا أغمق منه بقدر ما يبلغ 5.10 على أغمق وشاح
-     مستعمَل (--primary-20) ويبقى برتقالياً. الوشاح لا يُمسّ. */
+  /* برتقالي العلامة، من التغليف. لا يُعايَر.
+     غمّقتُه مرّةً إلى ‎#c94f00‎ لأن الأبيض عليه يعطي ٢٫٨٥، فقال صاحب المحل إن
+     هذه هوية مطعم لا رأي. وهو محقّ — ولذلك الاستثناء تحته مكتوب لا مطموس. */
+  --primary: #ff6b00;
+  /* برتقالي الحبر أغمق من برتقالي العلامة.
+     ‎#ff6b00‎ لون سطحٍ ممتاز وحبرٍ رديء: على الأبيض ٢٫٨٦. فالسطوح كلها تبقى
+     برتقالية، والنصّ وحده يغمق — بقاعدة ‎.text-primary‎ في آخر الملف.
+     ‎#9c3d00‎ يبلغ ٦٫٠٣ على ‎--primary-10‎ و٥٫٤٤ على أغمق وشاح مستعمَل. */
   --primary-ink: #9c3d00;
+  /* استثناء مقصود لا سهو: الأبيض على ‎#ff6b00‎ يعطي ٢٫٨٥، تحت حدّ WCAG.
+     اختاره صاحب المحل صراحةً ليطابق التغليف، وعليه يعمل المحل أصلاً.
+     فلا «يُصلَح» بعد سنة بظنّ أنه غفلة. */
   --primary-foreground: #ffffff;
 
   --secondary: #fff2e7; /* palest orange wash for chips and rails */
@@ -75,8 +81,8 @@
   --popover-foreground: #fdf6f0;
 
   --primary: #ff7d1f; /* lifted so it still glows on cocoa */
-  /* الوشاح ليلاً داكن، فالحبر الفاتح هو المقروء — 6.31 على --primary-10 */
-  --primary-ink: var(--primary);
+  /* الوشاح ليلاً داكن، فالحبر يفتح لا يغمق — ٧٫٥٣ على --primary-10 */
+  --primary-ink: #ff9d4d;
   --primary-foreground: #1a1109;
 
   --secondary: #33241a;
@@ -362,10 +368,10 @@ body {
  * ويحرسها اختبار: أي نسبة جديدة تُكتب غداً ولا تجد تدرّجها هنا تُسقط الاختبار.
  */
 :root {
-  --primary-05: #fcf4ee;
-  --primary-10: #faece2;
-  --primary-15: #f7e3d5;
-  --primary-20: #f4dac9;
+  --primary-05: #fff5ee;
+  --primary-10: #ffeee2;
+  --primary-15: #ffe7d5;
+  --primary-20: #ffe0c8;
   --destructive-05: #fdf3f0;
   --destructive-10: #fbe8e5;
   --destructive-15: #f9deda;
@@ -384,10 +390,10 @@ body {
   --background-95: #fffdfb;
 }
 :root.dark {
-  --primary-05: #25160a;
-  --primary-10: #311c0b;
-  --primary-15: #3c210c;
-  --primary-20: #48270d;
+  --primary-05: #2a1b12;
+  --primary-10: #341f13;
+  --primary-15: #3e2415;
+  --primary-20: #482916;
   --destructive-05: #25140c;
   --destructive-10: #2f180e;
   --destructive-15: #3a1b11;
@@ -400,7 +406,7 @@ body {
   --kraft-10: #22170e;
   --kraft-25: #2e2114;
   --kraft-30: #322417;
-  --success-10: dark;
+  --success-10: #1c2213;
   --background-40: #1a1109;
   --background-60: #1a1109;
   --background-95: #1a1109;
@@ -444,3 +450,14 @@ body {
 .bg-background\/40 { background-color: var(--background-40) !important; }
 .bg-background\/60 { background-color: var(--background-60) !important; }
 .bg-background\/95 { background-color: var(--background-95) !important; }
+
+/* برتقالي الحبر أغمق من برتقالي العلامة — القاعدة التي تُبقي #ff6b00 كما هو.
+ *
+ * ‎#ff6b00‎ سطحاً ممتاز وحبراً رديء: على الأبيض ٢٫٨٦، وعلى الوشاح ٢٫٥٣. وهذه
+ * القاعدة تمسّ **النصّ وحده** — لا زرّاً ولا وشاحاً ولا خلفية. فالزرّ يبقى
+ * برتقالياً بحبر ‎text-primary-foreground‎ أبيض، والعنوان العريض
+ * ‎.station-display‎ يكتب ‎color: var(--primary)‎ مباشرةً فلا تبلغه هذه.
+ *
+ * وقاعدة واحدة تغطّي ٦٩ موضعاً في ٣٠ ملفاً. جرّبتُ البديل — ‎text-primary-ink‎
+ * بيدي في كل موضع — فكانت عشرين موضعاً تُنسى الحادي والعشرون. */
+.text-primary { color: var(--primary-ink) !important; }

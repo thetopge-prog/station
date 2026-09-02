@@ -157,7 +157,7 @@ export function EmployeesClient({ employees }: { employees: EmployeeRow[] }) {
                   <button
                     onClick={() => onToggle(e)}
                     className={`rounded-full px-2.5 py-0.5 text-xs font-semibold transition ${
-                      e.is_active ? "bg-primary/10 text-primary-ink" : "bg-muted text-muted-foreground"
+                      e.is_active ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
                     }`}
                   >
                     {e.is_active ? "يعمل" : "موقوف"}

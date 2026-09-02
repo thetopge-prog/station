@@ -170,12 +170,12 @@ export function ModernMenuClient({
     <div dir="rtl" className="min-h-dvh bg-[#FFFDFB] text-[#2C1E16]">
       <div className="mx-auto max-w-5xl">
         {/* header */}
-        <header className="sticky top-0 z-20 border-b border-[#C94F00]/20 bg-[#FFFDFB]/95 px-4 py-3 backdrop-blur">
+        <header className="sticky top-0 z-20 border-b border-[#FF6B00]/20 bg-[#FFFDFB]/95 px-4 py-3 backdrop-blur">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <StationMark className="size-11 shrink-0" />
               <div>
-                <h1 className="text-xl font-extrabold text-[#C94F00]">ستيشن</h1>
+                <h1 className="text-xl font-extrabold text-[#FF6B00]">ستيشن</h1>
                 <p className="text-xs text-[#2C1E16]/60">
                   المنيو التفاعلي{table ? ` · طاولة ${table}` : ""}
                   {demo ? " · تجريبي" : ""}
@@ -187,15 +187,15 @@ export function ModernMenuClient({
               {myOrderIds.length > 0 && (
                 <button
                   onClick={openMyOrders}
-                  className="flex items-center gap-1 rounded-full bg-[#C94F00]/15 px-3 py-1.5 text-xs font-bold text-[#C94F00] transition hover:bg-[#C94F00]/25"
+                  className="flex items-center gap-1 rounded-full bg-[#FF6B00]/15 px-3 py-1.5 text-xs font-bold text-[#FF6B00] transition hover:bg-[#FF6B00]/25"
                 >
                   <ReceiptText className="size-3.5" />
                   طلباتي ({myOrderIds.length})
                 </button>
               )}
-              <div className="flex rounded-full border border-[#C94F00]/40 p-0.5 text-xs font-semibold">
-                <span className="rounded-full bg-[#C94F00] px-3 py-1 text-[#FFFFFF]">مودرن</span>
-                <Link href={`/menu/classic${table ? `?t=${table}` : ""}`} className="rounded-full px-3 py-1 text-[#C94F00] transition hover:bg-[#C94F00]/10">
+              <div className="flex rounded-full border border-[#FF6B00]/40 p-0.5 text-xs font-semibold">
+                <span className="rounded-full bg-[#FF6B00] px-3 py-1 text-[#FFFFFF]">مودرن</span>
+                <Link href={`/menu/classic${table ? `?t=${table}` : ""}`} className="rounded-full px-3 py-1 text-[#FF6B00] transition hover:bg-[#FF6B00]/10">
                   كلاسيكي
                 </Link>
               </div>
@@ -203,7 +203,7 @@ export function ModernMenuClient({
                 href="/sign-in"
                 aria-label="دخول الموظفين"
                 title="دخول الموظفين"
-                className="flex items-center gap-1 rounded-full border border-[#C94F00]/40 px-3 py-1.5 text-xs font-bold text-[#C94F00] transition hover:bg-[#C94F00]/10"
+                className="flex items-center gap-1 rounded-full border border-[#FF6B00]/40 px-3 py-1.5 text-xs font-bold text-[#FF6B00] transition hover:bg-[#FF6B00]/10"
               >
                 <LogIn className="size-3.5" />
                 دخول الموظفين
@@ -215,7 +215,7 @@ export function ModernMenuClient({
             {offers.length > 0 && (
               <button
                 onClick={() => document.getElementById("st-offers")?.scrollIntoView({ behavior: "smooth", block: "start" })}
-                className="whitespace-nowrap rounded-full border-2 border-[#C94F00] bg-[#C94F00]/15 px-5 py-2 text-[15px] font-bold text-[#C94F00] transition hover:bg-[#C94F00]/25"
+                className="whitespace-nowrap rounded-full border-2 border-[#FF6B00] bg-[#FF6B00]/15 px-5 py-2 text-[15px] font-bold text-[#FF6B00] transition hover:bg-[#FF6B00]/25"
               >
                 🎁 العروض
               </button>
@@ -229,8 +229,8 @@ export function ModernMenuClient({
                 onClick={() => goTo(c.name_ar)}
                 className={`whitespace-nowrap rounded-full px-5 py-2 text-[15px] font-bold transition ${
                   c.name_ar === activeCat
-                    ? "bg-[#C94F00] text-[#FFFFFF]"
-                    : "border border-[#C94F00]/40 text-[#2C1E16]/85 hover:bg-[#C94F00]/10"
+                    ? "bg-[#FF6B00] text-[#FFFFFF]"
+                    : "border border-[#FF6B00]/40 text-[#2C1E16]/85 hover:bg-[#FF6B00]/10"
                 }`}
               >
                 {c.name_ar}
@@ -245,17 +245,17 @@ export function ModernMenuClient({
           <section className="flex flex-col items-center gap-2 pt-1 text-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo.png" alt="ستيشن" className="size-24 drop-shadow-[0_4px_18px_rgba(209,139,74,0.4)]" />
-            <h2 className="text-2xl font-extrabold text-[#C94F00]">أهلاً بك في ستيشن</h2>
+            <h2 className="text-2xl font-extrabold text-[#FF6B00]">أهلاً بك في ستيشن</h2>
             <p className="text-sm text-[#2C1E16]/70">
               تصفّح المنيو واطلب من طاولتك{table ? ` · طاولة ${table}` : ""}
             </p>
           </section>
           {offers.length > 0 && (
             <section id="st-offers" className="scroll-mt-36">
-              <h2 className="mb-3 flex items-center gap-2 text-lg font-bold text-[#C94F00]">🎁 عروض اليوم</h2>
+              <h2 className="mb-3 flex items-center gap-2 text-lg font-bold text-[#FF6B00]">🎁 عروض اليوم</h2>
               <div className="grid gap-3 sm:grid-cols-2">
                 {offers.map((o) => (
-                  <div key={o.id} className="rounded-2xl border-2 border-[#C94F00]/50 bg-gradient-to-br from-[#C94F00]/20 to-transparent p-4">
+                  <div key={o.id} className="rounded-2xl border-2 border-[#FF6B00]/50 bg-gradient-to-br from-[#FF6B00]/20 to-transparent p-4">
                     <p className="font-extrabold text-[#2C1E16]">{o.title}</p>
                     {o.description && <p className="mt-1 text-sm text-[#2C1E16]/70">{o.description}</p>}
                   </div>
@@ -273,7 +273,7 @@ export function ModernMenuClient({
                 }}
                 className="scroll-mt-36"
               >
-                <h2 className="mb-3 text-lg font-bold text-[#C94F00]">{c.name_ar}</h2>
+                <h2 className="mb-3 text-lg font-bold text-[#FF6B00]">{c.name_ar}</h2>
                 <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
                   {c.items.map((it, i) => (
                     <ModernCard key={it.id} item={it} index={i % 8} onAdd={(line) => dispatch({ type: "add", line })} />
@@ -284,16 +284,16 @@ export function ModernMenuClient({
           })}
 
           {/* حقوق النظام — أزرار تواصل سريع (تظهر في المنيو فقط) */}
-          <footer className="mt-6 border-t border-[#C94F00]/15 pt-6 text-center">
+          <footer className="mt-6 border-t border-[#FF6B00]/15 pt-6 text-center">
             <p className="text-[11px] text-[#2C1E16]/45">تصميم وتطوير</p>
-            <p className="mb-3 text-sm font-bold text-[#C94F00]">مركز الرؤية للابتكار الرقمي</p>
+            <p className="mb-3 text-sm font-bold text-[#FF6B00]">مركز الرؤية للابتكار الرقمي</p>
             <div className="flex flex-wrap items-center justify-center gap-2">
               <a
                 href="https://wa.me/9647734446636"
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="واتساب"
-                className="flex items-center gap-1.5 rounded-full bg-[#075E54] px-4 py-2 text-sm font-bold text-white transition hover:opacity-90"
+                className="flex items-center gap-1.5 rounded-full bg-[#25D366] px-4 py-2 text-sm font-bold text-white transition hover:opacity-90"
               >
                 <MessageCircle className="size-4" />
                 واتساب
@@ -313,7 +313,7 @@ export function ModernMenuClient({
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="الموقع الإلكتروني"
-                className="flex items-center gap-1.5 rounded-full border border-[#C94F00]/50 px-4 py-2 text-sm font-bold text-[#C94F00] transition hover:bg-[#C94F00]/10"
+                className="flex items-center gap-1.5 rounded-full border border-[#FF6B00]/50 px-4 py-2 text-sm font-bold text-[#FF6B00] transition hover:bg-[#FF6B00]/10"
               >
                 <Globe className="size-4" />
                 الموقع
@@ -327,7 +327,7 @@ export function ModernMenuClient({
       {count > 0 && !cartOpen && (
         <button
           onClick={() => setCartOpen(true)}
-          className="fixed inset-x-0 bottom-0 z-30 mx-auto flex max-w-5xl items-center justify-between gap-3 bg-[#C94F00] px-5 py-4 font-bold text-[#FFFFFF] shadow-lg"
+          className="fixed inset-x-0 bottom-0 z-30 mx-auto flex max-w-5xl items-center justify-between gap-3 bg-[#FF6B00] px-5 py-4 font-bold text-[#FFFFFF] shadow-lg"
         >
           <span className="flex items-center gap-2">
             <ShoppingCart className="size-5" />
@@ -341,29 +341,29 @@ export function ModernMenuClient({
       {cartOpen && (
         <div className="fixed inset-0 z-40 flex flex-col justify-end bg-black/60" onClick={() => setCartOpen(false)}>
           <div
-            className="mx-auto max-h-[85dvh] w-full max-w-5xl overflow-y-auto rounded-t-2xl border-t border-[#C94F00]/30 bg-[#FFFFFF] p-4"
+            className="mx-auto max-h-[85dvh] w-full max-w-5xl overflow-y-auto rounded-t-2xl border-t border-[#FF6B00]/30 bg-[#FFFFFF] p-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-[#C94F00]">سلة الطلب</h3>
+              <h3 className="text-lg font-bold text-[#FF6B00]">سلة الطلب</h3>
               <button onClick={() => setCartOpen(false)} aria-label="إغلاق" className="rounded-full p-1 text-[#2C1E16]/70 hover:bg-white/5">
                 <X className="size-5" />
               </button>
             </div>
-            <ul className="divide-y divide-[#C94F00]/15">
+            <ul className="divide-y divide-[#FF6B00]/15">
               {lines.map((l) => (
                 <li key={l.key} className="flex items-center justify-between gap-3 py-3">
                   <div className="min-w-0">
                     <p className="truncate font-medium">{l.name}</p>
                     {l.flavor && <p className="text-xs text-[#2C1E16]/60">{l.flavor}</p>}
-                    <p className="text-sm text-[#C94F00]">{formatIqdLabel(l.unitPrice)}</p>
+                    <p className="text-sm text-[#FF6B00]">{formatIqdLabel(l.unitPrice)}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => dispatch({ type: "dec", key: l.key })} aria-label="إنقاص" className="rounded-full border border-[#C94F00]/40 p-1.5 hover:bg-white/5">
+                    <button onClick={() => dispatch({ type: "dec", key: l.key })} aria-label="إنقاص" className="rounded-full border border-[#FF6B00]/40 p-1.5 hover:bg-white/5">
                       <Minus className="size-4" />
                     </button>
                     <span className="w-6 text-center font-semibold">{l.qty}</span>
-                    <button onClick={() => dispatch({ type: "inc", key: l.key })} aria-label="زيادة" className="rounded-full border border-[#C94F00]/40 p-1.5 hover:bg-white/5">
+                    <button onClick={() => dispatch({ type: "inc", key: l.key })} aria-label="زيادة" className="rounded-full border border-[#FF6B00]/40 p-1.5 hover:bg-white/5">
                       <Plus className="size-4" />
                     </button>
                   </div>
@@ -372,13 +372,13 @@ export function ModernMenuClient({
             </ul>
             {/* customer capture (optional) — builds the loyalty base */}
             <div className="mt-4 space-y-2 rounded-xl bg-black/25 p-3">
-              <p className="text-xs font-semibold text-[#C94F00]">🎁 أضف اسمك ورقمك (اختياري) — تُنشأ لك بطاقة ولاء وتجمع نقاطاً مع كل طلب</p>
+              <p className="text-xs font-semibold text-[#FF6B00]">🎁 أضف اسمك ورقمك (اختياري) — تُنشأ لك بطاقة ولاء وتجمع نقاطاً مع كل طلب</p>
               <div className="grid grid-cols-2 gap-2">
                 <input
                   value={custName}
                   onChange={(e) => setCustName(e.target.value)}
                   placeholder="الاسم"
-                  className="w-full rounded-lg border border-[#C94F00]/30 bg-transparent px-3 py-2 text-sm outline-none placeholder:text-[#2C1E16]/40 focus:border-[#C94F00]"
+                  className="w-full rounded-lg border border-[#FF6B00]/30 bg-transparent px-3 py-2 text-sm outline-none placeholder:text-[#2C1E16]/40 focus:border-[#FF6B00]"
                 />
                 <input
                   value={custPhone}
@@ -386,7 +386,7 @@ export function ModernMenuClient({
                   placeholder="07XXXXXXXXX"
                   dir="ltr"
                   inputMode="tel"
-                  className="w-full rounded-lg border border-[#C94F00]/30 bg-transparent px-3 py-2 text-sm outline-none placeholder:text-[#2C1E16]/40 focus:border-[#C94F00]"
+                  className="w-full rounded-lg border border-[#FF6B00]/30 bg-transparent px-3 py-2 text-sm outline-none placeholder:text-[#2C1E16]/40 focus:border-[#FF6B00]"
                 />
               </div>
             </div>
@@ -398,18 +398,18 @@ export function ModernMenuClient({
               placeholder="📝 ملاحظات الطلب (اختياري): بدون مخلل، صوص إضافي، حار…"
               rows={2}
               maxLength={300}
-              className="mt-3 w-full resize-none rounded-xl border border-[#C94F00]/30 bg-transparent px-3 py-2 text-sm outline-none placeholder:text-[#2C1E16]/40 focus:border-[#C94F00]"
+              className="mt-3 w-full resize-none rounded-xl border border-[#FF6B00]/30 bg-transparent px-3 py-2 text-sm outline-none placeholder:text-[#2C1E16]/40 focus:border-[#FF6B00]"
             />
 
             {err && <p className="mt-3 text-sm text-red-400">{err}</p>}
-            <div className="mt-4 flex items-center justify-between border-t border-[#C94F00]/20 pt-4">
+            <div className="mt-4 flex items-center justify-between border-t border-[#FF6B00]/20 pt-4">
               <span className="text-[#2C1E16]/70">الإجمالي</span>
-              <span className="text-lg font-bold text-[#C94F00]">{formatIqdLabel(total)}</span>
+              <span className="text-lg font-bold text-[#FF6B00]">{formatIqdLabel(total)}</span>
             </div>
             <button
               onClick={onSubmit}
               disabled={busy || count === 0}
-              className="mt-4 w-full rounded-xl bg-[#C94F00] px-4 py-3 font-bold text-[#FFFFFF] transition hover:opacity-90 disabled:opacity-50"
+              className="mt-4 w-full rounded-xl bg-[#FF6B00] px-4 py-3 font-bold text-[#FFFFFF] transition hover:opacity-90 disabled:opacity-50"
             >
               {busy ? "جارٍ الإرسال…" : "إرسال الطلب"}
             </button>
@@ -421,11 +421,11 @@ export function ModernMenuClient({
       {ordersOpen && (
         <div className="fixed inset-0 z-40 flex flex-col justify-end bg-black/60" onClick={() => setOrdersOpen(false)}>
           <div
-            className="mx-auto max-h-[85dvh] w-full max-w-5xl overflow-y-auto rounded-t-2xl border-t border-[#C94F00]/30 bg-[#FFFFFF] p-4"
+            className="mx-auto max-h-[85dvh] w-full max-w-5xl overflow-y-auto rounded-t-2xl border-t border-[#FF6B00]/30 bg-[#FFFFFF] p-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="flex items-center gap-2 text-lg font-bold text-[#C94F00]">
+              <h3 className="flex items-center gap-2 text-lg font-bold text-[#FF6B00]">
                 <ReceiptText className="size-5" />
                 طلباتي
               </h3>
@@ -433,7 +433,7 @@ export function ModernMenuClient({
                 <button
                   onClick={() => refreshMyOrders(myOrderIds)}
                   aria-label="تحديث"
-                  className="rounded-full border border-[#C94F00]/40 p-1.5 text-[#C94F00] hover:bg-[#C94F00]/10"
+                  className="rounded-full border border-[#FF6B00]/40 p-1.5 text-[#FF6B00] hover:bg-[#FF6B00]/10"
                 >
                   <RefreshCw className={`size-4 ${ordersLoading ? "animate-spin" : ""}`} />
                 </button>
@@ -448,9 +448,9 @@ export function ModernMenuClient({
             ) : (
               <div className="space-y-3">
                 {myOrders.map((o) => (
-                  <div key={o.id} className="rounded-xl border border-[#C94F00]/20 bg-black/25 p-3">
+                  <div key={o.id} className="rounded-xl border border-[#FF6B00]/20 bg-black/25 p-3">
                     <div className="flex items-center justify-between">
-                      <span className="font-extrabold text-[#C94F00]">#{String(o.order_seq).padStart(3, "0")}</span>
+                      <span className="font-extrabold text-[#FF6B00]">#{String(o.order_seq).padStart(3, "0")}</span>
                       <span className="text-xs font-semibold">{ORDER_STATUS_AR[o.status] ?? o.status}</span>
                     </div>
                     {o.table_no && <p className="mt-0.5 text-xs text-[#2C1E16]/60">طاولة {o.table_no}</p>}
@@ -465,9 +465,9 @@ export function ModernMenuClient({
                         </li>
                       ))}
                     </ul>
-                    <div className="mt-2 flex justify-between border-t border-[#C94F00]/15 pt-2 text-sm font-bold">
+                    <div className="mt-2 flex justify-between border-t border-[#FF6B00]/15 pt-2 text-sm font-bold">
                       <span>الإجمالي</span>
-                      <span className="text-[#C94F00]">{formatIqdLabel(Math.max(0, o.subtotal - o.discount))}</span>
+                      <span className="text-[#FF6B00]">{formatIqdLabel(Math.max(0, o.subtotal - o.discount))}</span>
                     </div>
                   </div>
                 ))}
@@ -476,7 +476,7 @@ export function ModernMenuClient({
 
             <button
               onClick={() => setOrdersOpen(false)}
-              className="mt-4 w-full rounded-xl bg-[#C94F00] px-4 py-3 font-bold text-[#FFFFFF] transition hover:opacity-90"
+              className="mt-4 w-full rounded-xl bg-[#FF6B00] px-4 py-3 font-bold text-[#FFFFFF] transition hover:opacity-90"
             >
               + أطلب المزيد
             </button>
@@ -487,29 +487,29 @@ export function ModernMenuClient({
       {/* confirmation */}
       {confirmed && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6" onClick={() => setConfirmed(null)}>
-          <div className="w-full max-w-sm rounded-2xl border border-[#C94F00]/30 bg-[#FFFFFF] p-6 text-center" onClick={(e) => e.stopPropagation()}>
-            <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-full bg-[#C94F00]/15 text-[#C94F00]">
+          <div className="w-full max-w-sm rounded-2xl border border-[#FF6B00]/30 bg-[#FFFFFF] p-6 text-center" onClick={(e) => e.stopPropagation()}>
+            <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-full bg-[#FF6B00]/15 text-[#FF6B00]">
               <Check className="size-8" />
             </div>
             <h3 className="text-xl font-bold">تم استلام طلبك</h3>
             <p className="mt-1 text-[#2C1E16]/60">رقم الطلب</p>
-            <p className="my-2 text-4xl font-extrabold text-[#C94F00]">{confirmed.orderNumber}</p>
+            <p className="my-2 text-4xl font-extrabold text-[#FF6B00]">{confirmed.orderNumber}</p>
             <p className="text-sm text-[#2C1E16]/60">اذكر الرقم عند الكاشير للدفع والاستلام.</p>
             {confirmed.cardSerial && (
               <a
                 href={`/card/${confirmed.cardSerial}`}
                 target="_blank"
-                className="mt-3 block rounded-xl bg-[#C94F00]/15 px-4 py-3 text-sm font-semibold text-[#C94F00] transition hover:bg-[#C94F00]/25"
+                className="mt-3 block rounded-xl bg-[#FF6B00]/15 px-4 py-3 text-sm font-semibold text-[#FF6B00] transition hover:bg-[#FF6B00]/25"
               >
                 🎁 بطاقة ولائك جاهزة — اضغط لفتحها واحفظها في هاتفك لتجمع النقاط
               </a>
             )}
             <div className="mt-5 grid grid-cols-2 gap-2">
-              <button onClick={openMyOrders} className="flex items-center justify-center gap-1.5 rounded-xl bg-[#C94F00] px-4 py-2.5 font-bold text-[#FFFFFF] hover:opacity-90">
+              <button onClick={openMyOrders} className="flex items-center justify-center gap-1.5 rounded-xl bg-[#FF6B00] px-4 py-2.5 font-bold text-[#FFFFFF] hover:opacity-90">
                 <ReceiptText className="size-4" />
                 متابعة طلبي
               </button>
-              <button onClick={() => setConfirmed(null)} className="rounded-xl border border-[#C94F00]/40 px-4 py-2.5 font-semibold text-[#C94F00] hover:bg-[#C94F00]/10">
+              <button onClick={() => setConfirmed(null)} className="rounded-xl border border-[#FF6B00]/40 px-4 py-2.5 font-semibold text-[#FF6B00] hover:bg-[#FF6B00]/10">
                 طلب جديد
               </button>
             </div>
@@ -548,7 +548,7 @@ function ModernCard({
 
   return (
     <div
-      className="relative overflow-hidden rounded-2xl bg-[#FFFFFF] ring-1 ring-[#C94F00]/20"
+      className="relative overflow-hidden rounded-2xl bg-[#FFFFFF] ring-1 ring-[#FF6B00]/20"
       style={{ animation: "st-card-in .5s both", animationDelay: `${index * 70}ms` }}
     >
       {/* image */}
@@ -578,7 +578,7 @@ function ModernCard({
       <div className="space-y-1.5 p-3">
         <div className="flex items-start justify-between gap-2">
           <p className="font-bold leading-tight">{item.name_ar}</p>
-          <p className="whitespace-nowrap text-sm font-extrabold text-[#C94F00]">{formatIqdLabel(unitPrice)}</p>
+          <p className="whitespace-nowrap text-sm font-extrabold text-[#FF6B00]">{formatIqdLabel(unitPrice)}</p>
         </div>
         {(item.variants.length > 0 || item.flavors.length > 0) && (
           <div className="flex flex-wrap gap-1">
@@ -587,7 +587,7 @@ function ModernCard({
                 key={v.id}
                 onClick={() => setVariantId(v.id)}
                 className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition ${
-                  v.id === variantId ? "bg-[#C94F00] text-[#FFFFFF]" : "border border-[#C94F00]/30 bg-[#FFF3E9] text-[#2C1E16]"
+                  v.id === variantId ? "bg-[#FF6B00] text-[#FFFFFF]" : "border border-[#FF6B00]/30 bg-[#FFF3E9] text-[#2C1E16]"
                 }`}
               >
                 {v.name_ar}
@@ -598,7 +598,7 @@ function ModernCard({
                 key={f}
                 onClick={() => setFlavor(f)}
                 className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition ${
-                  f === flavor ? "bg-[#C94F00] text-[#FFFFFF]" : "border border-[#C94F00]/30 bg-[#FFF3E9] text-[#2C1E16]"
+                  f === flavor ? "bg-[#FF6B00] text-[#FFFFFF]" : "border border-[#FF6B00]/30 bg-[#FFF3E9] text-[#2C1E16]"
                 }`}
               >
                 {f}
@@ -608,7 +608,7 @@ function ModernCard({
         )}
         <button
           onClick={add}
-          className="flex w-full items-center justify-center gap-1 rounded-xl bg-[#C94F00] py-2 text-sm font-bold text-[#FFFFFF] transition active:scale-95"
+          className="flex w-full items-center justify-center gap-1 rounded-xl bg-[#FF6B00] py-2 text-sm font-bold text-[#FFFFFF] transition active:scale-95"
         >
           <Plus className="size-4" />
           أضف للطلب

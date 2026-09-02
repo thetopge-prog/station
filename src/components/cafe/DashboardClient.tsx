@@ -29,7 +29,7 @@ const CHANNEL_AR: Record<string, string> = {
 const STATUS_AR: Record<string, string> = { pending: "معلّق", paid: "مدفوع", cancelled: "ملغي", refunded: "مسترجع" };
 const STATUS_CLASS: Record<string, string> = {
   pending: "bg-accent text-accent-foreground",
-  paid: "bg-primary/10 text-primary-ink",
+  paid: "bg-primary/10 text-primary",
   cancelled: "bg-muted text-muted-foreground",
   refunded: "bg-destructive/10 text-destructive",
 };
