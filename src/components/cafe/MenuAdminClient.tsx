@@ -109,7 +109,7 @@ export function MenuAdminClient({ categories }: { categories: AdminCategory[] })
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={it.image_url} alt="" className="size-10 rounded-lg object-cover" />
                         ) : (
-                          <span className="flex size-10 items-center justify-center rounded-lg bg-secondary text-primary/70">
+                          <span className="flex size-10 items-center justify-center rounded-lg bg-secondary text-primary">
                             <MenuIcon name={it.name_ar} category={cat.name_ar} className="size-7" />
                           </span>
                         )}
@@ -294,7 +294,7 @@ function ItemForm({ editing, categories, onClose }: { editing: Editing; categori
               // eslint-disable-next-line @next/next/no-img-element
               <img src={imageUrl} alt="" className="size-16 rounded-lg border border-border object-cover" />
             ) : (
-              <span className="flex size-16 items-center justify-center rounded-lg bg-secondary text-primary/70">
+              <span className="flex size-16 items-center justify-center rounded-lg bg-secondary text-primary">
                 <MenuIcon name={name || "صنف"} className="size-10" />
               </span>
             )}

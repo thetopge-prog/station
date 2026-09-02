@@ -221,7 +221,7 @@ export function StaffShell({
                   className={`touch-pos relative flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2 text-sm font-bold transition ${
                     pathname.startsWith(l.href)
                       ? "bg-primary text-primary-foreground"
-                      : "text-foreground/80 hover:bg-secondary"
+                      : "text-foreground hover:bg-secondary"
                   }`}
                 >
                   <l.icon className="size-4" />
@@ -235,7 +235,7 @@ export function StaffShell({
               ))}
               <button
                 onClick={() => setMoreOpen(true)}
-                className="touch-pos flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2 text-sm font-bold text-foreground/80 transition hover:bg-secondary"
+                className="touch-pos flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2 text-sm font-bold text-foreground transition hover:bg-secondary"
               >
                 <MoreHorizontal className="size-4" />
                 المزيد

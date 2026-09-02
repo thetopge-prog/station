@@ -712,7 +712,7 @@ function CashierItem({ item, category, onAdd }: { item: MenuItemView; category?:
     <div className="flex flex-col rounded-xl border border-border bg-card p-3">
       <button onClick={add} className="text-right">
         <div className="flex items-center gap-2">
-          <MenuIcon name={item.name_ar} category={category} className="size-8 shrink-0 text-primary/80" />
+          <MenuIcon name={item.name_ar} category={category} className="size-8 shrink-0 text-primary" />
           <p className="font-semibold leading-tight">{item.name_ar}</p>
         </div>
         <p className="mt-0.5 text-sm font-bold text-primary">{formatIqdLabel(unitPrice)}</p>

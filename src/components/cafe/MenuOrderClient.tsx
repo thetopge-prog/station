@@ -137,7 +137,7 @@ export function MenuOrderClient({
             <a
               key={c.name_ar}
               href={`#cat-${c.name_ar}`}
-              className="whitespace-nowrap rounded-full border border-border px-3 py-1 text-sm text-foreground/80 transition hover:bg-secondary"
+              className="whitespace-nowrap rounded-full border border-border px-3 py-1 text-sm text-foreground transition hover:bg-secondary"
             >
               {c.name_ar}
             </a>

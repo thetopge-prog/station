@@ -374,7 +374,7 @@ function OrderCard({
               className={`flex min-h-14 w-full items-center justify-center gap-2 rounded-xl text-lg font-black transition ${
                 order.notified_at
                   ? "border-2 border-border text-muted-foreground"
-                  : "bg-[#25D366] text-white shadow-station"
+                  : "bg-[#075E54] text-white shadow-station"
               }`}
             >
               <MessageCircle className="size-5" />
