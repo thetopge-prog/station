@@ -25,9 +25,20 @@ export function toRole(nameEn: string | null | undefined): StaffRole | null {
 }
 
 /**
- * Can this role reach a screen? The owner passes every gate — a manager
+ * Can this person reach a screen? The owner passes every gate — a manager
  * standing at the expediter station during a rush must never be locked out.
+ *
+ * Takes a LIST now, because one person can hold two jobs: عمر محمد is a cashier
+ * and an expediter. Before this the only ways to express that were to overload
+ * `cashier` until it meant "cashier plus whatever the floor needs" — which is
+ * why cashier appears in almost every kitchen screen's allowlist — or to make
+ * him an admin, which hands over the profit, the wages and the menu because he
+ * also bags orders.
+ *
+ * A bare role is still accepted so the fifteen callers that pass one keep
+ * working while they are converted.
  */
-export function canAccess(role: StaffRole | null, allowed: StaffRole[]): boolean {
-  return role === "admin" || (!!role && allowed.includes(role));
+export function canAccess(roles: StaffRole[] | StaffRole | null, allowed: StaffRole[]): boolean {
+  const mine = roles === null ? [] : Array.isArray(roles) ? roles : [roles];
+  return mine.includes("admin") || mine.some((r) => allowed.includes(r));
 }

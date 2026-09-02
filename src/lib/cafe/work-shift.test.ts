@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { inShift, shiftAt, shiftDeniedMessage } from "./work-shift";
+import { inShift, shiftAt, shiftDeniedMessage, workDay } from "./work-shift";
+import { businessDay } from "./time";
 
 /** لحظة بتوقيت بغداد (UTC+3) — بغداد لا تطبّق التوقيت الصيفي. */
 const at = (hhmm: string) => {
@@ -81,5 +82,26 @@ describe("shiftDeniedMessage", () => {
     expect(shiftDeniedMessage("morning")).toContain("09:00");
     expect(shiftDeniedMessage("morning")).toContain("15:00");
     expect(shiftDeniedMessage("evening")).toContain("03:00");
+  });
+});
+
+describe("workDay", () => {
+  it("keeps a whole evening shift on ONE day across midnight", () => {
+    // ٣ع اليوم و ٢ص من الغد وردية واحدة — ويجب أن تحمل يوم دوام واحداً
+    expect(workDay(at("15:00"))).toBe("2026-09-02");
+    expect(workDay(at("23:59"))).toBe("2026-09-02");
+    const twoAm = new Date(Date.UTC(2026, 8, 2, 23, 0)); // ٠٢:٠٠ بغداد يوم ٣
+    expect(workDay(twoAm)).toBe("2026-09-02");
+  });
+
+  it("rolls over once the shift is truly finished", () => {
+    const fiveAm = new Date(Date.UTC(2026, 8, 3, 2, 0)); // ٠٥:٠٠ بغداد يوم ٣
+    expect(workDay(fiveAm)).toBe("2026-09-03");
+  });
+
+  it("is not business_day — that is the whole reason it exists", () => {
+    const oneAm = new Date(Date.UTC(2026, 8, 2, 22, 0)); // ٠١:٠٠ بغداد يوم ٣
+    expect(businessDay(oneAm)).toBe("2026-09-03");
+    expect(workDay(oneAm)).toBe("2026-09-02");
   });
 });

@@ -63,3 +63,17 @@ export function shiftDeniedMessage(period: ShiftPeriod): string {
   const hh = (m: number) => String(Math.floor((m % 1440) / 60)).padStart(2, "0");
   return `دوامك ${SHIFT_AR[period]} من ${hh(start)}:00 إلى ${hh(end)}:00 — راجع الإدارة إن كنت مطلوباً خارجه.`;
 }
+
+/**
+ * يوم الدوام — مُزاح أربع ساعات عن منتصف الليل.
+ *
+ * business_day يتقلّب عند منتصف الليل بالضبط، فوردية ٣ع–٣ف تقع في يومين
+ * وتنقسم على تقريرين. ولن أغيّر business_day — يمسّ كل جدول في النظام. لكن
+ * الحضور يحمل يومه الخاص، فتبقى الوردية سطراً واحداً.
+ *
+ * وأربع ساعات لأنها بعد نهاية أطول وردية (٠٣:٠٠) وقبل بداية أبكرها (٠٩:٠٠).
+ * توأم SQL لها: public.work_day_of() في الترحيل 0062.
+ */
+export function workDay(at: Date = new Date()): string {
+  return formatInTimeZone(new Date(at.getTime() - 4 * 60 * 60 * 1000), CAFE_TZ, "yyyy-MM-dd");
+}

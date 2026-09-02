@@ -9,5 +9,5 @@ export default async function PrintersPage() {
   // printer is out of paper). Only the owner may change wiring.
   const staff = await requireStaff();
   const printers = await listPrinters();
-  return <PrintersClient printers={printers} isAdmin={staff.role === "admin"} />;
+  return <PrintersClient printers={printers} isAdmin={staff.isAdmin} />;
 }

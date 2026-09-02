@@ -25,21 +25,43 @@ export type Database = {
         Update: Partial<{ name_ar: string; name_en: string }>;
         Relationships: [];
       };
+      employee_roles: {
+        Row: { employee_id: string; role_id: string; created_at: string };
+        Insert: { employee_id: string; role_id: string; created_at?: string };
+        Update: Partial<{ employee_id: string; role_id: string }>;
+        Relationships: [];
+      };
+      attendance: {
+        Row: {
+          id: string; employee_id: string; shift: string | null; started_at: string;
+          ended_at: string | null; work_day: string; auto_closed: boolean; created_at: string;
+        };
+        Insert: { id?: string; employee_id: string; shift?: string | null; started_at?: string; ended_at?: string | null; work_day?: string; auto_closed?: boolean };
+        Update: Partial<{ ended_at: string | null; auto_closed: boolean }>;
+        Relationships: [];
+      };
+      shift_exceptions: {
+        Row: { employee_id: string; work_day: string; reason: string | null; by_employee: string | null; created_at: string };
+        Insert: { employee_id: string; work_day: string; reason?: string | null; by_employee?: string | null };
+        Update: Partial<{ reason: string | null }>;
+        Relationships: [];
+      };
       employees: {
         Row: Timestamped & {
           name_ar: string; role_id: string | null; auth_user_id: string | null; is_active: boolean;
           wage_amount: number; wage_period: "daily" | "weekly" | "monthly" | null; station_id: string | null;
           is_developer: boolean;  // 0046 — sees /setup; set in the database, not the UI
+          shift_period: "morning" | "evening" | null;  // 0062 — null = بلا قيد وقت
         };
         Insert: {
           id?: string; name_ar: string; role_id?: string | null; auth_user_id?: string | null; is_active?: boolean;
           wage_amount?: number; wage_period?: "daily" | "weekly" | "monthly" | null; station_id?: string | null; created_at?: string;
-          is_developer?: boolean;
+          is_developer?: boolean; shift_period?: "morning" | "evening" | null;
         };
         Update: Partial<{
           name_ar: string; role_id: string | null; auth_user_id: string | null; is_active: boolean;
           wage_amount: number; wage_period: "daily" | "weekly" | "monthly" | null; station_id: string | null;
-          is_developer: boolean;
+          is_developer: boolean; shift_period: "morning" | "evening" | null;
         }>;
         Relationships: [];
       };
@@ -436,6 +458,11 @@ export type Database = {
       // الجرد اليومي (0056)
       save_daily_count: { Args: { p_day: string; p_counted: number; p_deposited: number; p_note: string | null; p_snapshot: Json; p_close?: boolean }; Returns: undefined };
       stock_value: { Args: Record<string, never>; Returns: number };
+      // الحضور والورديات (0062)
+      attendance_open: { Args: { p_employee: string; p_shift: string | null }; Returns: undefined };
+      attendance_close: { Args: { p_employee: string }; Returns: undefined };
+      attendance_autoclose: { Args: Record<string, never>; Returns: number };
+      work_day_of: { Args: { p_at: string }; Returns: string };
       // حساب كل شركة توصيل ليوم واحد (0061)
       daily_partner_breakdown: {
         Args: { p_day: string };

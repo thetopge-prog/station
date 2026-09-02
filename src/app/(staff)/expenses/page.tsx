@@ -21,7 +21,7 @@ export default async function ExpensesPage() {
   try {
     if (!isDemoServer()) {
       const staff = await getStaff();
-      isAdmin = staff?.role === "admin";
+      isAdmin = staff?.isAdmin === true;
       // التكاليف الثابتة (إيجار · كهرباء · مولد · ماء) للإدارة وحدها.
       // كانت تُجلب دائماً وتُمرَّر إلى المكوّن، والمكوّن يُخفي المحرِّر خلف
       // isAdmin — لكن المبالغ نفسها كانت تُسلسَل داخل حمولة صفحة يفتحها

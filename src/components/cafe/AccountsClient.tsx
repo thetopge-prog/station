@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { KeyRound, Plus, RefreshCw, ShieldCheck, UserCheck, UserX } from "lucide-react";
 import { saveAccount, setAccountActive, type AccountRow } from "@/lib/cafe/account-actions";
 import { ROLE_AR, STAFF_ROLES, type StaffRole } from "@/lib/cafe/roles";
+import { SHIFT_AR, type ShiftPeriod } from "@/lib/cafe/work-shift";
 import { CopyButton } from "./CopyButton";
 
 /**
@@ -42,7 +43,9 @@ export function AccountsClient({ accounts }: { accounts: AccountRow[] }) {
   const [open, setOpen] = useState(false);
   const [login, setLogin] = useState("");
   const [name, setName] = useState("");
-  const [role, setRole] = useState<StaffRole>("cashier");
+  // مجموعة لا قيمة واحدة: عمر محمد كاشير ومجهّز معاً
+  const [roles, setRoles] = useState<StaffRole[]>(["cashier"]);
+  const [shiftPeriod, setShiftPeriod] = useState<ShiftPeriod | "">("");
   const [stationEn, setStationEn] = useState(STATIONS[0].en);
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -54,7 +57,8 @@ export function AccountsClient({ accounts }: { accounts: AccountRow[] }) {
     setDone(null);
     setLogin(prefill?.login ?? "");
     setName(prefill?.name_ar ?? "");
-    setRole(prefill?.role ?? "cashier");
+    setRoles(prefill?.roles?.length ? prefill.roles : prefill?.role ? [prefill.role] : ["cashier"]);
+    setShiftPeriod(prefill?.shift_period ?? "");
     setPassword(suggestPassword());
     setOpen(true);
   }
@@ -67,8 +71,9 @@ export function AccountsClient({ accounts }: { accounts: AccountRow[] }) {
       login,
       password,
       name_ar: name,
-      role,
-      stationEn: role === "chef" ? stationEn : null,
+      roles,
+      shiftPeriod: shiftPeriod || null,
+      stationEn: roles.includes("chef") ? stationEn : null,
     });
     setBusy(false);
     if (!res.ok) return setErr(res.error);
@@ -137,21 +142,42 @@ export function AccountsClient({ accounts }: { accounts: AccountRow[] }) {
                 className="mt-1 block min-h-11 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
               />
             </label>
+            {/* مربّعات لا قائمة: القائمة تسمح بواحدة، والواقع أن الشخص قد
+                يحمل اثنتين — وكان المخرج الوحيد أن يُجعل «مديراً». */}
+            <fieldset className="text-sm sm:col-span-2">
+              <legend className="text-muted-foreground">الصلاحيات — يمكن اختيار أكثر من واحدة</legend>
+              <div className="mt-1 flex flex-wrap gap-2">
+                {STAFF_ROLES.map((r) => {
+                  const on = roles.includes(r);
+                  return (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setRoles((cur) => (on ? cur.filter((x) => x !== r) : [...cur, r]))}
+                      className={`touch-pos min-h-11 rounded-xl border-2 px-3 text-sm font-bold transition ${
+                        on ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-secondary"
+                      }`}
+                    >
+                      {ROLE_AR[r]}
+                    </button>
+                  );
+                })}
+              </div>
+            </fieldset>
             <label className="text-sm">
-              <span className="text-muted-foreground">الصلاحية</span>
+              <span className="text-muted-foreground">الوردية</span>
               <select
-                value={role}
-                onChange={(e) => setRole(e.target.value as StaffRole)}
+                value={shiftPeriod}
+                onChange={(e) => setShiftPeriod(e.target.value as ShiftPeriod | "")}
                 className="mt-1 block min-h-11 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
               >
-                {STAFF_ROLES.map((r) => (
-                  <option key={r} value={r}>
-                    {ROLE_AR[r]}
-                  </option>
-                ))}
+                {/* الفارغ أولاً وهو الافتراضي: من لا وردية له لا يُمنع في أي ساعة */}
+                <option value="">بلا قيد وقت</option>
+                <option value="morning">{SHIFT_AR.morning} — ٩ص إلى ٣ع</option>
+                <option value="evening">{SHIFT_AR.evening} — ٣ع إلى ٣ف</option>
               </select>
             </label>
-            {role === "chef" && (
+            {roles.includes("chef") && (
               <label className="text-sm">
                 <span className="text-muted-foreground">المحطة — يرى أصنافها فقط</span>
                 <select

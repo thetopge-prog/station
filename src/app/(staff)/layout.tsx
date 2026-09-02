@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getStaff } from "@/lib/cafe/auth";
+import { canAccess } from "@/lib/cafe/roles";
 import { currentShiftLine } from "@/lib/cafe/session-actions";
 import { isDemoServer } from "@/lib/cafe/demo";
 import { StaffShell } from "@/components/cafe/StaffShell";
@@ -20,7 +21,7 @@ export default async function StaffLayout({ children }: { children: React.ReactN
   if (isDemoServer() && process.env.NODE_ENV !== "production") {
     // Demo trial (no Supabase configured): browsable shell, no real data.
     return (
-      <StaffShell role="admin" name="وضع تجريبي" pushKey={pushKey}>
+      <StaffShell roles={["admin"]} name="وضع تجريبي" pushKey={pushKey}>
         {children}
       </StaffShell>
     );
@@ -32,9 +33,9 @@ export default async function StaffLayout({ children }: { children: React.ReactN
   // wandered off the page lost sight of their own drawer. Resolved here, on a
   // getStaff() the layout already paid for, and passed down as a prop rather
   // than fetched again by a poll.
-  const shift = staff.role === "cashier" || staff.role === "admin" ? await currentShiftLine().catch(() => null) : null;
+  const shift = canAccess(staff.roles, ["cashier"]) ? await currentShiftLine().catch(() => null) : null;
   return (
-    <StaffShell role={staff.role} name={staff.name} pushKey={pushKey} isDeveloper={staff.isDeveloper} shift={shift}>
+    <StaffShell roles={staff.roles} name={staff.name} pushKey={pushKey} isDeveloper={staff.isDeveloper} shift={shift}>
       {children}
     </StaffShell>
   );

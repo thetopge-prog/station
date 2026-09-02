@@ -5,12 +5,13 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Bell, BellOff, BellRing, Lock, LogOut, Moon, MoreHorizontal, Sun, X } from "lucide-react";
 import { navFor } from "@/lib/cafe/nav";
+import { clockOutSelf } from "@/lib/cafe/attendance-actions";
 import { TillLockScreen, useTillLock } from "./TillLock";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { HubBadge } from "./HubBadge";
 import type { ShiftLine } from "@/lib/cafe/session-actions";
 import { useCafeUI } from "@/components/CafeUIProvider";
-import { type StaffRole } from "@/lib/cafe/roles";
+import { canAccess, type StaffRole } from "@/lib/cafe/roles";
 import { listPendingOrders } from "@/lib/cafe/cashier-actions";
 import { savePushSubscription, removePushSubscription } from "@/lib/cafe/push-actions";
 import { StationMark } from "./Logo";
@@ -56,14 +57,14 @@ function chime() {
 }
 
 export function StaffShell({
-  role,
+  roles,
   name,
   pushKey = null,
   isDeveloper = false,
   shift = null,
   children,
 }: {
-  role: StaffRole | null;
+  roles: StaffRole[];
   name: string;
   pushKey?: string | null;
   /** /setup belongs to the developer, not to every admin (0046) */
@@ -75,7 +76,7 @@ export function StaffShell({
   const pathname = usePathname();
   const router = useRouter();
   const { setTheme } = useCafeUI();
-  const { primary, groups } = navFor(role, isDeveloper);
+  const { primary, groups } = navFor(roles, isDeveloper);
   const till = useTillLock();
   const [moreOpen, setMoreOpen] = useState(false);
 
@@ -116,7 +117,7 @@ export function StaffShell({
   //
   // By ROLE, not by path: «الطلبات» is now a button on every screen these three
   // roles open, and a button that cannot say «٣ تنتظر» is worse than no button.
-  const wantsPending = role === "cashier" || role === "expediter" || role === "admin";
+  const wantsPending = canAccess(roles, ["cashier", "expediter"]);
 
   useEffect(() => {
     if (!wantsPending) return;
@@ -186,6 +187,13 @@ export function StaffShell({
   }
 
   async function signOut() {
+    // الانصراف قبل انتهاء الجلسة: بعدها لا يبقى من يعرف مَن كان بالداخل.
+    // ولا يمنع الخروج إن فشل — من ينقر «خروج» يريد الخروج.
+    try {
+      await clockOutSelf();
+    } catch {
+      /* لا وردية، أو شبكة — الإقفال الآلي يلتقطه بعد أربع عشرة ساعة */
+    }
     try {
       await createSupabaseBrowserClient().auth.signOut();
     } finally {

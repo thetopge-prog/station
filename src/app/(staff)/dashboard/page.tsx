@@ -21,7 +21,7 @@ export default async function DashboardPage({
 
   if (!isDemoServer()) {
     const staff = await getStaff();
-    if (staff && staff.role !== "admin") redirect("/cashier");
+    if (staff && !staff.isAdmin) redirect("/cashier");
   }
 
   let summary: DaySummary[] = [];

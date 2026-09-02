@@ -2,6 +2,7 @@ import {
   Armchair,
   Bike,
   Boxes,
+  CalendarClock,
   Calculator,
   ChefHat,
   ClipboardCheck,
@@ -71,6 +72,7 @@ export const NAV: NavItem[] = [
 
   { href: "/menu-admin", label: "المنيو", short: "المنيو", allow: [], group: "الإعدادات", icon: UtensilsCrossed },
   { href: "/employees", label: "الموظفون", short: "الموظفون", allow: [], group: "الإعدادات", icon: Users },
+  { href: "/attendance", label: "الدخول والانصراف", short: "الحضور", allow: [], group: "الإعدادات", icon: CalendarClock },
   { href: "/partners", label: "شركات التوصيل", short: "الشركات", allow: [], group: "الإعدادات", icon: Bike },
   { href: "/printers", label: "الطابعات", short: "الطابعات", allow: [], group: "الإعدادات", icon: Printer },
   { href: "/qr", label: "رموز QR", short: "QR", allow: [], group: "الإعدادات", icon: QrCode },
@@ -92,11 +94,19 @@ const PRIMARY: Record<StaffRole, string[]> = {
   admin: ["/dashboard", "/cashier", "/orders", "/daily"],
 };
 
-export function navFor(role: StaffRole | null, isDeveloper = false) {
+export function navFor(roles: StaffRole[] | StaffRole | null, isDeveloper = false) {
+  const mine = roles === null ? [] : Array.isArray(roles) ? roles : [roles];
   const links = NAV.filter(
-    (n) => (n.href !== "/setup" || isDeveloper) && (canAccess(role, n.allow ?? []) || n.allow === null),
+    (n) => (n.href !== "/setup" || isDeveloper) && (canAccess(mine, n.allow ?? []) || n.allow === null),
   );
-  const wanted = role ? PRIMARY[role] : [];
+  /*
+   * أزرار من يحمل صلاحيتين: اتحاد قائمتيه بترتيب صلاحياته، بلا تكرار.
+   *
+   * وتُقصّ عند أربعة لأن الشريط السفلي يسع أربعة وزرّ «المزيد» — وكاشير+مجهّز
+   * يعطيان خمسة. والترتيب هو ترتيب الصلاحيات، فأول صلاحية تفوز بالمقاعد
+   * الأولى: من هو كاشير أولاً يرى الكاشير أولاً.
+   */
+  const wanted = [...new Set(mine.flatMap((r) => PRIMARY[r] ?? []))].slice(0, 4);
   // ترتيب PRIMARY هو ترتيب العرض، فيثبت مكان كل زر تحت الإصبع
   const primary = wanted.map((href) => links.find((l) => l.href === href)).filter((l) => l !== undefined);
 

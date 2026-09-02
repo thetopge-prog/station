@@ -1,7 +1,8 @@
 import { cache } from "react";
 import { createHash } from "node:crypto";
 import { getServerUser, createSupabaseServiceClient, currentAccessToken } from "@/lib/supabase/server";
-import { toRole, type StaffRole } from "./roles";
+import { canAccess, toRole, type StaffRole } from "./roles";
+import { inShift, shiftDeniedMessage, workDay, type ShiftPeriod } from "./work-shift";
 import { hubEnabled } from "@/lib/hub/store";
 import { cloudReachable } from "@/lib/hub/net";
 import { rememberSession, recallSession } from "@/lib/hub/session";
@@ -17,7 +18,14 @@ export type Staff = {
   employeeId: string;
   name: string;
   email: string | null;
+  /** الصلاحية الأساسية — تبقى للعرض وللتوافق مع ما كُتب قبل تعدّد الصلاحيات */
   role: StaffRole | null;
+  /** كل صلاحياته. عمر محمد: كاشير ومجهّز معاً. */
+  roles: StaffRole[];
+  /** مدير؟ — محسوبة مرّة هنا بدل خمسة عشر `role === "admin"` تتفرّق في الشيفرة */
+  isAdmin: boolean;
+  /** وردية الدوام، وفارغها «بلا قيد وقت» — وهو حال الحسابات المشتركة */
+  shiftPeriod: ShiftPeriod | null;
   /** which kitchen station a chef sees on the KDS; null for every other role */
   stationId: string | null;
   /** sees /setup. A separate axis from `role`: running a restaurant and
@@ -106,23 +114,42 @@ async function resolveStaff(): Promise<Staff | null> {
   const svc = createSupabaseServiceClient();
   const { data: emp } = await svc
     .from("employees")
-    .select("id, name_ar, role_id, station_id, is_developer")
+    .select("id, name_ar, role_id, station_id, is_developer, shift_period")
     .eq("auth_user_id", user.id)
     .eq("is_active", true)
     .maybeSingle();
   if (!emp) return null;
 
-  let role: StaffRole | null = null;
+  /*
+   * كل الصلاحيات من جدول الربط، والعمود القديم احتياطاً.
+   *
+   * الترحيل 0062 ملأ الجدول من العمود، فهما متطابقان اليوم. لكن الاحتياط يبقى:
+   * موظف يُضاف بالطريقة القديمة، أو ملءٌ يفشل، لا ينبغي أن يُفقد صلاحيته كلها.
+   */
+  const { data: linked } = await svc
+    .from("employee_roles")
+    .select("roles(name_en)")
+    .eq("employee_id", emp.id);
+  const names = ((linked ?? []) as unknown as { roles: { name_en: string } | null }[])
+    .map((r) => toRole(r.roles?.name_en))
+    .filter((r): r is StaffRole => r !== null);
+
+  let primary: StaffRole | null = null;
   if (emp.role_id) {
     const { data: r } = await svc.from("roles").select("name_en").eq("id", emp.role_id).maybeSingle();
-    role = toRole(r?.name_en);
+    primary = toRole(r?.name_en);
   }
+  const roles = [...new Set([...names, ...(primary ? [primary] : [])])];
+
   const staff: Staff = {
     userId: user.id,
     employeeId: emp.id,
     name: emp.name_ar,
     email: user.email ?? null,
-    role,
+    role: primary ?? roles[0] ?? null,
+    roles,
+    isAdmin: roles.includes("admin"),
+    shiftPeriod: (emp.shift_period as ShiftPeriod | null) ?? null,
     stationId: emp.station_id ?? null,
     isDeveloper: emp.is_developer === true,
   };
@@ -131,15 +158,50 @@ async function resolveStaff(): Promise<Staff | null> {
   return staff;
 }
 
+/**
+ * البوّابة التي يمرّ بها كل طلب — وهنا يقع منع الوردية وتسجيل الحضور.
+ *
+ * موضعها هذا مقصود: أي شاشة وأي إجراء يمرّ من هنا، فلا يبقى بابٌ خلفيّ يُنسى.
+ * والكلفة صفر تقريباً لأن نتيجة getStaff مخزّنة ستّين ثانية، فالفحص يجري مرّة
+ * كل دقيقة لا مع كل نقرة.
+ */
 export async function requireStaff(): Promise<Staff> {
   const staff = await getStaff();
   if (!staff) throw new Error("غير مصرّح — سجّل الدخول.");
+  await guardShift(staff);
   return staff;
+}
+
+/**
+ * هل هذا الموظف داخل وقته؟ وإن كان، سجّل حضوره.
+ *
+ * أربعة مخارج قبل المنع، لأن الخطأ هنا **يوقف البيع** لا يزعج مستخدماً:
+ * المدير لا يُمنع · ومن بلا وردية لا يُمنع (وهو حال الحسابات المشتركة كلها) ·
+ * ومهلة ساعة على الطرفين · واستثناء من الإدارة ليوم بعينه.
+ */
+async function guardShift(staff: Staff): Promise<void> {
+  if (staff.isAdmin || !staff.shiftPeriod) return;
+
+  const svc = createSupabaseServiceClient();
+  if (!inShift(staff.shiftPeriod)) {
+    const { data: pass } = await svc
+      .from("shift_exceptions")
+      .select("employee_id")
+      .eq("employee_id", staff.employeeId)
+      .eq("work_day", workDay())
+      .maybeSingle();
+    if (!pass) throw new Error(shiftDeniedMessage(staff.shiftPeriod));
+  }
+
+  // الحضور: يفتح سطراً إن لم يكن مفتوحاً، ولا يفعل شيئاً إن كان. تلقائي مع
+  // الدخول كما اختار صاحب المحل — والحسابات المشتركة لا تصل هنا أصلاً، فلا
+  // يُسجَّل حضورٌ باسم «كاشير» بدل إنسان.
+  await svc.rpc("attendance_open", { p_employee: staff.employeeId, p_shift: staff.shiftPeriod });
 }
 
 export async function requireAdmin(): Promise<Staff> {
   const staff = await requireStaff();
-  if (staff.role !== "admin") throw new Error("هذه الصفحة للمدير فقط.");
+  if (!staff.isAdmin) throw new Error("هذه الصفحة للمدير فقط.");
   return staff;
 }
 
@@ -156,8 +218,7 @@ export async function requireDeveloper(): Promise<Staff> {
 
 export async function requireRole(...allowed: StaffRole[]): Promise<Staff> {
   const staff = await requireStaff();
-  if (staff.role === "admin") return staff;
-  if (!staff.role || !allowed.includes(staff.role)) {
+  if (!canAccess(staff.roles, allowed)) {
     throw new Error("هذه الشاشة ليست ضمن صلاحيتك.");
   }
   return staff;

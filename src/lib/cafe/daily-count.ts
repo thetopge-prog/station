@@ -223,7 +223,7 @@ async function getDailyCountFull(day: string): Promise<DailyCount> {
 export async function getDailyCount(day = businessDay()): Promise<DailyCount> {
   const staff = await requireRole("cashier");
   const full = await getDailyCountFull(day);
-  if (staff.role === "admin") return full;
+  if (staff.isAdmin) return full;
   return { ...full, profit: null, fixed_cost: null, net: null, stock_value: null, is_admin: false };
 }
 
@@ -276,7 +276,7 @@ export async function saveDailyCount(input: {
  */
 export async function buildDailyCountPrint(day = businessDay()) {
   const staff = await requireRole("cashier");
-  const d = staff.role === "admin" ? await getDailyCountFull(day) : await getDailyCount(day);
+  const d = staff.isAdmin ? await getDailyCountFull(day) : await getDailyCount(day);
   const job = await buildDailyCountJob(
     dailyCountDoc({
       ...d,

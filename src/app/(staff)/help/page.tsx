@@ -9,7 +9,7 @@ export default async function HelpPage() {
   try {
     if (!isDemoServer()) {
       const staff = await getStaff();
-      isAdmin = staff?.role === "admin";
+      isAdmin = staff?.isAdmin === true;
     } else {
       isAdmin = true;
     }

@@ -13,7 +13,7 @@ export default async function LoyaltyPage() {
   try {
     if (!isDemoServer()) {
       const staff = await getStaff();
-      isAdmin = staff?.role === "admin";
+      isAdmin = staff?.isAdmin === true;
       if (staff) customerCount = await countCustomers();
       if (isAdmin) customers = await listCustomers();
     }

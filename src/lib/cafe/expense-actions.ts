@@ -80,7 +80,7 @@ export async function listExpenses(limit = 60): Promise<ExpenseRow[]> {
     .select("id, business_day, amount, category, note")
     .order("created_at", { ascending: false })
     .limit(limit);
-  if (staff.role !== "admin") q = q.eq("business_day", businessDay());
+  if (!staff.isAdmin) q = q.eq("business_day", businessDay());
   const { data } = await q;
   return (data ?? []) as ExpenseRow[];
 }
