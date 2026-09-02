@@ -448,6 +448,31 @@ export function testSlipDoc(printerNameAr: string): TicketDoc {
 }
 
 /**
+ * ورقة التعريف — الرقم الذي يقول أي طابعة هذه.
+ *
+ * أسماء ويندوز على هذا الجهاز POS80 و POS80-25 و POS-24 و POS-23: حرفان
+ * بينها، وكل طابعة في غرفة أخرى. فاختيارها من قائمة تخمين لا ربط — وقد قالها
+ * صاحب المحل بنفسه: «عشوائية بالربط».
+ *
+ * فالطريقة الوحيدة الموثوقة أن تسأل الورق: يُطبع رقم كبير على كل طابعة، ويمشي
+ * المركِّب فيرى أي رقم خرج عند فرن البيتزا، ثم يضغط ذلك الرقم. لا حفظ لأسماء
+ * ولا مطابقة من الذاكرة — الجهاز نفسه يقول من هو.
+ */
+export function identifyDoc(index: number, share: string): TicketDoc {
+  const s = new Slip("utf8", COLS_80MM);
+  s.center().line("ستيشن — تعريف الطابعات");
+  s.rule("=");
+  // ٤×٤ ليُقرأ الرقم من الباب دون الاقتراب من الجهاز
+  s.size(4, 4).bold(true).line(String(index)).bold(false).size(1, 1);
+  s.rule("=");
+  s.line("اضغط هذا الرقم في صفحة التركيب");
+  s.line("أمام اسم المطبخ الذي تقف فيه");
+  s.rule();
+  s.line(share);
+  return { lines: s.doc, qr: null, kick: false };
+}
+
+/**
  * «جرد اليوم» على شريط ٨٠ ملم — الورقة التي تُوقَّع وتُعلَّق.
  *
  * Built here rather than beside the daily-count action because `Slip` is

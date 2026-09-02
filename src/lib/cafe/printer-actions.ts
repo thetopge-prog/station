@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { requireAdmin, requireStaff } from "./auth";
 import { routeOrder, unroutedItems, type PrintItem, type PrinterRow, type StationRow } from "./print-routing";
-import { renderTicketDoc, testSlipDoc, type TicketDoc } from "./escpos";
+import { identifyDoc, renderTicketDoc, testSlipDoc, type TicketDoc } from "./escpos";
 import { BRAND } from "@/lib/brand";
 
 /**
@@ -320,4 +320,23 @@ export async function connectPrinter(ids: string[], share: string) {
   revalidatePath("/printers");
   const job = await buildTestJob(ids[0]);
   return { ok: true as const, job };
+}
+
+
+/**
+ * يطبع رقماً على كل طابعة مكتشَفة، ليعرّف نفسه بنفسه.
+ *
+ * لا تلمس القاعدة — لا شيء يُربط بعد. الغرض ورقة في كل غرفة يقرؤها المركِّب.
+ */
+export async function buildIdentifyJobs(shares: string[]): Promise<PrintJob[]> {
+  await requireAdmin();
+  return shares.slice(0, 12).map((share, i) => ({
+    printerId: `identify-${i}`,
+    printerName: share,
+    host: null,
+    port: 9100,
+    share,
+    copies: 1,
+    doc: identifyDoc(i + 1, share),
+  }));
 }
