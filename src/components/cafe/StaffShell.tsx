@@ -296,7 +296,7 @@ export function StaffShell({
                       : "تفعيل إشعارات الطلبات (تصل حتى والتطبيق مغلق)"
                 }
                 className={`rounded-lg border p-2 transition ${
-                  pushState === "on" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-secondary"
+                  pushState === "on" ? "border-primary bg-primary/10 text-primary-ink" : "border-border text-muted-foreground hover:bg-secondary"
                 }`}
               >
                 {pushState === "on" ? <Bell className="size-4" /> : <BellOff className="size-4" />}

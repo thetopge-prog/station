@@ -2,6 +2,8 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
+const NL = String.fromCharCode(10);
+
 /**
  * الحارس الذي يمنع تكرار العطل.
  *
@@ -65,5 +67,23 @@ describe("alpha tints on theme tokens", () => {
       // مرّتان: :root و :root.dark
       expect(css.split(varName).length - 1, varName).toBe(2);
     }
+  });
+
+  /**
+   * حبر برتقالي على وشاح برتقالي — العطل الذي لا يُحلّ بتفتيح الوشاح.
+   *
+   * --primary يعطي ٤٫٥٦ على الأبيض **الخالص**، فأيّ وشاح مهما خفّ ينزل به تحت
+   * ٤٫٥ لنصّ ١٢ بكسل. قِيس ٣٫٩٥ في عشرين موضعاً. و--primary-ink أغمق منه
+   * ويبلغ ٥٫١٠ على أغمق وشاح مستعمَل، والوشاح يبقى برتقالياً كما طلب صاحب
+   * المحل.
+   */
+  it("never puts text-primary on a primary tint — use text-primary-ink", () => {
+    const bad: string[] = [];
+    for (const file of walk("src")) {
+      readFileSync(file, "utf8").split(NL).forEach((line, i) => {
+        if (/bg-primary\/\d/.test(line) && /\btext-primary(?![-\w])/.test(line)) bad.push(file + ":" + (i + 1));
+      });
+    }
+    expect(bad, "استعمل text-primary-ink فوق وشاح برتقالي:" + NL + bad.join(NL)).toEqual([]);
   });
 });

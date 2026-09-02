@@ -175,7 +175,7 @@ export function ExpediterClient({ name }: { name: string }) {
           </button>
           <span
             className={`rounded-full px-3 py-1 text-xs font-bold ${
-              live ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+              live ? "bg-primary/10 text-primary-ink" : "bg-muted text-muted-foreground"
             }`}
           >
             {live ? "● اتصال لحظي" : "○ تحديث دوري"}
@@ -188,7 +188,7 @@ export function ExpediterClient({ name }: { name: string }) {
         <p
           className={`rounded-2xl border-2 px-5 py-4 text-center text-xl font-black ${
             scan.kind === "ok"
-              ? "border-primary bg-primary/10 text-primary"
+              ? "border-primary bg-primary/10 text-primary-ink"
               : "border-destructive bg-destructive/10 text-destructive"
           }`}
         >

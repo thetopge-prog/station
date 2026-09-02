@@ -290,7 +290,7 @@ function Result({ done, onClose }: { done: { expected: number; variance: number 
       </div>
       <div
         className={`rounded-2xl border-2 p-4 ${
-          ok ? "border-primary bg-primary/10 text-primary" : "border-destructive bg-destructive/10 text-destructive"
+          ok ? "border-primary bg-primary/10 text-primary-ink" : "border-destructive bg-destructive/10 text-destructive"
         }`}
       >
         <p className="text-sm font-bold">الفرق</p>
@@ -355,7 +355,7 @@ function Card({
         }`}
       >
         <div className="flex items-center gap-3">
-          <span className={`flex size-14 items-center justify-center rounded-2xl ${tone === "warn" ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"}`}>
+          <span className={`flex size-14 items-center justify-center rounded-2xl ${tone === "warn" ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary-ink"}`}>
             {icon}
           </span>
           <div>

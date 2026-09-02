@@ -113,7 +113,7 @@ export function LoyaltyClient({ customers, isAdmin, customerCount }: { customers
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <h1 className="text-2xl font-bold">الولاء</h1>
-        <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-bold text-primary">البطاقات: {customerCount}</span>
+        <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-bold text-primary-ink">البطاقات: {customerCount}</span>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
