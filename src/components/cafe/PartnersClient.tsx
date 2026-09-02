@@ -321,7 +321,7 @@ export function PartnersClient({ partners }: { partners: PartnerBalance[] }) {
                               </td>
                               {/* negative = money received, and it reads as a
                                   subtraction because that is what it does */}
-                              <td className={`p-2 text-left font-black tabular-nums ${r.amount < 0 ? "text-emerald-600" : ""}`}>
+                              <td className={`p-2 text-left font-black tabular-nums ${r.amount < 0 ? "text-success" : ""}`}>
                                 {r.amount < 0 ? "− " : ""}
                                 {formatIqdLabel(Math.abs(r.amount))}
                               </td>

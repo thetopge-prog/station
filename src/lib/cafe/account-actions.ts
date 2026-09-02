@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
-import { requireAdmin, forgetStaffCache } from "./auth";
+import { requireAdminOrDeveloper, forgetStaffCache } from "./auth";
 import type { ShiftPeriod } from "./work-shift";
 import { STAFF_ROLES, type StaffRole } from "./roles";
 
@@ -40,7 +40,7 @@ const emailFor = (login: string) => (login.includes("@") ? login.trim() : `${log
 const loginOf = (email: string | undefined) => (email ?? "").replace(/@station\.iq$/i, "");
 
 export async function listAccounts(): Promise<AccountRow[]> {
-  await requireAdmin();
+  await requireAdminOrDeveloper();
   const svc = createSupabaseServiceClient();
 
   const [{ data: emps }, { data: roles }, { data: stations }, { data: links }, users] = await Promise.all([
@@ -97,7 +97,7 @@ export type SaveAccountInput = {
 };
 
 export async function saveAccount(input: SaveAccountInput) {
-  await requireAdmin();
+  await requireAdminOrDeveloper();
 
   const login = input.login.trim();
   const name = input.name_ar.trim();
@@ -178,7 +178,7 @@ export async function saveAccount(input: SaveAccountInput) {
 
 /** Take someone off the floor without erasing a year of their orders. */
 export async function setAccountActive(employeeId: string, is_active: boolean) {
-  await requireAdmin();
+  await requireAdminOrDeveloper();
   const svc = createSupabaseServiceClient();
   const { error } = await svc.from("employees").update({ is_active }).eq("id", employeeId);
   if (error) return { ok: false as const, error: error.message };

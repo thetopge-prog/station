@@ -145,7 +145,7 @@ export function CallerCard({
           <button
             onClick={() => void save()}
             className={`inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl px-4 font-black transition ${
-              saved ? "bg-emerald-600 text-white" : "bg-secondary hover:opacity-90"
+              saved ? "bg-success text-success-foreground" : "bg-secondary hover:opacity-90"
             }`}
           >
             {saved ? <Check className="size-5" /> : <Save className="size-5" />}

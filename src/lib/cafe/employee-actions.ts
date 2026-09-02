@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
-import { requireAdmin } from "./auth";
+import { requireAdminOrDeveloper } from "./auth";
 import { businessDay } from "./time";
 import { WAGE_PERIOD_AR, type WagePeriod } from "./wages";
 
@@ -17,7 +17,7 @@ export type EmployeeRow = {
 
 /** All employees (admin). Uses the service client — RLS only exposes self-rows. */
 export async function listEmployees(): Promise<EmployeeRow[]> {
-  await requireAdmin();
+  await requireAdminOrDeveloper();
   const svc = createSupabaseServiceClient();
   const { data } = await svc
     .from("employees")
@@ -39,7 +39,7 @@ export async function upsertEmployee(input: {
   wage_amount: number;
   wage_period: WagePeriod;
 }) {
-  await requireAdmin();
+  await requireAdminOrDeveloper();
   const name = input.name_ar.trim();
   if (!name) return { ok: false as const, error: "أدخل اسم الموظف." };
   const row = {
@@ -57,7 +57,7 @@ export async function upsertEmployee(input: {
 }
 
 export async function toggleEmployee(id: string, is_active: boolean) {
-  await requireAdmin();
+  await requireAdminOrDeveloper();
   const svc = createSupabaseServiceClient();
   const { error } = await svc.from("employees").update({ is_active }).eq("id", id);
   if (error) return { ok: false as const, error: error.message };
@@ -67,7 +67,7 @@ export async function toggleEmployee(id: string, is_active: boolean) {
 
 /** Pay an employee's wage: records it as a «رواتب» expense so it hits today's net. */
 export async function payWage(employeeId: string) {
-  const admin = await requireAdmin();
+  const admin = await requireAdminOrDeveloper();
   const svc = createSupabaseServiceClient();
   const { data: emp } = await svc
     .from("employees")

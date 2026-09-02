@@ -48,7 +48,7 @@ export function CopyButton({
     <button
       onClick={copy}
       className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border border-border px-3 text-sm font-bold transition active:scale-95 ${
-        done ? "border-emerald-500 text-emerald-600 dark:text-emerald-400" : "hover:bg-secondary"
+        done ? "border-success text-success" : "hover:bg-secondary"
       } ${className}`}
     >
       {done ? <Check className="size-4" /> : <Copy className="size-4" />}

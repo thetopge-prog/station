@@ -138,8 +138,107 @@ function mainMenu() {
     [{ text: "📦 المخزون", callback_data: "stock" }, { text: "⚠️ النواقص", callback_data: "short" }],
     [{ text: "🛒 قائمة المشتريات", callback_data: "po" }, { text: "👨‍🍳 التحكم بالتجهيز", callback_data: "prep" }],
     [{ text: "🛵 حسابات شركات التوصيل", callback_data: "prt" }],
-    [{ text: "👤 مسؤولو البوت", callback_data: "owners" }],
+    [{ text: "🧑‍🍳 الموظفون", callback_data: "staff" }, { text: "👤 مسؤولو البوت", callback_data: "owners" }],
   ];
+}
+
+/* ── الموظفون ────────────────────────────────────────────────────────────────
+ *
+ * إضافة موظف من الهاتف. والحقول خمسة (اسم، دخول، صلاحيات، وردية، كلمة سرّ)،
+ * وخمسة أسئلة متتابعة في محادثة عذابٌ على من يقف في المطبخ — فسطر واحد:
+ *
+ *     عمر محمد | 07701234567 | كاشير مجهز | مسائي
+ *
+ * وكلمة السرّ تُولّد ولا تُسأل: التي يختارها الإنسان على عجل تكون «123456».
+ */
+const ROLE_WORDS: Record<string, string> = {
+  "كاشير": "cashier", "محاسب": "cashier",
+  "مجهز": "expediter", "مجهّز": "expediter", "تجهيز": "expediter",
+  "طباخ": "chef", "طبّاخ": "chef", "مطبخ": "chef",
+  "تنظيف": "cleaner", "نظافة": "cleaner",
+  "مدير": "admin", "ادارة": "admin", "إدارة": "admin",
+};
+const SHIFT_WORDS: Record<string, string> = {
+  "صباحي": "morning", "صباح": "morning",
+  "مسائي": "evening", "مساء": "evening", "مسائى": "evening",
+};
+const ROLE_BACK: Record<string, string> = {
+  cashier: "كاشير", expediter: "مجهّز", chef: "طبّاخ", cleaner: "تنظيف", admin: "مدير",
+};
+
+/** حروف بلا لبس: لا صفر ولا O، لأنها تُملى بصوت عالٍ عبر كاونتر مزدحم. */
+function makePassword(): string {
+  const L = "ABCDEFGHJKMNPQRSTUVWXYZ", D = "23456789";
+  const pick = (s: string, n: number) => Array.from({ length: n }, () => s[Math.floor(Math.random() * s.length)]).join("");
+  return pick(L, 4) + pick(D, 4);
+}
+
+async function viewStaff() {
+  const [emps, links, roles] = await Promise.all([
+    rest("employees?select=id,name_ar,is_active,shift_period,auth_user_id&order=created_at"),
+    rest("employee_roles?select=employee_id,role_id"),
+    rest("roles?select=id,name_en"),
+  ]);
+  const rn = new Map((roles as Row[]).map((r) => [r.id, r.name_en]));
+  const mine = new Map<string, string[]>();
+  for (const l of links as Row[]) {
+    const n = rn.get(l.role_id);
+    if (n) mine.set(l.employee_id, [...(mine.get(l.employee_id) ?? []), ROLE_BACK[n] ?? n]);
+  }
+  const lines = (emps as Row[]).map((e) => {
+    const rs = (mine.get(e.id) ?? []).join(" + ") || "بلا صلاحية";
+    const sh = e.shift_period === "morning" ? " · صباحي" : e.shift_period === "evening" ? " · مسائي" : "";
+    return `${e.is_active ? "✅" : "⛔"} <b>${esc(e.name_ar)}</b> — ${esc(rs)}${sh}${e.auth_user_id ? "" : " · بلا دخول"}`;
+  });
+  return {
+    text: `🧑‍🍳 <b>الموظفون</b>
+
+${lines.join("
+") || "لا أحد بعد."}`,
+    kb: [[{ text: "➕ موظف جديد", callback_data: "staffadd" }], BACK],
+  };
+}
+
+/** ينشئ الدخول والموظف وصلاحياته. يعيد كلمة السرّ لتُقال مرّة واحدة. */
+async function createStaff(name: string, login: string, roleEns: string[], shift: string | null) {
+  const email = login.includes("@") ? login : `${login}@station.iq`;
+  const password = makePassword();
+
+  const mk = await fetch(`${URL_}/auth/v1/admin/users`, {
+    method: "POST", headers: H,
+    body: JSON.stringify({ email, password, email_confirm: true }),
+  });
+  const made = await mk.json();
+  let userId: string | undefined = made?.id;
+  if (!userId) {
+    // موجود سلفاً ⇒ هذه إعادة تعيين كلمة سرّ، تماماً كما تفعل شاشة الحسابات
+    const list = await fetch(`${URL_}/auth/v1/admin/users?per_page=200`, { headers: H }).then((r) => r.json());
+    userId = (list?.users ?? []).find((u: Row) => String(u.email).toLowerCase() === email.toLowerCase())?.id;
+    if (!userId) throw new Error(made?.msg || made?.message || "تعذّر إنشاء الدخول");
+    await fetch(`${URL_}/auth/v1/admin/users/${userId}`, { method: "PUT", headers: H, body: JSON.stringify({ password }) });
+  }
+
+  const roles = (await rest(`roles?select=id,name_en&name_en=in.(${roleEns.join(",")})`)) as Row[];
+  if (roles.length !== roleEns.length) throw new Error("صلاحية غير معروفة");
+  const primary = roles.find((r) => r.name_en === roleEns[0])!.id;
+
+  const found = (await rest(`employees?select=id&auth_user_id=eq.${userId}`)) as Row[];
+  let empId = found[0]?.id;
+  const row = { name_ar: name, role_id: primary, is_active: true, shift_period: shift };
+  if (empId) {
+    await restWrite(`employees?id=eq.${empId}`, "PATCH", row);
+  } else {
+    const r = await fetch(`${URL_}/rest/v1/employees`, {
+      method: "POST", headers: { ...H, Prefer: "return=representation" },
+      body: JSON.stringify([{ ...row, auth_user_id: userId }]),
+    });
+    empId = (await r.json())?.[0]?.id;
+  }
+  if (!empId) throw new Error("تعذّر حفظ الموظف");
+
+  await restWrite(`employee_roles?employee_id=eq.${empId}`, "DELETE");
+  await restWrite("employee_roles", "POST", roles.map((r) => ({ employee_id: empId, role_id: r.id })));
+  return { email, login, password };
 }
 
 type Row = Record<string, any>;
@@ -718,6 +817,53 @@ async function onMessage(msg: Row) {
       try { await say(id, "✅ صار لديك وصول إلى بوت ستيشن. أرسل /start للبدء."); } catch { /* لم يبدأ محادثة بعد */ }
       return;
     }
+    if (state.action === "staffadd") {
+      const parts = text.split("|").map((x) => x.trim()).filter(Boolean);
+      const [name, login, rolesRaw, shiftRaw] = parts;
+      const retry = [[{ text: "➕ حاول مجدداً", callback_data: "staffadd" }], BACK];
+      if (parts.length < 3 || !name || !login) {
+        await say(chatId, "ناقص. الشكل:
+<code>عمر محمد | 07701234567 | كاشير مجهز | مسائي</code>", retry);
+        return;
+      }
+      const roleEns = [...new Set(
+        normDigits(rolesRaw).split(/[\s,+و]+/).map((w) => ROLE_WORDS[w.trim()]).filter(Boolean),
+      )] as string[];
+      if (roleEns.length === 0) {
+        await say(chatId, "لم أفهم الصلاحيات. المتاح: كاشير · مجهز · طباخ · تنظيف · مدير", retry);
+        return;
+      }
+      const shift = shiftRaw ? SHIFT_WORDS[shiftRaw.trim()] ?? null : null;
+      if (shiftRaw && !shift) {
+        await say(chatId, "الوردية إمّا <b>صباحي</b> أو <b>مسائي</b> — أو اتركها فارغة لبلا قيد وقت.", retry);
+        return;
+      }
+      try {
+        const made = await createStaff(name, normDigits(login).replace(/\s/g, ""), roleEns, shift);
+        const shAr = shift === "morning" ? "صباحي ٩–٣" : shift === "evening" ? "مسائي ٣–٣" : "بلا قيد وقت";
+        await say(
+          chatId,
+          `✅ <b>${esc(name)}</b>
+
+` +
+            `الصلاحيات: ${esc(roleEns.map((r) => ROLE_BACK[r]).join(" + "))}
+` +
+            `الوردية: ${esc(shAr)}
+
+` +
+            `اسم الدخول: <code>${esc(made.login)}</code>
+` +
+            `كلمة السر: <code>${esc(made.password)}</code>
+
+` +
+            `⚠️ لن تظهر كلمة السر مرّة أخرى — أرسلها له الآن.`,
+          [[{ text: "➕ موظف آخر", callback_data: "staffadd" }, { text: "🧑‍🍳 الموظفون", callback_data: "staff" }], BACK],
+        );
+      } catch (e) {
+        await say(chatId, `تعذّر: ${esc(String((e as Error).message))}`, retry);
+      }
+      return;
+    }
     if (state.action === "searchdate") {
       const day = parseDate(text);
       if (!day) {
@@ -841,6 +987,34 @@ async function onCallback(cb: Row) {
   if (cmd === "search") {
     await setState(chatId, { action: "searchdate" });
     return say(chatId, "🔎 أرسل التاريخ المطلوب:\nمثال: <code>2026-08-10</code> أو <code>10/08/2026</code>", [[{ text: "إلغاء", callback_data: "menu" }]], mid);
+  }
+  if (cmd === "staff") {
+    const v = await viewStaff();
+    return say(chatId, v.text, v.kb, mid);
+  }
+  if (cmd === "staffadd") {
+    await setState(chatId, { action: "staffadd" });
+    return say(
+      chatId,
+      "➕ <b>موظف جديد</b>
+
+" +
+        "أرسل سطراً واحداً:
+" +
+        "<code>الاسم | الهاتف | الصلاحيات | الوردية</code>
+
+" +
+        "<code>عمر محمد | 07701234567 | كاشير مجهز</code>
+" +
+        "<code>محمد أحمد | 07711234567 | كاشير | صباحي</code>
+
+" +
+        "الصلاحيات: كاشير · مجهز · طباخ · تنظيف · مدير — واحدة أو أكثر.
+" +
+        "الوردية اختيارية: صباحي أو مسائي. بلا وردية = بلا قيد وقت.",
+      [[{ text: "إلغاء", callback_data: "staff" }]],
+      mid,
+    );
   }
   if (cmd === "owners") {
     const v = await viewOwners();

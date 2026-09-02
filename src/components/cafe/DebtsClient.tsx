@@ -81,7 +81,7 @@ export function DebtsClient({ debtors, outstanding }: { debtors: Debtor[]; outst
           <button
             onClick={() => submit("credit")}
             disabled={busy}
-            className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-3 font-bold text-white transition hover:opacity-90 disabled:opacity-50"
+            className="flex items-center justify-center gap-1.5 rounded-xl bg-success px-4 py-3 font-bold text-white transition hover:opacity-90 disabled:opacity-50"
           >
             💵 تسديد دفعة
           </button>

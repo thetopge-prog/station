@@ -1,4 +1,4 @@
-import { requireAdmin } from "@/lib/cafe/auth";
+import { requireStaff } from "@/lib/cafe/auth";
 import { listEmployees, type EmployeeRow } from "@/lib/cafe/employee-actions";
 import { listAccounts, type AccountRow } from "@/lib/cafe/account-actions";
 import { EmployeesClient } from "@/components/cafe/EmployeesClient";
@@ -7,7 +7,10 @@ import { AccountsClient } from "@/components/cafe/AccountsClient";
 export const dynamic = "force-dynamic";
 
 export default async function EmployeesPage() {
-  await requireAdmin();
+  // المدير أو المطوّر. والمطوّر محورٌ مستقل عن الدور — من يُركّب النظام في محل
+  // جديد يحتاج أن يُنشئ حساباته قبل أن يوجد فيه مدير أصلاً.
+  const me = await requireStaff();
+  if (!me.isAdmin && !me.isDeveloper) throw new Error("هذه الصفحة للمدير أو المطوّر.");
   let employees: EmployeeRow[] = [];
   let accounts: AccountRow[] = [];
   try {

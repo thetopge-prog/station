@@ -751,7 +751,7 @@ function CashierItem({ item, category, onAdd }: { item: MenuItemView; category?:
         onClick={add}
         className={`touch-pos mt-2 flex min-h-11 items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-sm font-bold transition ${
           added
-            ? "bg-emerald-600 text-white"
+            ? "bg-success text-success-foreground"
             : "bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground"
         }`}
       >

@@ -25,14 +25,14 @@
   --popover: #ffffff;
   --popover-foreground: #2c1e16;
 
-  --primary: #ff6b00;
+  --primary: #c94f00;
   --primary-foreground: #ffffff;
 
   --secondary: #fff2e7; /* palest orange wash for chips and rails */
   --secondary-foreground: #2c1e16;
 
   --muted: #f7f1eb;
-  --muted-foreground: #7a6558;
+  --muted-foreground: #6e5a4d;
 
   --accent: #d4a373; /* kraft */
   --accent-foreground: #2c1e16;
@@ -40,7 +40,7 @@
   --destructive: #d92d20;
   --destructive-foreground: #ffffff;
 
-  --success: #128a4b; /* «جاهز» on the queue screen */
+  --success: #0f7d44; /* «جاهز» — ٥٫٢ على الأبيض، و٤٫٥ على أفتح وشاح */
   --success-foreground: #ffffff;
 
   --border: #f0e4d8;
@@ -339,76 +339,100 @@ body {
 
 /* ── ألوان الشفافية: تصحيح ما يكسره المُصغِّر ─────────────────────────────────
  *
- * `bg-primary/10` كان يُرسم برتقالياً **معتماً**، فيختفي `text-primary` فوقه.
- * الزر «إضافة» في شاشة الكاشير خرج بلا كتابة، وهو واحد من ٤٢ موضعاً بنفس
- * الشكل (نصّ بلون خلفيته) من أصل ٩١ موضعاً تستعمل الشفافية.
+ * تايلويند يُصدر لكل شفافية زوجاً: لون معتم احتياطي للمتصفحات القديمة، ثم
+ * color-mix الحقيقي. والمُصغِّر يدمج الاحتياطيات المتطابقة **ويبتلع الحقيقي**.
+ * فكل `bg-<رمز>/N` على لون متغيّر يُرسم معتماً بالكامل.
  *
- * السبب في الملف المبنيّ نفسه — قرأتُه:
+ * وقد رقّعتُ هذا مرّة بقائمة نسبٍ مكتوبة باليد — فبقيت `bg-destructive/5` خارجها،
+ * وهي بطاقة «استلام الصندوق»: لوح أحمر كامل بنصّ داكن فوقه لا يُقرأ. صوّرها
+ * صاحب المحل. القائمة اليدوية لم تكن إصلاحاً بل تأجيلاً.
  *
- *   .bg-primary,.bg-primary\/5 { background-color:var(--primary) }
- *   .bg-primary\/5             { background-color:color-mix(…5%…) }
- *   .bg-primary\/10            { background-color:var(--primary) }   ← الاحتياطي وحده
+ * فهذه الكتلة **مولَّدة من كل نسبة تستعملها الشيفرة فعلاً**، ممزوجة مسبقاً على
+ * خلفية الصفحة في كل وضع. ولون ثابت لا زوج له فلا شيء يدمجه — وهو أيضاً ما
+ * يحتاجه تلفزيون المحل، إذ لا يعرف كروميوم ٨٧ الـcolor-mix أصلاً.
  *
- * تايلويند يُصدر لكل شفافية زوجاً: قيمة معتمة احتياطية للمتصفحات القديمة، ثم
- * color-mix الحقيقية. والمُصغِّر يدمج الاحتياطيات المتطابقة ويبتلع الحقيقية —
- * بقيت color-mix واحدة في الملف كله. وهذا هو الفخّ نفسه المكتوب أعلاه مرّتين:
- * تصريحان لنفس الخاصية لا ينجوان معاً.
- *
- * فالعلاج ليس color-mix أخرى — بل **لون ثابت** لا زوج له ولا شيء يدمجه. وهو
- * أيضاً ما يحتاجه تلفزيون المحل: كروميوم ٨٧ لا يعرف color-mix أصلاً، فكان
- * سيرى المعتم حتى لو نجت القاعدة.
- *
- * الأرقام مزيج مسبق للبرتقالي على الأبيض، وللبرتقالي على البنّي في الليلي.
+ * ويحرسها اختبار: أي نسبة جديدة تُكتب غداً ولا تجد تدرّجها هنا تُسقط الاختبار.
  */
 :root {
-  --primary-ink: #c25100;
-  --primary-05: #fff5ee;
-  --primary-10: #ffeee2;
-  --primary-15: #ffe7d5;
-  --primary-20: #ffe0c8;
-  --kraft-10: #f9f1e9;
-  --kraft-25: #f0e2d3;
-  --kraft-30: #ecdccb;
-  --kraft-50: #e2cbb2;
-  --destructive-10: #fbe7e5;
-  --destructive-15: #f9dbd8;
-  --destructive-20: #f7cfcb;
+  --primary-05: #fcf4ee;
+  --primary-10: #faece2;
+  --primary-15: #f7e3d5;
+  --primary-20: #f4dac9;
+  --destructive-05: #fdf3f0;
+  --destructive-10: #fbe8e5;
+  --destructive-15: #f9deda;
+  --destructive-95: #db372b;
+  --secondary-20: #fffbf7;
+  --secondary-30: #fffaf5;
+  --secondary-40: #fff9f3;
+  --secondary-60: #fff6ef;
+  --secondary-70: #fff5ed;
+  --kraft-10: #fbf4ed;
+  --kraft-25: #f4e7d9;
+  --kraft-30: #f2e2d2;
+  --success-10: #e7f0e9;
+  --background-40: #fffdfb;
+  --background-60: #fffdfb;
+  --background-95: #fffdfb;
 }
 :root.dark {
-  --primary-ink: #ff9d4d;
-  --primary-05: #2a1b12;
-  --primary-10: #341f13;
-  --primary-15: #3e2415;
-  --primary-20: #482916;
-  --kraft-10: #2a2018;
-  --kraft-25: #34281d;
-  --kraft-30: #392c20;
-  --kraft-50: #47372a;
-  --destructive-10: #331a18;
-  --destructive-15: #3d1d1a;
-  --destructive-20: #47201c;
+  --primary-05: #25160a;
+  --primary-10: #311c0b;
+  --primary-15: #3c210c;
+  --primary-20: #48270d;
+  --destructive-05: #25140c;
+  --destructive-10: #2f180e;
+  --destructive-15: #3a1b11;
+  --destructive-95: #e5503c;
+  --secondary-20: #1f150c;
+  --secondary-30: #22170e;
+  --secondary-40: #241910;
+  --secondary-60: #291c13;
+  --secondary-70: #2c1e15;
+  --kraft-10: #22170e;
+  --kraft-25: #2e2114;
+  --kraft-30: #322417;
+  --success-10: dark;
+  --background-40: #1a1109;
+  --background-60: #1a1109;
+  --background-95: #1a1109;
 }
 
-/* !important لأن المُسطِّح يمنح قواعد تايلويند خصوصية مصطنعة
-   (‎:not(#\#)‎ أربع مرّات) لا تُهزَم بقاعدة عادية. */
+/* والتدرّجات الثابتة — **بلا شرط**، وهذا مقصود.
+ *
+ * جرّبتُ حصرها في @supports not (color-mix) لتبقى الأوشحة الحقيقية على
+ * المتصفحات الحديثة. ثم قِستُ، فوجدت الأمر يختلف باختلاف البناء نفسه:
+ *
+ *   بناء التطوير : .bg-destructive و .bg-destructive\/5 و \/10 … تُدمَج في قاعدة
+ *                  واحدة بالقيمة المعتمة، و color-mix **يختفي تماماً**
+ *   بناء الإنتاج : القاعدتان تبقيان، والحديث يأخذ color-mix ويرسم الوشاح
+ *
+ * فالمتصفح يدعم color-mix ولا توجد قاعدة تستعمله — و @supports not لا تنطبق،
+ * فيبقى المعتم. وهذا ما جعل بطاقة «استلام الصندوق» لوحاً أحمر كاملاً.
+ *
+ * فالاعتماد على أيّهما رهانٌ على وضع البناء. واللون الثابت يعطي النتيجة نفسها
+ * في الاثنين وعلى تلفزيون المحل — والفرق بين وشاح ٥٪ وتدرّج ممزوج مسبقاً على
+ * سطح مسطّح لا يراه أحد، أما الفرق بين نصّ يُقرأ ونصّ لا يُقرأ فرآه صاحب المحل.
+ *
+ * و!important لأن المُسطِّح يمنح قواعد تايلويند خصوصية مصطنعة لا تُهزَم بقاعدة عادية.
+ */
 .bg-primary\/5 { background-color: var(--primary-05) !important; }
 .bg-primary\/10 { background-color: var(--primary-10) !important; }
 .bg-primary\/15 { background-color: var(--primary-15) !important; }
 .bg-primary\/20 { background-color: var(--primary-20) !important; }
+.bg-destructive\/5 { background-color: var(--destructive-05) !important; }
 .bg-destructive\/10 { background-color: var(--destructive-10) !important; }
-
-/* kraft: اللون الذي اشتكى منه صاحب المحل.
-   bg-kraft/10 كان يُرسم #d4a373 كاملاً — لوحاً بنّياً لا وشاحاً بنسبة ١٠٪ —
-   فيختفي النص فوقه. نفس علّة bg-primary/N بالضبط، ولون آخر. */
+.bg-destructive\/15 { background-color: var(--destructive-15) !important; }
+.bg-destructive\/95 { background-color: var(--destructive-95) !important; }
+.bg-secondary\/20 { background-color: var(--secondary-20) !important; }
+.bg-secondary\/30 { background-color: var(--secondary-30) !important; }
+.bg-secondary\/40 { background-color: var(--secondary-40) !important; }
+.bg-secondary\/60 { background-color: var(--secondary-60) !important; }
+.bg-secondary\/70 { background-color: var(--secondary-70) !important; }
 .bg-kraft\/10 { background-color: var(--kraft-10) !important; }
 .bg-kraft\/25 { background-color: var(--kraft-25) !important; }
 .bg-kraft\/30 { background-color: var(--kraft-30) !important; }
-.bg-kraft\/50 { background-color: var(--kraft-50) !important; }
-
-/* برتقالي الكتابة أغمق من برتقالي العلامة.
-   #ff6b00 لون زرّ ممتاز ولون حبر رديء: على الأبيض ٢٫٨٥ وعلى الوشاح الفاتح
-   ٢٫٥٣. والزرّ لا يتأثّر — فهو text-primary-foreground أبيض على bg-primary.
-   الذي يتغيّر هو النص وحده، ويبقى برتقالياً. */
-.text-primary { color: var(--primary-ink) !important; }
-.bg-destructive\/15 { background-color: var(--destructive-15) !important; }
-.bg-destructive\/20 { background-color: var(--destructive-20) !important; }
+.bg-success\/10 { background-color: var(--success-10) !important; }
+.bg-background\/40 { background-color: var(--background-40) !important; }
+.bg-background\/60 { background-color: var(--background-60) !important; }
+.bg-background\/95 { background-color: var(--background-95) !important; }

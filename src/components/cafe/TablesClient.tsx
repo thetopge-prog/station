@@ -10,7 +10,7 @@ import { TableLayoutEditor } from "./TableLayoutEditor";
 const stateColor: Record<string, string> = {
   pending: "border-destructive bg-destructive/10 text-destructive",
   seated: "border-amber-500 bg-amber-500/15 text-amber-700 dark:text-amber-300",
-  free: "border-emerald-500/60 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+  free: "border-success/60 bg-success/10 text-success",
 };
 
 /** Live floor view with a positioned map + a drag editor to arrange tables. */
@@ -75,7 +75,7 @@ export function TablesClient() {
         <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
           <span className="rounded-full bg-destructive/10 px-2.5 py-1 text-destructive">🔴 معلق: {busy}</span>
           <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-amber-600 dark:text-amber-400">🟠 جالسون: {seated}</span>
-          <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-emerald-600 dark:text-emerald-400">🟢 متاحة: {free}</span>
+          <span className="rounded-full bg-success/10 px-2.5 py-1 text-success">🟢 متاحة: {free}</span>
           <span className="rounded-full bg-primary/10 px-2.5 py-1 text-primary">👥 الزبائن الآن: {guests}</span>
           <button onClick={() => setEditing(true)} className="flex items-center gap-1 rounded-full border border-border px-3 py-1 hover:bg-secondary">
             <Settings2 className="size-3.5" />
@@ -127,7 +127,7 @@ export function TablesClient() {
               <p className="text-2xl font-extrabold">{tableLabel(t.table)}</p>
               {t.state === "pending" && <p className="mt-1 text-sm font-bold text-destructive">🔴 معلق #{String(t.seq).padStart(3, "0")}</p>}
               {t.state === "seated" && <p className="mt-1 text-sm font-bold text-amber-600 dark:text-amber-400">🟠 دُفع · {t.freeInMin}د</p>}
-              {t.state === "free" && <p className="mt-1 text-sm font-semibold text-emerald-600 dark:text-emerald-400">🟢 متاحة</p>}
+              {t.state === "free" && <p className="mt-1 text-sm font-semibold text-success">🟢 متاحة</p>}
               {t.state !== "free" && (t.guests ?? 0) > 0 && <p className="text-xs text-muted-foreground">👥 {t.guests} زبون</p>}
             </div>
           ))}

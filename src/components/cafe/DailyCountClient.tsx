@@ -101,7 +101,7 @@ export function DailyCountClient({ initial, cashier }: { initial: DailyCount; ca
         {/* The one number this whole page exists to produce. */}
         <div
           className={`mt-4 rounded-2xl p-4 text-center text-xl font-black ${
-            diff === 0 ? "bg-emerald-600 text-white" : "bg-destructive text-white"
+            diff === 0 ? "bg-success text-success-foreground" : "bg-destructive text-white"
           }`}
         >
           {diff === 0 ? "مطابق ✓" : diff > 0 ? `زيادة ${formatIqdLabel(diff)}` : `عجز ${formatIqdLabel(-diff)}`}
@@ -234,7 +234,7 @@ export function DailyCountClient({ initial, cashier }: { initial: DailyCount; ca
                   </span>
                 </div>
                 {s.variance != null && (
-                  <div className={`text-xs font-bold ${s.variance === 0 ? "text-emerald-600" : "text-destructive"}`}>
+                  <div className={`text-xs font-bold ${s.variance === 0 ? "text-success" : "text-destructive"}`}>
                     {s.variance === 0 ? "مطابقة" : s.variance > 0 ? `زيادة ${formatIqdLabel(s.variance)}` : `عجز ${formatIqdLabel(-s.variance)}`}
                   </div>
                 )}
@@ -313,7 +313,7 @@ function Row({ label, value, tone }: { label: string; value: string; tone?: "plu
   return (
     <div className={`flex items-baseline justify-between gap-3 border-b border-dashed border-border py-1.5 last:border-0 ${tone === "big" ? "text-lg font-black" : ""}`}>
       <span className={tone === "big" ? "" : "text-muted-foreground"}>{label}</span>
-      <span className={`tabular-nums font-bold ${tone === "minus" ? "text-destructive" : tone === "plus" ? "text-emerald-600" : ""}`}>{value}</span>
+      <span className={`tabular-nums font-bold ${tone === "minus" ? "text-destructive" : tone === "plus" ? "text-success" : ""}`}>{value}</span>
     </div>
   );
 }

@@ -199,7 +199,7 @@ export function OffersClient({
                     {o.name_ar} <span className="text-sm text-muted-foreground">({formatIqdLabel(o.price)})</span>
                   </p>
                   <div className="flex items-center gap-2">
-                    <span className="font-extrabold text-emerald-600 dark:text-emerald-400">
+                    <span className="font-extrabold text-success">
                       {o.offer_price === 0 ? "مجاناً" : formatIqdLabel(o.offer_price)}
                     </span>
                     <button

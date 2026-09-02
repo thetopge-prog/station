@@ -206,6 +206,19 @@ export async function requireAdmin(): Promise<Staff> {
 }
 
 /**
+ * المدير أو المطوّر.
+ *
+ * المطوّر محورٌ مستقل عن الدور (0046): تشغيل مطعم وتركيبه عملان مختلفان. لكن
+ * إنشاء الحسابات يقع في الاثنين — فمن يُركّب محلاً جديداً يحتاج أن يصنع حساب
+ * مديره قبل أن يوجد مدير.
+ */
+export async function requireAdminOrDeveloper(): Promise<Staff> {
+  const staff = await requireStaff();
+  if (!staff.isAdmin && !staff.isDeveloper) throw new Error("هذه الصفحة للمدير أو المطوّر.");
+  return staff;
+}
+
+/**
  * Gate a screen on a job type. The owner passes every gate — a manager standing
  * at the expediter station during a rush should never be locked out of it.
  */

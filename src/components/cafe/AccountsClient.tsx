@@ -105,8 +105,8 @@ export function AccountsClient({ accounts }: { accounts: AccountRow[] }) {
 
       {/* shown once — there is no way to read a password back later */}
       {done && (
-        <div className="rounded-2xl border-2 border-emerald-500 bg-emerald-500/10 p-4">
-          <p className="font-black text-emerald-700 dark:text-emerald-300">تم إنشاء الحساب ✅ — اكتب هذه البيانات الآن</p>
+        <div className="rounded-2xl border-2 border-success bg-success/10 p-4">
+          <p className="font-black text-success">تم إنشاء الحساب ✅ — اكتب هذه البيانات الآن</p>
           <p className="mb-2 text-xs text-muted-foreground">لن تظهر كلمة المرور مرة أخرى؛ لا أحد يستطيع قراءتها لاحقاً.</p>
           <div className="grid gap-2 sm:grid-cols-2">
             <Field label="اسم الدخول" value={done.login} />
