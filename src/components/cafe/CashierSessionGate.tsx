@@ -62,7 +62,14 @@ export function CashierSessionGate({ children }: { children: React.ReactNode }) 
     setErr(null);
     try {
       const res = await openSession({ float: amount, fromSession, counted: fromSession ? amount : null });
-      if (!res.ok) return setErr(res.error);
+      if (!res.ok) {
+        setErr(res.error);
+        // ثم نُحدّث رغم الفشل. البطاقة تُبنى مرّةً عند فتح الصفحة وتبقى؛ فإن
+        // استلم زميلٌ الصندوق من جهاز آخر، بقيت هذه الشاشة تعرض تسليماً انتهى،
+        // وكل ضغطة تفشل ولا تُصحّح شيئاً. صاحب المحل ضغط مرّتين بمبلغين.
+        await refresh();
+        return;
+      }
       await refresh();
     } finally {
       setBusy(false);

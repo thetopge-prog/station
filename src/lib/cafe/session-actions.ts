@@ -83,6 +83,13 @@ export async function pendingHandover(): Promise<PendingHandover | null> {
  */
 function arabicError(msg: string): string {
   if (/session already open/i.test(msg)) return "لديك وردية مفتوحة بالفعل — أنهِها أولاً من زر «إنهاء الوردية».";
+  // الصندوق واحد للمحل. زميلك يحمله، فلا يفتحه أحد غيره حتى يُنهي ورديته —
+  // وهذه هي المحاسبة نفسها، لا عائقاً فيها.
+  const held = /drawer held by (.+)$/i.exec(msg);
+  if (held) return `الصندوق مع ${held[1].trim()} الآن — عليه إنهاء ورديته وتسليمه، ثم تستلمه أنت.`;
+  // شبكة أمان: لو نادى أحدٌ الدالةَ القديمة قبل ترحيل 0063، أو أضيف طريق ثالث
+  // يتجاوز الحارس، فلا يقرأ الكاشير اسم فهرس بالإنكليزية.
+  if (/cashier_sessions_one_open_shop|duplicate key/i.test(msg)) return "الصندوق مفتوح باسم كاشير آخر — عليه إنهاء ورديته أولاً.";
   if (/no employee record/i.test(msg)) return "حسابك غير مرتبط بموظف — راجع صفحة الموظفين.";
   if (/not staff/i.test(msg)) return "غير مصرّح — سجّل الدخول من جديد.";
   if (/already closed|session not found/i.test(msg)) return "هذه الوردية مُغلقة أصلاً — حدّث الصفحة.";
