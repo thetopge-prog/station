@@ -58,15 +58,20 @@ export function DailyCountClient({ initial, cashier }: { initial: DailyCount; ca
       const res = await buildDailyCountPrint(d.day);
       if (!res.ok) return setMsg(res.error);
       const out = await printJobs([res.job]);
-      setMsg(out.sent > 0 ? "أُرسل الشريط إلى طابعة الكاشير ✓" : "وكيل الطباعة لا يستجيب — استعمل «ورقة A4».");
+      // the agent's reason when it gave one — «printer is Offline» — not a guess
+      setMsg(out.sent > 0 ? "أُرسل الشريط إلى طابعة الكاشير ✓" : `${out.errors[0] ?? "وكيل الطباعة لا يستجيب"} — استعمل «ورقة A4».`);
       router.refresh();
+    } catch (e) {
+      // This had try/finally and no catch: any throw above vanished, the button
+      // spun and went quiet, and the owner reported «لا يعمل» with nothing to quote.
+      setMsg(e instanceof Error ? e.message : "تعذّرت الطباعة.");
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <div className="space-y-5 pb-16">
+    <div className="space-y-5 pb-16 print:p-8">
       <header className="print:hidden">
         <h1 className="flex items-center gap-2 text-2xl font-black">
           <ClipboardCheck className="size-7 text-primary" />

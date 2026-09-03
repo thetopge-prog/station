@@ -247,8 +247,11 @@ body {
    Scoped with :has() so ONLY pages that render a receipt hijack printing —
    other pages (e.g. the QR-sticker sheet) print normally. */
 @media print {
+  /* صفر لا ٨ ملم: كروميوم يطبع تاريخ المتصفح في الترويسة ورابط الصفحة في
+     التذييل ما دام للصفحة هامش، ويُسقطهما عند الصفر فقط. الحشوة تنتقل إلى
+     الصفحة نفسها (print:p-8 على جذر الجرد). خرج الجرد بهما وسأل صاحب المحل. */
   @page {
-    margin: 8mm;
+    margin: 0;
   }
   body:has(.receipt-print) * {
     visibility: hidden;

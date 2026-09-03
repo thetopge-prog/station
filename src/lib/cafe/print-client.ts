@@ -32,6 +32,8 @@ export type PrintOutcome = {
   agent: boolean;
   /** printers with no host and no share — configured by nobody, so nothing printed */
   skipped: string[];
+  /** what the agent said about each job it refused — «printer offline», «paper out» — for the screen */
+  errors: string[];
 };
 
 /** Is the local agent running? Cached per page load; used to warn the cashier. */
@@ -66,7 +68,7 @@ function writeQueue(jobs: PrintJob[]) {
   }
 }
 
-async function postJob(job: PrintJob): Promise<boolean> {
+async function postJob(job: PrintJob): Promise<{ ok: boolean; error?: string }> {
   const payload = { method: "POST" as const, headers: { "Content-Type": "application/json" }, body: JSON.stringify(job) };
   try {
     // The agent sends Access-Control-Allow-Origin: * and answers preflights, so
@@ -74,15 +76,20 @@ async function postJob(job: PrintJob): Promise<boolean> {
     // away — «printed» then meant only «the request left the browser», and a
     // ticket the agent rejected looked exactly like one that came out on paper.
     const res = await fetch(`${AGENT}/print`, payload);
-    return res.ok;
+    if (res.ok) return { ok: true };
+    // The agent puts the reason in the body — «printer 'POS-23' is Offline».
+    // It used to be dropped here, so the till said «لم تستجب» for a printer
+    // that had answered, in detail, what was wrong with it.
+    const text = (await res.text().catch(() => "")).trim();
+    return { ok: false, error: text || `HTTP ${res.status}` };
   } catch {
     // An agent too old to answer a preflight would otherwise stop printing
     // entirely. Blind send, as before — worse information, but not worse paper.
     try {
       await fetch(`${AGENT}/print`, { ...payload, mode: "no-cors" });
-      return true;
+      return { ok: true };
     } catch {
-      return false;
+      return { ok: false, error: "وكيل الطباعة لا يستجيب على هذا الجهاز." };
     }
   }
 }
@@ -104,6 +111,7 @@ export async function printJobs(jobs: PrintJob[]): Promise<PrintOutcome> {
 
   const failed: PrintJob[] = [];
   const skipped: string[] = [];
+  const errors: string[] = [];
   let sent = 0;
 
   for (const job of pending) {
@@ -117,13 +125,16 @@ export async function printJobs(jobs: PrintJob[]): Promise<PrintOutcome> {
       skipped.push(job.printerName);
       continue;
     }
-    const ok = await postJob(job);
-    if (ok) sent += job.copies;
-    else failed.push({ ...job, queuedAt: job.queuedAt ?? Date.now() });
+    const r = await postJob(job);
+    if (r.ok) sent += job.copies;
+    else {
+      failed.push({ ...job, queuedAt: job.queuedAt ?? Date.now() });
+      if (r.error) errors.push(`${job.printerName}: ${r.error}`);
+    }
   }
 
   writeQueue(failed);
-  return { sent, queued: failed.length, agent: failed.length === 0 || sent > 0, skipped };
+  return { sent, queued: failed.length, agent: failed.length === 0 || sent > 0, skipped, errors };
 }
 
 /** Open the cash drawer without printing (kept from the cafe build). */

@@ -149,7 +149,7 @@ export function CashierClient({
           kickDrawer: drawerKickRef.current && payMethodRef.current === "cash",
         });
         if (cancelled) return;
-        const out = jobs.length ? await printJobs(jobs) : { sent: 0, queued: 0, agent: false, skipped: [] };
+        const out = jobs.length ? await printJobs(jobs) : { sent: 0, queued: 0, agent: false, skipped: [], errors: [] };
         if (cancelled) return;
         // Nothing reached a printer at all → fall back to the browser. `sent`
         // used to be enough on its own, but it sums across ALL printers, so a
@@ -161,7 +161,8 @@ export function CashierClient({
         // in exactly the shops most likely to need it.
         const warn = [
           out.skipped.length ? `لم تُضبط طابعة: ${[...new Set(out.skipped)].join("، ")}` : "",
-          out.queued > 0 ? `${out.queued} تذكرة لم تُطبع — الطابعة غير متاحة.` : "",
+          // the agent's own words when it has them: «Offline», «PaperOut» — not a guess
+          out.queued > 0 ? `${out.queued} تذكرة لم تُطبع — ${out.errors[0] ?? "الطابعة غير متاحة."}` : "",
           unrouted.length ? `لا توجد محطة لـ: ${unrouted.join("، ")}` : "",
         ].filter(Boolean);
         if (warn.length) setPrintWarn(warn.join(" · "));
@@ -189,7 +190,7 @@ export function CashierClient({
       }
       const out = await printJobs([job]);
       // out.sent يعني الآن «الوكيل قَبِلها» فعلاً، لا «غادرت المتصفح»
-      setReprint(out.sent > 0 ? `طُبعت ${copies} نسخة ✓` : "الطابعة لم تستجب — جرّب مرة أخرى.");
+      setReprint(out.sent > 0 ? `طُبعت ${copies} نسخة ✓` : out.errors[0] ?? "الطابعة لم تستجب — جرّب مرة أخرى.");
     } catch {
       setReprint("تعذّرت الطباعة.");
     }

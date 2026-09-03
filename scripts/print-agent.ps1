@@ -23,7 +23,14 @@ param(
   # The Windows printer NAME. Preferred over the share: raw bytes go straight to
   # the spooler, so no SMB, no loopback, no share permissions in the path.
   [string]$PrinterName = "",
-  [switch]$Install
+  [switch]$Install,
+  # Diagnostic: render a doc (JSON file) to a byte file and exit. No printer,
+  # no port. Lets the raster be inspected on any machine, without the shop.
+  # NOT $Out: variable names are case-insensitive, and a typed [string] parameter
+  # at script scope would silently coerce the handler's `$out = Render-Doc ...`
+  # byte array into a string. The log caught exactly that on its first run.
+  [string]$RenderOnly = "",
+  [string]$OutFile = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -42,6 +49,18 @@ if ($Install) {
   Write-Host "Print agent installed - starts automatically with Windows."
   Start-ScheduledTask -TaskName "StationPrintAgent"
   exit 0
+}
+
+# The agent runs hidden. Everything it would have said to a console goes here
+# too, so a fault that has been happening for a week can be read in a minute.
+$LogPath = Join-Path $env:ProgramData "Station\print-agent.log"
+function Log([string]$Msg) {
+  try {
+    $dir = Split-Path $LogPath
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
+    # one line per entry: .NET exception text carries its own newlines
+    Add-Content -Path $LogPath -Value ((Get-Date -Format "yyyy-MM-dd HH:mm:ss") + "  " + ($Msg -replace "\r?\n", " ")) -Encoding UTF8
+  } catch { }
 }
 
 # ESC p 0 25 250 — the drawer solenoid pulse, same bytes the cafe build used.
@@ -119,6 +138,32 @@ namespace Station {
 '@
 }
 
+<#
+  The spooler accepts a job for a paused or offline printer and keeps it for
+  ever - and "accepted" reached the till as "printed". So the printer is asked
+  how it is before we say anything, and the queue is asked afterwards whether
+  the job actually left. Transient states (Printing, Busy, WarmingUp) are not
+  faults: the second copy arrives while the first is still going.
+#>
+$PRINTER_FAULTS = @("Offline", "Paused", "Error", "PaperJam", "PaperOut", "PaperProblem", "DoorOpen",
+                    "UserInterventionRequired", "NotAvailable", "OutOfMemory", "PendingDeletion")
+
+function Assert-PrinterReady([string]$Name) {
+  $p = $null
+  try { $p = Get-Printer -Name $Name -ErrorAction Stop } catch { return }   # unknown is not a fault
+  $bad = @()
+  if ($p.WorkOffline) { $bad += "set to 'Use Printer Offline'" }
+  if ($p.PrinterStatus -and ([string]$p.PrinterStatus) -in $PRINTER_FAULTS) { $bad += [string]$p.PrinterStatus }
+  if ($bad.Count) { throw ("printer '" + $Name + "' is " + ($bad -join ", ") + " - fix it in Windows > Printers & scanners") }
+}
+
+function Assert-JobLeft([string]$Name) {
+  Start-Sleep -Milliseconds 700
+  $stuck = @(Get-PrintJob -PrinterName $Name -ErrorAction SilentlyContinue |
+    Where-Object { $_.DocumentName -eq "Station" -and ([string]$_.JobStatus) -match "Error|Offline|PaperOut|Paused|UserIntervention|Blocked" })
+  if ($stuck.Count) { throw ("printer '" + $Name + "' took the job but holds it: " + [string]$stuck[0].JobStatus) }
+}
+
 function Send-Share([string]$Share, [byte[]]$Bytes) {
   $errs = @()
 
@@ -145,8 +190,10 @@ function Send-Share([string]$Share, [byte[]]$Bytes) {
   if (-not $name -and $PrinterName -and (-not $Share -or $Share -eq $DrawerShare)) { $name = $PrinterName }
 
   if ($name) {
-    try { [Station.RawPrint]::Send($name, $Bytes); return }
-    catch { $errs += ("spooler '" + $name + "': " + $_.Exception.Message) }
+    Assert-PrinterReady $name
+    try { [Station.RawPrint]::Send($name, $Bytes) }
+    catch { $errs += ("spooler '" + $name + "': " + $_.Exception.Message); $name = $null }
+    if ($name) { Assert-JobLeft $name; return }
   } else {
     $errs += ("no local printer matches '" + $Share + "' by share name or printer name")
   }
@@ -235,9 +282,6 @@ function Render-Doc([object]$Doc) {
   $bytesPerRow = [int]($W / 8)
   $out = New-Object System.Collections.Generic.List[byte]
   $out.AddRange([byte[]](0x1b, 0x40))                       # init
-  $out.AddRange([byte[]](0x1d, 0x76, 0x30, 0x00))
-  $out.Add([byte]($bytesPerRow -band 0xFF)); $out.Add([byte](($bytesPerRow -shr 8) -band 0xFF))
-  $out.Add([byte]($total -band 0xFF));       $out.Add([byte](($total -shr 8) -band 0xFF))
 
   $rect = New-Object System.Drawing.Rectangle(0, 0, $W, $total)
   $data = $bmp.LockBits($rect, [System.Drawing.Imaging.ImageLockMode]::ReadOnly, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
@@ -246,20 +290,38 @@ function Render-Doc([object]$Doc) {
   [System.Runtime.InteropServices.Marshal]::Copy($data.Scan0, $buf, 0, $buf.Length)
   $bmp.UnlockBits($data)
 
-  for ($row = 0; $row -lt $total; $row++) {
-    $o = $row * $stride
-    for ($b = 0; $b -lt $bytesPerRow; $b++) {
-      $v = 0
-      for ($bit = 0; $bit -lt 8; $bit++) {
-        $x = $b * 8 + $bit
-        # blue channel is enough on a black-and-white bitmap; < 128 is ink
-        if ($buf[$o + $x * 4] -lt 128) { $v = $v -bor (0x80 -shr $bit) }
+  # In bands, never one block the height of the slip.
+  #
+  # Cheap POS80 clones accept a GS v 0 block up to their line buffer and DROP
+  # anything taller, silently. So the short expediter ticket came out and the
+  # customer receipt and the daily strip did not - and Windows, which only
+  # sees the spooler, reported all three as printed. 240 rows is under the
+  # smallest buffer known; it is what every printer driver does anyway.
+  $BAND = 240
+  for ($top = 0; $top -lt $total; $top += $BAND) {
+    $h = [Math]::Min($BAND, $total - $top)
+    $out.AddRange([byte[]](0x1d, 0x76, 0x30, 0x00))
+    $out.Add([byte]($bytesPerRow -band 0xFF)); $out.Add([byte](($bytesPerRow -shr 8) -band 0xFF))
+    $out.Add([byte]($h -band 0xFF));           $out.Add([byte](($h -shr 8) -band 0xFF))
+    for ($row = $top; $row -lt ($top + $h); $row++) {
+      $o = $row * $stride
+      for ($b = 0; $b -lt $bytesPerRow; $b++) {
+        $v = 0
+        for ($bit = 0; $bit -lt 8; $bit++) {
+          $x = $b * 8 + $bit
+          # blue channel is enough on a black-and-white bitmap; < 128 is ink
+          if ($buf[$o + $x * 4] -lt 128) { $v = $v -bor (0x80 -shr $bit) }
+        }
+        $out.Add([byte]$v)
       }
-      $out.Add([byte]$v)
     }
   }
   $bmp.Dispose()
-  return $out
+  # The comma is the fix. PowerShell unrolls a List on return, so the caller
+  # received 21,690 loose bytes as Object[]; its $out.AddRange then fell back to
+  # member enumeration and failed on the first [Byte]. Every doc job died there,
+  # and the spooler was never even asked. Wrapped, the List arrives whole.
+  return ,$out
 }
 
 <#
@@ -281,13 +343,21 @@ function Qr-Bytes([string]$Data) {
   $out.AddRange([byte[]](0x1d, 0x28, 0x6b, [byte]($len -band 0xFF), [byte](($len -shr 8) -band 0xFF), 0x31, 0x50, 0x30))
   $out.AddRange($d)
   $out.AddRange([byte[]](0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x51, 0x30))        # print
-  return $out
+  return ,$out
 }
 
 function Send-Bytes($TargetHost, $TargetPort, $Share, [byte[]]$Bytes) {
   if ($TargetHost) { Send-Tcp $TargetHost $TargetPort $Bytes }
   elseif ($Share) { Send-Share $Share $Bytes }
   else { throw "printer not configured" }
+}
+
+if ($RenderOnly) {
+  $doc = (Get-Content -Raw -Encoding UTF8 $RenderOnly) | ConvertFrom-Json
+  $bytes = (Render-Doc $doc).ToArray()
+  [System.IO.File]::WriteAllBytes($OutFile, $bytes)
+  Write-Host ("rendered {0} bytes -> {1}" -f $bytes.Length, $OutFile)
+  exit 0
 }
 
 $listener = New-Object System.Net.HttpListener
@@ -377,7 +447,9 @@ while ($listener.IsListening) {
         for ($i = 0; $i -lt $copies; $i++) {
           Send-Bytes $job.host $portToUse $job.share $bytes
         }
-        Write-Host ("printed: {0} x{1}" -f $job.printerName, $copies)
+        $line = ("printed: {0} x{1} {2}B -> {3}" -f $job.printerName, $copies, $bytes.Length, ($(if ($job.host) { $job.host } else { $job.share })))
+        Write-Host $line
+        Log $line
       }
       default {
         $res.StatusCode = 404
@@ -396,6 +468,7 @@ while ($listener.IsListening) {
     # body is how a printing fault stays a mystery for a week.
     $msg = $_.Exception.Message
     Write-Host ("print error: {0}" -f $msg) -ForegroundColor Yellow
+    Log ("print error: " + $msg)
     try {
       $res.StatusCode = 500
       $out = [System.Text.Encoding]::UTF8.GetBytes($msg)
