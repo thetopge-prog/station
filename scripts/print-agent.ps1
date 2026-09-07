@@ -257,9 +257,16 @@ function Render-Doc([object]$Doc) {
     $font = New-Object System.Drawing.Font($fam, ($base * [double]$ln.h), $style, [System.Drawing.GraphicsUnit]::Pixel)
     $text = [string]$ln.t
     if ($text -eq "") { $text = " " }
-    $sz = $pg.MeasureString($text, $font, $W)
+    $two = ($null -ne $ln.r) -and ("" -ne [string]$ln.r)
+    if ($two) {
+      # label and value measured on their own: the padded form wrapped or
+      # clipped under a proportional face, and the price was what got lost
+      $sz = $pg.MeasureString([string]$ln.l, $font)
+    } else {
+      $sz = $pg.MeasureString($text, $font, $W)
+    }
     $h = [int][Math]::Ceiling($sz.Height)
-    $items += [pscustomobject]@{ text = $text; font = $font; h = $h; align = [string]$ln.align }
+    $items += [pscustomobject]@{ text = $text; l = [string]$ln.l; r = [string]$ln.r; two = $two; font = $font; h = $h; align = [string]$ln.align }
     $total += $h
   }
   $pg.Dispose(); $probe.Dispose()
@@ -285,7 +292,17 @@ function Render-Doc([object]$Doc) {
       default { $fmt.Alignment = [System.Drawing.StringAlignment]::Near }
     }
     $rect = New-Object System.Drawing.RectangleF(0, $y, $W, $it.h)
-    $g.DrawString($it.text, $it.font, $black, $rect, $fmt)
+    if ($it.two) {
+      $vw = [int][Math]::Ceiling($g.MeasureString($it.r, $it.font).Width) + 6
+      $fmt.Alignment = [System.Drawing.StringAlignment]::Near     # RTL: the right edge
+      $fmt.Trimming  = [System.Drawing.StringTrimming]::EllipsisCharacter
+      $g.DrawString($it.l, $it.font, $black, (New-Object System.Drawing.RectangleF($vw, $y, ($W - $vw), $it.h)), $fmt)
+      $fmt.Trimming  = [System.Drawing.StringTrimming]::None
+      $fmt.Alignment = [System.Drawing.StringAlignment]::Far      # RTL: the left edge
+      $g.DrawString($it.r, $it.font, $black, $rect, $fmt)
+    } else {
+      $g.DrawString($it.text, $it.font, $black, $rect, $fmt)
+    }
     $y += $it.h
     $it.font.Dispose()
   }

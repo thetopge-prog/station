@@ -133,7 +133,22 @@ export function encodeText(text: string, codepage: Codepage): number[] {
  * slots, and no amount of choosing between them was ever going to produce
  * Arabic.
  */
-export type DocLine = { t: string; align: "r" | "c" | "l"; bold: boolean; w: number; h: number };
+export type DocLine = {
+  t: string;
+  align: "r" | "c" | "l";
+  bold: boolean;
+  w: number;
+  h: number;
+  /**
+   * Two-column line: label on the right, value on the left, drawn as two
+   * separate runs. `t` still carries the space-padded form, so an agent that
+   * predates this prints the old way — spaces assume a monospace face, and the
+   * agent draws Tahoma, which is how the amounts on the first real receipt
+   * were clipped off the left edge («50» for 6,750).
+   */
+  l?: string;
+  r?: string;
+};
 export type TicketDoc = { lines: DocLine[]; qr: string | null; kick: boolean };
 
 /** Small builder so the layout below reads like the slip it produces. */
@@ -191,7 +206,9 @@ class Slip {
    * right-hand side; padding goes in the middle where it belongs.
    */
   pair(start: string, end: string) {
-    return this.line(pairLine(start, end, this.cols));
+    const padded = pairLine(start, end, this.cols);
+    this.doc.push({ t: padded, l: start, r: end, align: this.align, bold: this.isBold, w: this.w, h: this.h });
+    return this.text(padded).raw(0x0a);
   }
   done(): Uint8Array {
     return new Uint8Array(this.bytes);

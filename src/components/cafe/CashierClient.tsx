@@ -18,7 +18,6 @@ import { DutyRoster } from "./DutyRoster";
 import { ShortageAlert } from "./ShortageAlert";
 import { customerForCall, type LastLine } from "@/lib/cafe/call-actions";
 import { FridayPrayerNotice } from "./FridayPrayerNotice";
-import { ShiftBar } from "./ShiftBar";
 
 type Line = {
   key: string;
@@ -321,11 +320,8 @@ export function CashierClient({
     // minmax(0,1fr) + min-w-0: without them the scrollable pills row's intrinsic
     // width blows the grid past narrow POS screens (1024px) → horizontal cut.
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
-      {/* full width: the expediter on shift is printed on every assembly
-          ticket, so choosing them is a start-of-service step, not a setting */}
-      <div className="lg:col-span-2">
-        <ShiftBar />
-      </div>
+      {/* «اختيار المجهّز» كان هنا. أُزيل بطلب صاحب المحل: في هذا المطعم
+          التجهيز يجري في المطبخ على تذكرة كاملة، ولا أحد يُعيَّن من الكاشير. */}
       <FridayPrayerNotice />
       {/* items */}
       <section className="min-w-0 space-y-4">
