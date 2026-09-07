@@ -134,12 +134,17 @@ export function CashierClient({
     void kickDrawerAgent();
   }
 
-  // Printing has two paths and always takes the better one available:
-  //  1. the local print agent → the full 5-printer split (receipt + each busy
-  //     station + the expediter assembly ticket)
-  //  2. no agent → window.print() puts the customer receipt on the default
-  //     printer, exactly as the cafe build did
-  // Neither path can block the sale: this runs AFTER checkout has committed.
+  // Printing on checkout goes through the local agent, and ONLY the agent: the
+  // customer receipt, each busy station, and the expediter ticket - two slips
+  // in this shop, where the station printers are off.
+  //
+  // There used to be a second path: any failure fell back to window.print(),
+  // which under --kiosk-printing goes to the Windows default printer - the very
+  // same POS80. So every hiccup the agent reported (including a false one) put
+  // a THIRD slip on the counter, a second customer receipt, and the owner
+  // asked for two. Nothing automatic prints through the browser any more; the
+  // «طباعة المتصفح» button below is there for the cashier who wants it.
+  // Nothing here can block the sale: this runs AFTER checkout has committed.
   useEffect(() => {
     if (!receipt?.orderId) return;
     let cancelled = false;
@@ -151,10 +156,6 @@ export function CashierClient({
         if (cancelled) return;
         const out = jobs.length ? await printJobs(jobs) : { sent: 0, queued: 0, agent: false, skipped: [], errors: [] };
         if (cancelled) return;
-        // Nothing reached a printer at all → fall back to the browser. `sent`
-        // used to be enough on its own, but it sums across ALL printers, so a
-        // grill ticket succeeding hid a receipt printer that was never sent to.
-        if (out.sent === 0 || out.skipped.length > 0) window.print();
         // All three warnings, not one of them. These were an if/else chain, so a
         // shop with any permanently-unrouted category (sauces legitimately are)
         // could NEVER see «تذكرة لم تُطبع» — the printer-down warning was dead
@@ -167,7 +168,7 @@ export function CashierClient({
         ].filter(Boolean);
         if (warn.length) setPrintWarn(warn.join(" · "));
       } catch {
-        if (!cancelled) window.print();
+        if (!cancelled) setPrintWarn("تعذّرت الطباعة — استعمل «طباعة المتصفح» أو أعد طباعة الإيصال.");
       }
     }, 120);
     return () => {
@@ -662,13 +663,12 @@ export function CashierClient({
         </div>
       )}
 
-      {/* Print-only slips.
-          With the local print agent running, buildOrderJobs sends the full
-          five-printer split and this never fires. Without it — which is the
-          state until the printers are wired — window.print() is the only output,
-          so BOTH slips are rendered: the customer's receipt and the assembly
-          ticket the expediter scans. One printer, two slips, and the scan
-          workflow works with no hardware at all. */}
+      {/* Print-only slips, for the «طباعة المتصفح» button and nothing else.
+          Checkout prints through the agent alone; the browser never prints on
+          its own any more (see the effect above). When a cashier does press the
+          button, BOTH slips are rendered — the customer's receipt and the
+          assembly ticket the expediter scans — so a shop with no agent wired
+          still gets a working scan workflow from one printer. */}
       {receipt && (
         <>
           <Receipt data={receipt} />

@@ -158,10 +158,21 @@ function Assert-PrinterReady([string]$Name) {
 }
 
 function Assert-JobLeft([string]$Name) {
-  Start-Sleep -Milliseconds 700
-  $stuck = @(Get-PrintJob -PrinterName $Name -ErrorAction SilentlyContinue |
-    Where-Object { $_.DocumentName -eq "Station" -and ([string]$_.JobStatus) -match "Error|Offline|PaperOut|Paused|UserIntervention|Blocked" })
-  if ($stuck.Count) { throw ("printer '" + $Name + "' took the job but holds it: " + [string]$stuck[0].JobStatus) }
+  # Wait for the job to LEAVE, up to three seconds. The first version looked
+  # once, 700ms in, and called "Blocked" a fault - a state a USB spooler passes
+  # through on its way to printing. So the paper came out, the agent said 500,
+  # the till printed a second receipt through the browser, and the "failed" job
+  # was queued to print AGAIN on the next sale. Three slips where two were due.
+  # A job still queued after three seconds in a definite fault state is the
+  # only thing reported here; a slow printer is not a broken one.
+  $deadline = (Get-Date).AddSeconds(3)
+  do {
+    Start-Sleep -Milliseconds 300
+    $mine = @(Get-PrintJob -PrinterName $Name -ErrorAction SilentlyContinue | Where-Object { $_.DocumentName -eq "Station" })
+    if ($mine.Count -eq 0) { return }
+  } while ((Get-Date) -lt $deadline)
+  $bad = @($mine | Where-Object { ([string]$_.JobStatus) -match "Error|Offline|PaperOut|PaperJam|Paused|UserIntervention" })
+  if ($bad.Count) { throw ("printer '" + $Name + "' took the job but holds it: " + [string]$bad[0].JobStatus) }
 }
 
 function Send-Share([string]$Share, [byte[]]$Bytes) {
