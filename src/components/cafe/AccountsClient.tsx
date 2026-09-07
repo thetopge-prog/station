@@ -23,7 +23,7 @@ import { CopyButton } from "./CopyButton";
 
 const STATIONS = [
   { en: "pizza_oven", ar: "فرن البيتزا" },
-  { en: "burger", ar: "مطبخ البرجر والفرايس" },
+  { en: "burger", ar: "مطبخ البرجر والفرايز" },
   { en: "grill", ar: "الشواية" },
 ];
 

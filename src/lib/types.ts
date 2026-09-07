@@ -40,6 +40,12 @@ export type Database = {
         Update: Partial<{ ended_at: string | null; auto_closed: boolean }>;
         Relationships: [];
       };
+      manual_daily_sales: {  // 0065 — مبيعات يوم سابق، رقم واحد لكل يوم
+        Row: { business_day: string; cash: number; card: number; note: string | null; created_by: string | null; created_at: string; updated_at: string };
+        Insert: { business_day: string; cash?: number; card?: number; note?: string | null; created_by?: string | null; updated_at?: string };
+        Update: Partial<{ cash: number; card: number; note: string | null; created_by: string | null; updated_at: string }>;
+        Relationships: [];
+      };
       shift_exceptions: {
         Row: { employee_id: string; work_day: string; reason: string | null; by_employee: string | null; created_at: string };
         Insert: { employee_id: string; work_day: string; reason?: string | null; by_employee?: string | null };

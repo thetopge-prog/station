@@ -5,7 +5,7 @@ import { groupPrinters, type ConnectRow } from "./PrinterConnect";
 const shop: ConnectRow[] = [
   { id: "till", name_ar: "طابعة الكاشير", kind: "receipt", station_name: null, share: "POS80", host: null, is_active: true },
   { id: "pizza", name_ar: "فرن البيتزا", kind: "station", station_name: "فرن البيتزا", share: null, host: null, is_active: false },
-  { id: "burger", name_ar: "مطبخ البرجر والفرايس", kind: "station", station_name: "محطة البرجر", share: null, host: null, is_active: false },
+  { id: "burger", name_ar: "مطبخ البرجر والفرايز", kind: "station", station_name: "محطة البرجر", share: null, host: null, is_active: false },
   { id: "grill", name_ar: "الشواية", kind: "station", station_name: "الشواية", share: null, host: null, is_active: false },
   { id: "exp", name_ar: "تذكرة التجهيز", kind: "expediter", station_name: null, share: "POS80", host: null, is_active: true },
 ];

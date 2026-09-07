@@ -199,6 +199,8 @@ function MovementSheet({
   const [qty, setQty] = useState("");
   const [cost, setCost] = useState("");
   const [expiry, setExpiry] = useState("");
+  // يوم الاستلام الفعلي — فارغ = اليوم. لمشتريات الأيام التي سبقت الاعتماد.
+  const [receivedOn, setReceivedOn] = useState("");
   const [supplier, setSupplier] = useState("");
   const [reason, setReason] = useState<"waste" | "expired" | "consume" | "adjust">("waste");
   const [busy, setBusy] = useState(false);
@@ -217,6 +219,7 @@ function MovementSheet({
           qty: n,
           unitCost: Number(cost) || 0,
           expiry: expiry || null,
+          receivedOn: receivedOn || null,
           supplier,
         });
         if (!res.ok) return setErr(res.error);
@@ -277,6 +280,9 @@ function MovementSheet({
                 {/* native date input: no picker library, and it speaks Arabic
                     locale + RTL on every device the shop owns */}
                 <input type="date" value={expiry} onChange={(e) => setExpiry(e.target.value)} dir="ltr" className={FIELD} />
+              </Field>
+              <Field label="تاريخ الاستلام (اتركه فارغاً لليوم)">
+                <input type="date" value={receivedOn} max={new Date().toISOString().slice(0, 10)} onChange={(e) => setReceivedOn(e.target.value)} dir="ltr" className={FIELD} />
               </Field>
               <Field label="المورّد (اختياري)">
                 <input value={supplier} onChange={(e) => setSupplier(e.target.value)} className={FIELD} />

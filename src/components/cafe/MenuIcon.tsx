@@ -39,7 +39,7 @@ export function iconKindFor(itemName: string, categoryName?: string): IconKind {
   if (n === "برجر") return "burger";
   if (n === "كنتاكي") return "bucket";
   if (n === "زنجر") return "zinger";
-  if (n === "فرايس") return "fries";
+  if (n === "فرايز") return "fries";
   if (n === "صوصات") return "sauce";
 
   // pizza
@@ -66,7 +66,7 @@ export function iconKindFor(itemName: string, categoryName?: string): IconKind {
   if (n.includes("خبز")) return "garlicBread";
   if (n.includes("كرلي")) return "curly";
   if (n.includes("ويدجز")) return "wedges";
-  if (n.includes("فنكر") || c.includes("فرايس")) return "fries";
+  if (n.includes("فنكر") || c.includes("فرايز")) return "fries";
 
   // sauces & drinks
   if (c.includes("صوص") || n.includes("صوص")) return "sauce";

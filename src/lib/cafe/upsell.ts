@@ -11,7 +11,7 @@ import type { MenuCategoryView, MenuItemView } from "./menu-data";
 /** categories that are a meal on their own */
 const MAINS = ["بيتزا", "برجر", "كنتاكي", "زنجر"];
 /** what goes alongside one */
-const SIDES = ["فرايس"];
+const SIDES = ["فرايز"];
 const SAUCES = ["صوصات"];
 
 export type Upsell = {

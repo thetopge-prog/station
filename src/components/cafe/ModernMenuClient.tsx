@@ -13,7 +13,7 @@ import { StationMark } from "./Logo";
  *
  *  The cafe build picked a per-card effect from the category name: steam over
  *  hot drinks, frost + droplets over iced ones, a float over pastries. Station's
- *  categories (بيتزا/برجر/كنتاكي/زنجر/فرايس/صوصات) match none of those, so every
+ *  categories (بيتزا/برجر/كنتاكي/زنجر/فرايز/صوصات) match none of those, so every
  *  item fell through to "cold" and rendered blue condensation running down a
  *  burger. Deleted here exactly as it was in TabletMenuClient — the motion now
  *  lives in MenuIcon, which knows what the item actually is. */

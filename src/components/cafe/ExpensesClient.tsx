@@ -9,6 +9,9 @@ import {
   type ExpenseRow,
   type RegisterClosure,
   type MonthlyCost,
+  saveManualSale,
+  deleteManualSale,
+  type ManualSale,
 } from "@/lib/cafe/expense-actions";
 import { PriceInput } from "./PriceInput";
 import { formatIqdLabel } from "@/lib/cafe/money";
@@ -22,18 +25,46 @@ export function ExpensesClient({
   closures,
   monthlyCosts,
   isAdmin,
+  manualSales = [],
 }: {
   expenses: ExpenseRow[];
   closures: { today: RegisterClosure | null; previous: RegisterClosure | null };
   monthlyCosts: MonthlyCost[];
   isAdmin: boolean;
+  /** مبيعات الأيام التي سبقت الاعتماد — للإدارة وحدها */
+  manualSales?: ManualSale[];
 }) {
   const router = useRouter();
   const [amount, setAmount] = useState(0);
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [note, setNote] = useState("");
+  // فارغ = اليوم. يُملأ فقط لمصروف صُرف قبل الاعتماد.
+  const [expenseDay, setExpenseDay] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+
+  // مبيعات يوم سابق (admin)
+  const [msDay, setMsDay] = useState("");
+  const [msCash, setMsCash] = useState(0);
+  const [msCard, setMsCard] = useState(0);
+  const [msNote, setMsNote] = useState("");
+  const [msBusy, setMsBusy] = useState(false);
+  const [msMsg, setMsMsg] = useState<string | null>(null);
+
+  async function submitManualSale(e: React.FormEvent) {
+    e.preventDefault();
+    setMsBusy(true);
+    setMsMsg(null);
+    const res = await saveManualSale({ businessDay: msDay, cash: msCash, card: msCard, note: msNote });
+    setMsBusy(false);
+    setMsMsg(res.ok ? "حُفظت مبيعات اليوم ✅" : res.error);
+    if (res.ok) {
+      setMsCash(0);
+      setMsCard(0);
+      setMsNote("");
+      router.refresh();
+    }
+  }
 
   // fixed monthly costs editor (admin)
   const initialCosts = Object.fromEntries(MONTHLY.map((c) => [c, String(monthlyCosts.find((m) => m.category === c)?.amount ?? 0)]));
@@ -75,7 +106,7 @@ export function ExpensesClient({
     }
     setBusy(true);
     setMsg(null);
-    const res = await addExpense({ amount, category, note });
+    const res = await addExpense({ amount, category, note, businessDay: expenseDay || null });
     setBusy(false);
     if (!res.ok) {
       setMsg(res.error);
@@ -83,6 +114,7 @@ export function ExpensesClient({
     }
     setAmount(0);
     setNote("");
+    setExpenseDay("");
     router.refresh();
   }
 
@@ -132,6 +164,16 @@ export function ExpensesClient({
         <label className="space-y-1 text-sm">
           <span className="text-muted-foreground">المبلغ (د.ع)</span>
           <PriceInput value={amount} onChange={setAmount} />
+          {/* بتاريخ سابق: فارغ = اليوم. لمصروف من الأيام التي كانت على الورق قبل الاعتماد */}
+          <input
+            type="date"
+            value={expenseDay}
+            max={new Date().toISOString().slice(0, 10)}
+            onChange={(e) => setExpenseDay(e.target.value)}
+            dir="ltr"
+            title="التاريخ — اتركه فارغاً لليوم"
+            className="mt-2 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+          />
         </label>
         <label className="space-y-1 text-sm">
           <span className="text-muted-foreground">التصنيف</span>
@@ -166,6 +208,57 @@ export function ExpensesClient({
       </form>
 
       {/* daily register closure */}
+      {/* مبيعات يوم سابق — للأيام التي سبقت الاعتماد. رقم واحد لكل يوم، بلا
+          ربح وبلا عدد طلبات لأنهما لم يُسجَّلا يومها ولن يُختَرعا الآن. */}
+      {isAdmin && (
+        <div className="space-y-3 rounded-2xl border-2 border-border bg-card p-4">
+          <h2 className="font-bold">📅 مبيعات يوم سابق</h2>
+          <p className="text-xs text-muted-foreground">
+            لأيام ما قبل الاعتماد. يظهر المجموع في تقرير الشهر؛ الربح لا يُحسب لأن كلفة تلك الطلبات غير معروفة.
+          </p>
+          <form onSubmit={submitManualSale} className="grid gap-3 sm:grid-cols-[160px_1fr_1fr_1fr_auto]">
+            <label className="space-y-1 text-sm">
+              <span className="text-muted-foreground">التاريخ</span>
+              <input type="date" required value={msDay} max={new Date().toISOString().slice(0, 10)} onChange={(e) => setMsDay(e.target.value)} dir="ltr" className="w-full rounded-lg border border-input bg-background px-3 py-2 outline-none focus:ring-2 focus:ring-ring" />
+            </label>
+            <label className="space-y-1 text-sm">
+              <span className="text-muted-foreground">نقد (د.ع)</span>
+              <PriceInput value={msCash} onChange={setMsCash} />
+            </label>
+            <label className="space-y-1 text-sm">
+              <span className="text-muted-foreground">بطاقة (د.ع)</span>
+              <PriceInput value={msCard} onChange={setMsCard} />
+            </label>
+            <label className="space-y-1 text-sm">
+              <span className="text-muted-foreground">ملاحظة</span>
+              <input value={msNote} onChange={(e) => setMsNote(e.target.value)} className="w-full rounded-lg border border-input bg-background px-3 py-2 outline-none focus:ring-2 focus:ring-ring" />
+            </label>
+            <button disabled={msBusy} className="self-end rounded-lg bg-primary px-4 py-2 font-black text-primary-foreground disabled:opacity-50">
+              {msBusy ? "…" : "حفظ"}
+            </button>
+          </form>
+          {msMsg && <p className="text-sm font-bold">{msMsg}</p>}
+          {manualSales.length > 0 && (
+            <ul className="divide-y divide-border text-sm">
+              {manualSales.map((m) => (
+                <li key={m.business_day} className="flex items-center justify-between gap-3 py-2">
+                  <span className="tabular-nums" dir="ltr">{m.business_day}</span>
+                  <span className="font-bold tabular-nums">{formatIqdLabel(m.cash + m.card)}</span>
+                  <span className="text-xs text-muted-foreground">نقد {formatIqdLabel(m.cash)} · بطاقة {formatIqdLabel(m.card)}{m.note ? ` · ${m.note}` : ""}</span>
+                  <button
+                    type="button"
+                    onClick={() => void deleteManualSale(m.business_day).then(() => router.refresh())}
+                    className="text-xs font-bold text-destructive"
+                  >
+                    حذف
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
       <form onSubmit={submitClosure} className="space-y-3 rounded-2xl border-2 border-primary/30 bg-card p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-bold">🏦 إغلاق الصندوق اليومي</h2>

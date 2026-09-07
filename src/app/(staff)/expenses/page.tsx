@@ -2,7 +2,9 @@ import {
   listExpenses,
   getRegisterClosures,
   getMonthlyCosts,
+  listManualSales,
   type ExpenseRow,
+  type ManualSale,
   type RegisterClosure,
   type MonthlyCost,
 } from "@/lib/cafe/expense-actions";
@@ -17,6 +19,7 @@ export default async function ExpensesPage() {
   let expenses: ExpenseRow[] = [];
   let closures: { today: RegisterClosure | null; previous: RegisterClosure | null } = { today: null, previous: null };
   let monthlyCosts: MonthlyCost[] = [];
+  let manualSales: ManualSale[] = [];
   let isAdmin = false;
   try {
     if (!isDemoServer()) {
@@ -27,10 +30,10 @@ export default async function ExpensesPage() {
       // isAdmin — لكن المبالغ نفسها كانت تُسلسَل داخل حمولة صفحة يفتحها
       // الكاشير. إخفاءٌ في الواجهة فوق بيانات مُرسَلة ليس إخفاءً.
       [expenses, closures] = await Promise.all([listExpenses(), getRegisterClosures()]);
-      if (isAdmin) monthlyCosts = await getMonthlyCosts();
+      if (isAdmin) [monthlyCosts, manualSales] = await Promise.all([getMonthlyCosts(), listManualSales()]);
     }
   } catch {
     // signed-out / demo — empty state
   }
-  return <ExpensesClient expenses={expenses} closures={closures} monthlyCosts={monthlyCosts} isAdmin={isAdmin} />;
+  return <ExpensesClient expenses={expenses} closures={closures} monthlyCosts={monthlyCosts} isAdmin={isAdmin} manualSales={manualSales} />;
 }

@@ -5,7 +5,7 @@ import type { SubmitOrderInput } from "@/lib/cafe/order-actions";
 
 const ROUTING: Routing = {
   pizza1: { category_name: "بيتزا", station_id: "st-oven", station_name: "فرن البيتزا" },
-  fries1: { category_name: "فرايس", station_id: "st-grill", station_name: "الشواية" },
+  fries1: { category_name: "فرايز", station_id: "st-grill", station_name: "الشواية" },
   sauce1: { category_name: "صوصات", station_id: null, station_name: null },
 };
 

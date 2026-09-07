@@ -57,9 +57,13 @@ export async function receiveStock(input: {
   expiry?: string | null;
   supplier?: string | null;
   note?: string | null;
+  /** يوم الاستلام الفعلي — فارغ = اليوم. لمشتريات ما قبل الاعتماد. */
+  receivedOn?: string | null;
 }) {
   await requireStaff();
   if (!(input.qty > 0)) return { ok: false as const, error: "أدخل كمية صحيحة." };
+  const receivedOn = input.receivedOn?.trim() || null;
+  if (receivedOn && !/^\d{4}-\d{2}-\d{2}$/.test(receivedOn)) return { ok: false as const, error: "تاريخ الاستلام غير صالح." };
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("receive_stock", {
     p_ingredient: input.ingredientId,
@@ -68,6 +72,7 @@ export async function receiveStock(input: {
     p_expiry: input.expiry || null,
     p_supplier: input.supplier?.trim() || null,
     p_note: input.note?.trim() || null,
+    p_received_on: receivedOn,
   });
   if (error) return { ok: false as const, error: error.message };
   revalidatePath("/inventory");

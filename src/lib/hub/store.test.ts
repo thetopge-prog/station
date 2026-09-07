@@ -47,7 +47,7 @@ function order(id: string, seq: number, createdAt: string): LocalOrderRecord {
       channel: "qr", table_no: "3", note: null, eta_minutes: null, created_at: createdAt,
       cashier_name: "أحمد", expediter_name: "سيف", customer_phone: null,
       customer_name: null, notified_at: null,
-      items: [{ id: `${id}:0`, name_ar: "الويدجز", flavor_ar: null, qty: 1, station_id: "st-grill", station_name: "الشواية", category_name: "فرايس" }],
+      items: [{ id: `${id}:0`, name_ar: "الويدجز", flavor_ar: null, qty: 1, station_id: "st-grill", station_name: "الشواية", category_name: "فرايز" }],
     },
   };
 }

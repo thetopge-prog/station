@@ -72,7 +72,7 @@ export const DEMO_MENU: MenuCategoryView[] = [
     item("zinger-buffalo", "زنجر بوفالو", 5000, { variants: meal(7000) }),
     item("zinger-mighty", "مايتي زنجر", 7000, { variants: meal(9000) }),
   ]),
-  cat("فرايس", [
+  cat("فرايز", [
     item("wedges", "الويدجز", 2500),
     item("curly", "الكرلي", 3000),
     item("onion-rings", "بصل مقرمش", 3000),

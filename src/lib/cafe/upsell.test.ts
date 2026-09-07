@@ -15,7 +15,7 @@ const item = (id: string, name_ar: string, price: number): MenuItemView => ({
 const MENU: MenuCategoryView[] = [
   { name_ar: "برجر", image_url: null, items: [item("b1", "برجر كلاسيك", 4750), item("b2", "ماشروم برجر", 6500)] },
   { name_ar: "بيتزا", image_url: null, items: [item("p1", "بيتزا سوبريم", 12000)] },
-  { name_ar: "فرايس", image_url: null, items: [item("f1", "الويدجز", 2500), item("f2", "الكرلي", 3000)] },
+  { name_ar: "فرايز", image_url: null, items: [item("f1", "الويدجز", 2500), item("f2", "الكرلي", 3000)] },
   { name_ar: "صوصات", image_url: null, items: [item("s1", "رانش", 0), item("s2", "جبن", 500)] },
 ];
 
@@ -24,7 +24,7 @@ const none = new Set<string>();
 describe("upsell rules", () => {
   it("offers a side to someone looking at a main", () => {
     const u = pickUpsell({ menu: MENU, focusItemId: "b1", inCart: none })!;
-    expect(u.category).toBe("فرايس");
+    expect(u.category).toBe("فرايز");
     expect(u.reason).toBe("side");
   });
 
@@ -86,7 +86,7 @@ describe("«مقترح لك»", () => {
   });
 
   it("fills out from the categories they kept returning to", () => {
-    const r = recommendedFor({ menu: MENU, rankedItemIds: [], topCategories: ["فرايس"], inCart: none, limit: 2 });
+    const r = recommendedFor({ menu: MENU, rankedItemIds: [], topCategories: ["فرايز"], inCart: none, limit: 2 });
     expect(r.map((i) => i.id)).toEqual(["f1", "f2"]);
   });
 
@@ -98,12 +98,12 @@ describe("«مقترح لك»", () => {
   });
 
   it("never repeats an item that is both lingered on and in a hot category", () => {
-    const r = recommendedFor({ menu: MENU, rankedItemIds: ["f1"], topCategories: ["فرايس"], inCart: none });
+    const r = recommendedFor({ menu: MENU, rankedItemIds: ["f1"], topCategories: ["فرايز"], inCart: none });
     expect(r.filter((i) => i.id === "f1")).toHaveLength(1);
   });
 
   it("respects the limit", () => {
-    const r = recommendedFor({ menu: MENU, rankedItemIds: [], topCategories: ["برجر", "فرايس"], inCart: none, limit: 3 });
+    const r = recommendedFor({ menu: MENU, rankedItemIds: [], topCategories: ["برجر", "فرايز"], inCart: none, limit: 3 });
     expect(r).toHaveLength(3);
   });
 
