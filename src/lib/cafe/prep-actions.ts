@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { notifyTelegramOrder } from "./telegram-notify";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { requireRole, requireStaff } from "./auth";
 import { hubEnabled, isLocalOrder, liveLocalOrders, queuePrep, setLocalPrep } from "@/lib/hub/store";
@@ -213,7 +214,10 @@ export async function claimOrder(orderId: string) {
  */
 export async function confirmAssembled(orderId: string) {
   await requireRole("expediter", "cashier");
-  return (await localPrep(orderId, "ready")) ?? rpc("confirm_assembled", orderId);
+  const res = (await localPrep(orderId, "ready")) ?? (await rpc("confirm_assembled", orderId));
+  // زبون تليغرام يُبلَّغ من هنا — لحظة «جاهز» نفسها، لا من مهمة دورية
+  if (res.ok) await notifyTelegramOrder(orderId, "ready");
+  return res;
 }
 
 /**

@@ -13,6 +13,7 @@ import {
 } from "@/lib/cafe/cashier-actions";
 import { Receipt, type ReceiptData } from "./Receipt";
 
+const SOURCE_AR: Record<string, string> = { telegram: "تليغرام", whatsapp: "واتساب", web: "الموقع" };
 const CHANNEL_AR: Record<string, string> = {
   qr: "موبايل",
   kiosk: "لوحي",
@@ -181,9 +182,20 @@ export function IncomingOrdersClient() {
                 </div>
                 <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                   <span>{CHANNEL_AR[o.channel] ?? o.channel}</span>
+                  {SOURCE_AR[o.order_source] && (
+                    <span className="rounded-full bg-secondary px-2 py-0.5 font-bold text-primary">{SOURCE_AR[o.order_source]}</span>
+                  )}
                   <span>·</span>
                   <span className={age >= 10 ? "font-bold text-destructive" : ""}>{age === 0 ? "الآن" : `منذ ${sinceLabel(age)}`}</span>
                 </div>
+                {/* طلب من بعيد: من يطلب وأين — بلا هذين لا يستطيع الكاشير قبوله بثقة */}
+                {(o.customer_name || o.customer_phone || o.address_note) && (
+                  <div className="mt-2 space-y-0.5 rounded-lg border border-border bg-background px-2.5 py-1.5 text-sm">
+                    {o.customer_name && <p className="font-bold">👤 {o.customer_name}</p>}
+                    {o.customer_phone && <p className="tabular-nums" dir="ltr">📞 {o.customer_phone}</p>}
+                    {o.address_note && <p>📍 {o.address_note}</p>}
+                  </div>
+                )}
                 {o.note && (
                   <p className="mt-2 rounded-lg border border-amber-500/50 bg-amber-500/10 px-2.5 py-1.5 text-sm font-bold">📝 {o.note}</p>
                 )}

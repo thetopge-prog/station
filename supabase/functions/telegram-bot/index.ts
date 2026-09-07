@@ -1,3 +1,4 @@
+import { step as orderStep, normalizeIraqiPhone, type Menu, type State as OrderState, type Input as OrderInput, type Reply as OrderReply } from "./order-flow.ts";
 // بوت ستيشن — Supabase Edge Function (Telegram webhook, يعمل 24/7).
 // نفس بوت الأزرار الكامل: تقارير، الطلبات الآن، الطاولات، الأكثر/الأقل مبيعاً،
 // إدارة المنتجات (إضافة/حذف/تسعير/تفعيل) — والحالة الحوارية محفوظة في bot_state.
@@ -8,6 +9,9 @@
 const TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN")!;
 const OWNERS = (Deno.env.get("TG_OWNER_IDS") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 const HOOK_SECRET = Deno.env.get("TG_WEBHOOK_SECRET") ?? "";
+// طلبات الزبائن تُرسَل إلى مدخل الطلبات الخارجية في الموقع — نفس باب واتساب
+const SITE = (Deno.env.get("STATION_SITE_URL") ?? "https://station-anbar.netlify.app").replace(/[/]$/, "");
+const INTAKE_SECRET = Deno.env.get("STATION_WEBHOOK_SECRET") ?? "";
 const URL_ = Deno.env.get("SUPABASE_URL")!;
 const SVC = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -193,8 +197,7 @@ async function viewStaff() {
   return {
     text: `🧑‍🍳 <b>الموظفون</b>
 
-${lines.join("
-") || "لا أحد بعد."}`,
+${lines.join("\n") || "لا أحد بعد."}`,
     kb: [[{ text: "➕ موظف جديد", callback_data: "staffadd" }], BACK],
   };
 }
@@ -795,11 +798,13 @@ async function viewPurchaseList() {
 
 async function onMessage(msg: Row) {
   const chatId = msg.chat.id;
-  if (!(await authorized(chatId))) {
-    await say(chatId, `غير مصرّح لك بهذا البوت.\nمعرّفك: <code>${chatId}</code>`);
+  const state = await getState(chatId);
+  // الزبائن: كل من ليس مالكاً، ومالكٌ كتب /order ليجرّب ما يراه الزبون
+  const isOwner = await authorized(chatId);
+  if (!isOwner || state?.flow === "order" || msg.text === "/order") {
+    await customerTurn(chatId, msg, state);
     return;
   }
-  const state = await getState(chatId);
   if (state) {
     await clearState(chatId);
     const text = normDigits(String(msg.text).trim());
@@ -822,8 +827,7 @@ async function onMessage(msg: Row) {
       const [name, login, rolesRaw, shiftRaw] = parts;
       const retry = [[{ text: "➕ حاول مجدداً", callback_data: "staffadd" }], BACK];
       if (parts.length < 3 || !name || !login) {
-        await say(chatId, "ناقص. الشكل:
-<code>عمر محمد | 07701234567 | كاشير مجهز | مسائي</code>", retry);
+        await say(chatId, "ناقص. الشكل:\n<code>عمر محمد | 07701234567 | كاشير مجهز | مسائي</code>", retry);
         return;
       }
       const roleEns = [...new Set(
@@ -976,7 +980,10 @@ async function onCallback(cb: Row) {
   const chatId = cb.message.chat.id;
   const mid = cb.message.message_id;
   await tg("answerCallbackQuery", { callback_query_id: cb.id });
-  if (!(await authorized(chatId))) return;
+  if (String(cb.data).startsWith("o|") || !(await authorized(chatId))) {
+    await customerTurn(chatId, { callback: String(cb.data), message_id: mid, from: cb.from }, await getState(chatId));
+    return;
+  }
   await clearState(chatId);
 
   const [cmd, a, b] = String(cb.data).split("|");
@@ -996,22 +1003,16 @@ async function onCallback(cb: Row) {
     await setState(chatId, { action: "staffadd" });
     return say(
       chatId,
-      "➕ <b>موظف جديد</b>
+      `➕ <b>موظف جديد</b>
 
-" +
-        "أرسل سطراً واحداً:
-" +
-        "<code>الاسم | الهاتف | الصلاحيات | الوردية</code>
+أرسل سطراً واحداً:
+<code>الاسم | الهاتف | الصلاحيات | الوردية</code>
 
-" +
-        "<code>عمر محمد | 07701234567 | كاشير مجهز</code>
-" +
-        "<code>محمد أحمد | 07711234567 | كاشير | صباحي</code>
+<code>عمر محمد | 07701234567 | كاشير مجهز</code>
+<code>محمد أحمد | 07711234567 | كاشير | صباحي</code>
 
-" +
-        "الصلاحيات: كاشير · مجهز · طباخ · تنظيف · مدير — واحدة أو أكثر.
-" +
-        "الوردية اختيارية: صباحي أو مسائي. بلا وردية = بلا قيد وقت.",
+الصلاحيات: كاشير · مجهز · طباخ · تنظيف · مدير — واحدة أو أكثر.
+الوردية اختيارية: صباحي أو مسائي. بلا وردية = بلا قيد وقت.`,
       [[{ text: "إلغاء", callback_data: "staff" }]],
       mid,
     );
@@ -1122,6 +1123,97 @@ async function onCallback(cb: Row) {
 }
 
 // ── entry ──────────────────────────────────────────────────────────────────
+// ── الزبائن: تليغرام ↔ محرّك الطلب ──────────────────────────────────────────
+//
+// كل ما هو تليغرامي هنا: قراءة الرسالة، رسم الأزرار، طلب رقم الهاتف، وإرسال
+// الطلب المكتمل إلى الموقع. المحرّك نفسه (order-flow.ts) لا يعرف شيئاً من هذا.
+
+async function loadMenu(): Promise<Menu> {
+  const [items, sizes] = await Promise.all([
+    rest("menu_public?select=id,category_id,name_ar,price,flavors,category_name,category_sort,sort&order=category_sort.asc,sort.asc"),
+    rest("variant_public?select=id,item_id,kind,name_ar,price,sort&kind=eq.size&order=sort.asc"),
+  ]);
+  const cats = new Map<string, { id: string; name: string; sort: number }>();
+  for (const it of items as Row[]) if (!cats.has(it.category_id)) cats.set(it.category_id, { id: it.category_id, name: it.category_name, sort: it.category_sort });
+  return {
+    categories: [...cats.values()].sort((a, b) => a.sort - b.sort).map(({ id, name }) => ({ id, name })),
+    items: (items as Row[]).map((it) => ({
+      id: it.id,
+      categoryId: it.category_id,
+      name: it.name_ar,
+      price: Number(it.price) || 0,
+      sizes: (sizes as Row[]).filter((v) => v.item_id === it.id).map((v) => ({ id: v.id, name: v.name_ar, price: Number(v.price) || 0 })),
+      doughs: Array.isArray(it.flavors) ? it.flavors : [],
+    })),
+  };
+}
+
+/** ما يعرفه المحل عن هذا الهاتف — ليُعرض «نفس العنوان؟» بدل السؤال من جديد */
+async function knownCustomer(phone: string | null | undefined) {
+  if (!phone) return undefined;
+  try {
+    const r = (await rest(`customers?phone=eq.${encodeURIComponent(phone)}&select=name_ar,address&limit=1`)) as Row[];
+    return r[0] ? { name: r[0].name_ar ?? null, address: r[0].address ?? null } : undefined;
+  } catch { return undefined; }
+}
+
+async function sendReply(chatId: number | string, r: OrderReply, editMessageId?: number) {
+  if (r.requestContact) {
+    // لوحة ردّ لا أزرار مضمَّنة: زرّ «شارك رقمي» لا يوجد إلا فيها
+    await tg("sendMessage", {
+      chat_id: chatId, text: r.text, parse_mode: "HTML",
+      reply_markup: { keyboard: [[{ text: "📱 شارك رقمي", request_contact: true }]], resize_keyboard: true, one_time_keyboard: true },
+    });
+    return;
+  }
+  const kb = r.buttons?.map((row) => row.map((b) => ({ text: b.text, callback_data: b.data })));
+  await say(chatId, r.text, kb, editMessageId);
+}
+
+async function submitOrder(chatId: number | string, order: OrderReply["order"]) {
+  if (!order) return;
+  if (!INTAKE_SECRET) { await say(chatId, "⚠️ المطعم لم يُفعّل الطلب عبر البوت بعد."); return; }
+  try {
+    const r = await fetch(`${SITE}/api/orders/whatsapp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-station-secret": INTAKE_SECRET },
+      body: JSON.stringify({ ...order, source: "telegram", telegram_chat_id: String(chatId) }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.ok) {
+      console.error("intake failed", r.status, JSON.stringify(j).slice(0, 200));
+      await say(chatId, "⚠️ تعذّر إرسال الطلب الآن. حاول بعد قليل أو اتصل بالمطعم.", [[{ text: "🔄 حاول ثانية", callback_data: "o|cart" }]]);
+      return;
+    }
+    await tg("sendMessage", { chat_id: chatId, text: `✅ وصل طلبك — رقمه <b>${esc(j.order_number)}</b>` + "\n" + "سنخبرك حين يُقبل ويجهز.", parse_mode: "HTML", reply_markup: { remove_keyboard: true } });
+  } catch (e) {
+    console.error("intake error", (e as Error).message);
+    await say(chatId, "⚠️ تعذّر الاتصال بالمطعم. حاول بعد قليل.", [[{ text: "🔄 حاول ثانية", callback_data: "o|cart" }]]);
+  }
+}
+
+/** دورة واحدة: رسالة أو ضغطة من زبون → المحرّك → ردّ، وطلب إن اكتمل */
+async function customerTurn(chatId: number | string, msg: Row, prev: Row | null) {
+  const input: OrderInput = msg.callback
+    ? { kind: "button", data: msg.callback }
+    : msg.contact
+      ? { kind: "contact", phone: String(msg.contact.phone_number ?? "") }
+      : msg.voice
+        ? { kind: "voice" }
+        : { kind: "text", text: String(msg.text ?? "") };
+  const state = (prev?.flow === "order" ? prev : null) as OrderState | null;
+  const menu = await loadMenu();
+  const phoneForLookup = input.kind === "contact" ? input.phone : state?.phone;
+  const known = await knownCustomer(phoneForLookup ? normalizeIraqiPhone(phoneForLookup) : null);
+  const out = orderStep(state, input, menu, known);
+  // اسم تليغرام حين لا يعرف المحل الزبون بعد
+  if (!out.state.name && msg.from?.first_name) out.state.name = String(msg.from.first_name).slice(0, 60);
+  await setState(chatId, out.state);
+  // الأزرار تُعدَّل في مكانها لتبقى المحادثة سطراً واحداً لا سلسلة قوائم
+  await sendReply(chatId, out.reply, msg.callback && !out.reply.requestContact ? msg.message_id : undefined);
+  if (out.reply.order) await submitOrder(chatId, out.reply.order);
+}
+
 Deno.serve(async (req) => {
   const url = new URL(req.url);
 
@@ -1147,7 +1239,7 @@ Deno.serve(async (req) => {
   try {
     const update = await req.json();
     if (update.callback_query) await onCallback(update.callback_query);
-    else if (update.message?.text) await onMessage(update.message);
+    else if (update.message?.text || update.message?.contact || update.message?.voice) await onMessage(update.message);
   } catch (e) {
     console.error("update error:", (e as Error).message);
   }

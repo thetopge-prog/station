@@ -37,6 +37,10 @@ type IncomingLine = {
 
 type IncomingOrder = {
   channel?: "delivery" | "pickup";
+  /** من أرسل الطلب. الافتراضي واتساب — هذا المدخل وُلد له؛ تليغرام يمرّ منه أيضاً */
+  source?: "whatsapp" | "telegram";
+  /** محادثة زبون تليغرام، ليُبلَّغ حين يُقبل طلبه ويجهز */
+  telegram_chat_id?: string;
   customer_name?: string;
   phone?: string;
   address?: string;
@@ -129,6 +133,16 @@ export async function POST(req: Request) {
   }
 
   const placed = data[0];
+
+  // place_order تُرجع كل مصدر مجهول إلى pos، فتليغرام يُكتب بعد الإدراج.
+  // فشل هذا التحديث لا يُفشل الطلب: وصل الكاشير، وهذا هو المهمّ.
+  if (body.source === "telegram") {
+    await svc
+      .from("orders")
+      .update({ order_source: "telegram", telegram_chat_id: String(body.telegram_chat_id ?? "").slice(0, 32) || null })
+      .eq("id", placed.order_id);
+  }
+
   return NextResponse.json({
     ok: true,
     order_id: placed.order_id,

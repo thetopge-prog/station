@@ -6,6 +6,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/lib/types";
 import { requireStaff } from "./auth";
 import { openSessionIdFor } from "./session-of";
+import { notifyTelegramOrder } from "./telegram-notify";
 import { loyaltyConfig } from "./config";
 import { earnPoints } from "./points";
 import type { OrderLineInput } from "./order-actions";
@@ -24,6 +25,11 @@ export type PendingOrder = {
   note: string | null;
   created_at: string;
   items: PendingItem[];
+  /** من البوت/واتساب: من يطلب وأين — الكاشير يحتاجهما ليقبل طلباً لا يرى صاحبه */
+  customer_name: string | null;
+  customer_phone: string | null;
+  address_note: string | null;
+  order_source: string;
 };
 
 /** Self-orders (qr/kiosk) awaiting the counter, oldest first. */
@@ -32,7 +38,7 @@ export async function listPendingOrders(): Promise<PendingOrder[]> {
   const supabase = await createSupabaseServerClient();
   const { data: orders } = await supabase
     .from("orders")
-    .select("id, order_seq, channel, subtotal, table_no, note, created_at")
+    .select("id, order_seq, channel, subtotal, table_no, note, created_at, customer_name, customer_phone, address_note, order_source")
     .eq("status", "pending")
     .order("created_at", { ascending: true });
   if (!orders?.length) return [];
@@ -58,6 +64,10 @@ export async function listPendingOrders(): Promise<PendingOrder[]> {
     note: o.note,
     created_at: o.created_at,
     items: byOrder.get(o.id) ?? [],
+    customer_name: o.customer_name ?? null,
+    customer_phone: o.customer_phone ?? null,
+    address_note: o.address_note ?? null,
+    order_source: o.order_source ?? "pos",
   }));
 }
 
@@ -247,5 +257,7 @@ export async function cancelOrder(orderId: string) {
   const { error } = await supabase.rpc("cancel_order", { p_order: orderId });
   if (error) return { ok: false as const, error: error.message };
   revalidatePath("/cashier");
+  await notifyTelegramOrder(orderId, "accepted");
+  await notifyTelegramOrder(orderId, "cancelled");
   return { ok: true as const };
 }
