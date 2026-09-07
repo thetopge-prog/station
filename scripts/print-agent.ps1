@@ -149,12 +149,14 @@ $PRINTER_FAULTS = @("Offline", "Paused", "Error", "PaperJam", "PaperOut", "Paper
                     "UserInterventionRequired", "NotAvailable", "OutOfMemory", "PendingDeletion")
 
 function Assert-PrinterReady([string]$Name) {
+  # Only the one signal a person set on purpose. PrinterStatus is NOT checked:
+  # the shop's POS-23 reports "Error" to Windows permanently and prints
+  # perfectly - a USB thermal driver quirk - and checking it stopped every
+  # slip in the shop for an evening. Whether a job truly went through is
+  # answered after sending, by Assert-JobLeft, from the queue itself.
   $p = $null
   try { $p = Get-Printer -Name $Name -ErrorAction Stop } catch { return }   # unknown is not a fault
-  $bad = @()
-  if ($p.WorkOffline) { $bad += "set to 'Use Printer Offline'" }
-  if ($p.PrinterStatus -and ([string]$p.PrinterStatus) -in $PRINTER_FAULTS) { $bad += [string]$p.PrinterStatus }
-  if ($bad.Count) { throw ("printer '" + $Name + "' is " + ($bad -join ", ") + " - fix it in Windows > Printers & scanners") }
+  if ($p.WorkOffline) { throw ("printer '" + $Name + "' is set to 'Use Printer Offline' - untick it in Windows > Printers & scanners") }
 }
 
 function Assert-JobLeft([string]$Name) {
