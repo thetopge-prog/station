@@ -89,7 +89,13 @@ async function restAll(path: string): Promise<any[]> {
 }
 async function restWrite(path: string, method: string, body?: unknown) {
   const r = await fetch(`${URL_}/rest/v1/${path}`, {
-    method, headers: { ...H, Prefer: "return=minimal" }, body: body ? JSON.stringify(body) : undefined,
+    // on_conflict alone is NOT an upsert: PostgREST still answers 409 on the
+    // duplicate unless told to merge. The owner flow never hit it because it
+    // deletes the row before every write; the customer flow writes on every
+    // turn, so «اطلب الآن» was the first duplicate — and died silently.
+    method,
+    headers: { ...H, Prefer: path.includes("on_conflict=") ? "return=minimal,resolution=merge-duplicates" : "return=minimal" },
+    body: body ? JSON.stringify(body) : undefined,
   });
   if (!r.ok) throw new Error(`${method} ${r.status}: ${(await r.text()).slice(0, 160)}`);
 }
