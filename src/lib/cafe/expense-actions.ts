@@ -159,6 +159,27 @@ export async function getRegisterClosures(): Promise<{ today: RegisterClosure | 
   return { today, previous };
 }
 
+/**
+ * حذف مصروف — للخطأ في الإدخال.
+ *
+ * الكاشير يحذف مصروف اليوم فقط: رقم كُتب خطأً قبل دقيقة يُصحَّح على الفور،
+ * أما مصروف أمس فقد دخل جرداً أُقفل وصار تاريخاً. الإدارة تحذف أيّ يوم.
+ */
+export async function deleteExpense(id: string) {
+  const staff = await requireStaff();
+  const svc = createSupabaseServiceClient();
+  const { data: x } = await svc.from("expenses").select("id, business_day").eq("id", id).maybeSingle();
+  if (!x) return { ok: false as const, error: "المصروف غير موجود." };
+  if (!staff.isAdmin && x.business_day !== businessDay()) {
+    return { ok: false as const, error: "مصروف يوم سابق — يحذفه المدير." };
+  }
+  const { error } = await svc.from("expenses").delete().eq("id", id);
+  if (error) return { ok: false as const, error: error.message };
+  revalidatePath("/expenses");
+  revalidatePath("/dashboard");
+  return { ok: true as const };
+}
+
 /* ── مبيعات يوم سابق — رقم واحد لكل يوم، للإدارة ─────────────────────────────
  *
  * أيام ما قبل الاعتماد لم تُسجَّل طلباتها؛ يُدخل مجموعها نقداً وبطاقةً فيظهر

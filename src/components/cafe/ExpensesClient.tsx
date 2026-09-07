@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  deleteExpense,
   addExpense,
   saveRegisterClosure,
   saveMonthlyCosts,
@@ -333,7 +334,22 @@ export function ExpensesClient({
                 </td>
                 <td className="px-4 py-2.5">{x.category ?? "—"}</td>
                 <td className="px-4 py-2.5 font-semibold">{formatIqdLabel(x.amount)}</td>
-                <td className="px-4 py-2.5 text-muted-foreground">{x.note ?? ""}</td>
+                <td className="px-4 py-2.5 text-muted-foreground">
+                  <span className="flex items-center justify-between gap-3">
+                    <span>{x.note ?? ""}</span>
+                    {/* رقم كُتب خطأً يُصحَّح هنا لا بطلب من المطوّر */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!confirm(`حذف ${formatIqdLabel(x.amount)}؟`)) return;
+                        void deleteExpense(x.id).then((r) => (r.ok ? router.refresh() : setMsg(r.error)));
+                      }}
+                      className="shrink-0 text-xs font-bold text-destructive"
+                    >
+                      حذف
+                    </button>
+                  </span>
+                </td>
               </tr>
             ))}
           </tbody>
