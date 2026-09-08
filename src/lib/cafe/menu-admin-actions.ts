@@ -32,11 +32,18 @@ function revalidateMenu() {
 export async function listMenuAdmin(): Promise<AdminCategory[]> {
   await requireAdmin();
   const svc = createSupabaseServiceClient();
-  const [{ data: cats }, { data: items }, { data: vars }] = await Promise.all([
+  const [c, i, v] = await Promise.all([
     svc.from("categories").select("id, name_ar, sort, is_active").order("sort"),
     svc.from("menu_items").select("id, category_id, name_ar, description_ar, image_url, price, cost, flavors, is_active, sort").order("sort"),
     svc.from("item_variants").select("id, item_id, name_ar, price_override, kind, sort").order("sort"),
   ]);
+  // A failed read used to become an empty menu — and an empty menu has no
+  // «صنف جديد» button, so «adding does not work» with nothing on screen to say why.
+  const failed = c.error ?? i.error ?? v.error;
+  if (failed) throw new Error(`تعذّر قراءة المنيو: ${failed.message}`);
+  const { data: cats } = c;
+  const { data: items } = i;
+  const { data: vars } = v;
 
   const varsByItem = new Map<string, AdminVariant[]>();
   for (const v of vars ?? []) {
@@ -144,6 +151,10 @@ export async function addCategory(name_ar: string, sort = 0) {
   if (!name_ar.trim()) return { ok: false as const, error: "أدخل اسم القسم." };
   const svc = createSupabaseServiceClient();
   const { error } = await svc.from("categories").insert({ name_ar: name_ar.trim(), sort: Math.round(sort) });
+  // unique index (0071): the second tap of a double-click, or a legacy row
+  // that is merely switched off — the cashier keys categories by name, so a
+  // duplicate breaks the counter screen, not just this list
+  if (error?.code === "23505") return { ok: false as const, error: `القسم «${name_ar.trim()}» موجود مسبقاً (قد يكون معطّلاً).` };
   if (error) return { ok: false as const, error: error.message };
   revalidateMenu();
   return { ok: true as const };

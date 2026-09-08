@@ -215,22 +215,24 @@ export async function saveCallerDetails(phone: string | null, name: string, addr
  * طلباً لهذا الرقم» did nothing at all for a new caller — which is every
  * caller, once.
  */
-export async function customerForCall(phone: string | null): Promise<{ id: string; name_ar: string | null; points: number; serial: string } | null> {
+export async function customerForCall(
+  phone: string | null,
+): Promise<{ id: string; name_ar: string | null; points: number; serial: string; address: string | null } | null> {
   await requireStaff();
   const p = phone?.trim();
   if (!p || p === NO_NUMBER) return null;
   const svc = createSupabaseServiceClient();
 
-  const { data: found } = await svc.from("customers").select("id, name_ar, points, card_serial").eq("phone", p).maybeSingle();
-  if (found) return { id: found.id, name_ar: found.name_ar, points: found.points, serial: found.card_serial };
+  const { data: found } = await svc.from("customers").select("id, name_ar, points, card_serial, address").eq("phone", p).maybeSingle();
+  if (found) return { id: found.id, name_ar: found.name_ar, points: found.points, serial: found.card_serial, address: found.address };
 
   const { data: created, error } = await svc
     .from("customers")
     .insert({ phone: p })
-    .select("id, name_ar, points, card_serial")
+    .select("id, name_ar, points, card_serial, address")
     .maybeSingle();
   if (error || !created) return null;
-  return { id: created.id, name_ar: created.name_ar, points: created.points, serial: created.card_serial };
+  return { id: created.id, name_ar: created.name_ar, points: created.points, serial: created.card_serial, address: created.address };
 }
 
 /** The cashier acted on it (or dismissed it) — stop showing it. */

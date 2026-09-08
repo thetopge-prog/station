@@ -24,6 +24,7 @@ export function MenuAdminClient({ categories }: { categories: AdminCategory[] })
   const router = useRouter();
   const [editing, setEditing] = useState<Editing | null>(null);
   const [newCat, setNewCat] = useState("");
+  const [addingCat, setAddingCat] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
   async function onToggle(item: AdminItem) {
@@ -38,16 +39,28 @@ export function MenuAdminClient({ categories }: { categories: AdminCategory[] })
     router.refresh();
   }
 
+  // «مشروبات» landed twice, two seconds apart: no busy state, no message, so
+  // the second tap looked like the first had not worked. A thrown action
+  // (expired session, non-admin) also vanished — the handler had no catch.
   async function onAddCategory(e: React.FormEvent) {
     e.preventDefault();
-    if (!newCat.trim()) return;
-    const res = await addCategory(newCat, categories.length + 1);
-    if (!res.ok) {
-      setMsg(res.error);
-      return;
+    if (!newCat.trim() || addingCat) return;
+    setAddingCat(true);
+    setMsg(null);
+    try {
+      const res = await addCategory(newCat, categories.length + 1);
+      if (!res.ok) {
+        setMsg(res.error);
+        return;
+      }
+      setMsg(`أُضيف القسم «${newCat.trim()}».`);
+      setNewCat("");
+      router.refresh();
+    } catch {
+      setMsg("انتهت الجلسة أو لا صلاحية مدير — سجّل الدخول من جديد.");
+    } finally {
+      setAddingCat(false);
     }
-    setNewCat("");
-    router.refresh();
   }
 
   return (
@@ -61,8 +74,8 @@ export function MenuAdminClient({ categories }: { categories: AdminCategory[] })
             placeholder="قسم جديد…"
             className="rounded-lg border border-input bg-background px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring"
           />
-          <button type="submit" className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold hover:bg-secondary">
-            + قسم
+          <button type="submit" disabled={addingCat} className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold hover:bg-secondary disabled:opacity-50">
+            {addingCat ? "جارٍ الإضافة…" : "+ قسم"}
           </button>
         </form>
       </div>
@@ -202,26 +215,33 @@ function ItemForm({ editing, categories, onClose }: { editing: Editing; categori
   }
 
   async function save() {
+    if (busy) return;
     setBusy(true);
     setMsg(null);
-    const res = await upsertItem({
-      id: it?.id,
-      category_id: categoryId,
-      name_ar: name,
-      description_ar: description || null,
-      image_url: imageUrl || null,
-      price: Number(price) || 0,
-      cost: Number(cost) || 0,
-      flavors: flavors.split(/[،,]/).map((s) => s.trim()).filter(Boolean),
-      is_active: it?.is_active ?? true,
-      sort: Number(sort) || 0,
-    });
-    setBusy(false);
-    if (!res.ok) {
-      setMsg(res.error);
-      return;
+    // try/finally: a thrown action left the button on «جارٍ الحفظ…» for good
+    try {
+      const res = await upsertItem({
+        id: it?.id,
+        category_id: categoryId,
+        name_ar: name,
+        description_ar: description || null,
+        image_url: imageUrl || null,
+        price: Number(price) || 0,
+        cost: Number(cost) || 0,
+        flavors: flavors.split(/[،,]/).map((s) => s.trim()).filter(Boolean),
+        is_active: it?.is_active ?? true,
+        sort: Number(sort) || 0,
+      });
+      if (!res.ok) {
+        setMsg(res.error);
+        return;
+      }
+      onClose();
+    } catch {
+      setMsg("انتهت الجلسة أو لا صلاحية مدير — سجّل الدخول من جديد.");
+    } finally {
+      setBusy(false);
     }
-    onClose();
   }
 
   async function onAddVariant() {

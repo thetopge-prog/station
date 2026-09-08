@@ -195,6 +195,10 @@ export async function cashierCheckout(input: {
   payMethod?: PayMethod;
   /** required when payMethod is "partner": which company is being billed */
   partnerId?: string | null;
+  /** طلب على الهاتف: تُكتب على الإيصال وتذكرة المطبخ بحجم مضاعف (0043 يخزّنها) */
+  phone?: string | null;
+  address?: string | null;
+  customerName?: string | null;
 }): Promise<CheckoutResult> {
   const staff = await requireStaff();
   if (!input.lines?.length) return { ok: false, error: "لا توجد أصناف في الطلب." };
@@ -211,6 +215,10 @@ export async function cashierCheckout(input: {
     p_customer: input.customerId ?? null,
     p_table: input.table?.trim() || null,
     p_note: input.note?.trim() || null,
+    // كانت خمسة من تسعة: هاتف الزبون وعنوانه كانا يُكتبان في الملاحظة ويضيعان
+    p_phone: input.phone?.trim() || null,
+    p_address: input.address?.trim() || null,
+    p_customer_name: input.customerName?.trim() || null,
   });
   if (error || !placed?.[0]) return { ok: false, error: error?.message ?? "تعذّر إنشاء الطلب." };
 

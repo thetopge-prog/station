@@ -29,11 +29,14 @@ const POLL_MS = 4000;
 export function CallBanner({
   onUse,
   onRepeat,
+  onDetailsSaved,
 }: {
   /** attach this caller to the current order (find-or-create) */
   onUse?: (phone: string) => void;
   /** attach them AND fill the basket with one of their previous orders */
   onRepeat?: (phone: string, lines: LastLine[]) => void;
+  /** the cashier typed a name/address on the card — the order's delivery fields want them too */
+  onDetailsSaved?: (name: string | null, address: string | null) => void;
 }) {
   const [call, setCall] = useState<IncomingCall | null>(null);
   const [open, setOpen] = useState(false);
@@ -155,7 +158,10 @@ export function CallBanner({
             onRepeat?.(phone, lines);
             void dismiss();
           }}
-          onDetailsSaved={(name, address) => setCall({ ...call, name, address })}
+          onDetailsSaved={(name, address) => {
+            setCall({ ...call, name, address });
+            onDetailsSaved?.(name, address);
+          }}
         />
       )}
     </>

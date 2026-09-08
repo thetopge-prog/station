@@ -116,3 +116,19 @@ describe("delivery details", () => {
     expect(text).not.toContain("07801234567");
   });
 });
+
+describe("order note", () => {
+  // «بدون بصل» reached the receipt and not the kitchen. Whatever the printer
+  // did with the tail of the slip, the note now precedes the food on every
+  // ticket — the cook reads it before the first item, not after the last.
+  it("prints the note BEFORE the first item on every ticket, kitchen and assembly included", () => {
+    const tickets = build({ note: "بدون مخلل" });
+    expect(tickets.map((t) => t.kind).sort()).toEqual(["expediter", "receipt", "station"]);
+    for (const t of tickets) {
+      const text = asText(t);
+      const note = text.indexOf(printed("بدون مخلل"));
+      expect(note).toBeGreaterThan(-1);
+      expect(note).toBeLessThan(text.indexOf(printed("ماشروم برجر")));
+    }
+  });
+});

@@ -14,7 +14,7 @@ import { MenuIcon } from "./MenuIcon";
 import { PriceInput } from "./PriceInput";
 import { CallBanner } from "./CallBanner";
 import { ShortageAlert } from "./ShortageAlert";
-import { customerForCall, type LastLine } from "@/lib/cafe/call-actions";
+import { customerForCall, rememberAddress, type LastLine } from "@/lib/cafe/call-actions";
 import { FridayPrayerNotice } from "./FridayPrayerNotice";
 
 type Line = {
@@ -100,9 +100,16 @@ export function CashierClient({
   // cash opens the drawer; Qi-card payments happen on the Qi device — no drawer.
   const [payMethod, setPayMethod] = useState<PayMethod>("cash");
   const [partnerId, setPartnerId] = useState<string>("");
-  // dine-in orders carry a table number → they show on the live tables screen
-  const [orderType, setOrderType] = useState<"takeaway" | "dinein">("takeaway");
+  // dine-in orders carry a table number → they show on the live tables screen.
+  // «توصيل» is the counter's word for everything that leaves: the phone order
+  // being keyed in. It stays channel `cashier` — the delivery channel numbers
+  // from 901 (0043) and the customer block prints on phone/address, not channel.
+  const [orderType, setOrderType] = useState<"delivery" | "dinein">("delivery");
   const [tableNo, setTableNo] = useState("");
+  // الزبون على الهاتف: كان يُكتب في الملاحظة «المستودع { 07866866156 }» ويضيع
+  const [custName, setCustName] = useState("");
+  const [custPhone, setCustPhone] = useState("");
+  const [custAddress, setCustAddress] = useState("");
   const [orderNote, setOrderNote] = useState("");
   // itemized surcharges for add-ons the customer requests (extra shot, syrup…)
   const [extras, setExtras] = useState<{ name: string; price: number }[]>([]);
@@ -206,11 +213,18 @@ export function CashierClient({
   }
   const cat = menu.find((c) => c.name_ar === activeCat) ?? menu[0];
 
-  /** the ringing number becomes the order's customer, existing or brand new */
+  /** the ringing number — or a typed one — becomes the order's customer, existing or brand new */
   async function attachCaller(phone: string) {
     const cust = await customerForCall(phone);
-    if (cust) setCustomer({ id: cust.id, name_ar: cust.name_ar, points: cust.points });
-    else setLoyaltyMsg("تعذّر ربط الرقم بالطلب.");
+    if (!cust) {
+      setLoyaltyMsg("تعذّر ربط الرقم بالطلب.");
+      return;
+    }
+    setCustomer({ id: cust.id, name_ar: cust.name_ar, points: cust.points });
+    // what we know about them fills the delivery fields — nothing typed is overwritten
+    setCustPhone((p) => p || phone);
+    if (cust.name_ar) setCustName((n) => n || cust.name_ar!);
+    if (cust.address) setCustAddress((a) => a || cust.address!);
   }
 
   async function redeem() {
@@ -245,7 +259,8 @@ export function CashierClient({
       const table = orderType === "dinein" ? tableNo : null;
       const extraNote = extras.map((x) => `${x.name} (${formatIqdLabel(x.price)})`).join("، ") || null;
       const payload = lines.map((l) => ({ item_id: l.itemId, variant_id: l.variantId, flavor: l.flavor, qty: l.qty }));
-      const res = await cashierCheckout({ lines: payload, discount, extra: extraTotal, extraNote, payMethod, partnerId: payMethod === "partner" ? partnerId : null, customerId: customer?.id ?? null, table, note: orderNote.trim() || null });
+      const cust = orderType === "delivery" ? { phone: custPhone.trim() || null, address: custAddress.trim() || null, customerName: custName.trim() || null } : { phone: null, address: null, customerName: null };
+      const res = await cashierCheckout({ lines: payload, discount, extra: extraTotal, extraNote, payMethod, partnerId: payMethod === "partner" ? partnerId : null, customerId: customer?.id ?? null, table, note: orderNote.trim() || null, ...cust });
       if (!res.ok) {
         setErr(res.error);
         return;
@@ -262,6 +277,9 @@ export function CashierClient({
         pickupCode: res.pickupCode ?? null,
         table,
         note: orderNote.trim() || null,
+        customerName: cust.customerName,
+        customerPhone: cust.phone,
+        customerAddress: cust.address,
         lines: lines.map((l) => ({ name: l.name, flavor: l.flavor, qty: l.qty, unitPrice: l.unitPrice })),
         subtotal,
         discount,
@@ -283,9 +301,14 @@ export function CashierClient({
       setDiscount(0);
       setExtras([]);
       setPayMethod("cash");
-      setOrderType("takeaway");
+      setOrderType("delivery");
       setTableNo("");
       setOrderNote("");
+      // next call from this number fills itself in; failure here is not the sale's
+      if (cust.phone && cust.address) void rememberAddress(cust.phone, cust.address, cust.customerName).catch(() => {});
+      setCustName("");
+      setCustPhone("");
+      setCustAddress("");
     } catch {
       setErr("تعذّر إتمام الطلب — تأكد من الاتصال بالإنترنت وأعد المحاولة. إن تكرّر، حدّث الصفحة (F5).");
     } finally {
@@ -382,6 +405,10 @@ export function CashierClient({
             });
             void attachCaller(phone);
           }}
+          onDetailsSaved={(name, address) => {
+            if (name) setCustName(name);
+            if (address) setCustAddress(address);
+          }}
         />
 
         {/* الزبون الملحَق بالطلب — يأتي من المكالمة. بطاقة الولاء وبحثها ومسحها
@@ -470,24 +497,58 @@ export function CashierClient({
 
         {err && <p className="text-sm text-destructive">{err}</p>}
 
-        {/* dine-in / takeaway */}
+        {/* delivery / dine-in */}
         <div className="grid grid-cols-2 gap-1.5 rounded-xl bg-secondary/60 p-1.5">
           <button
             onClick={() => {
-              setOrderType("takeaway");
+              setOrderType("delivery");
               setTableNo("");
             }}
-            className={`min-h-12 rounded-lg px-3 text-sm font-semibold transition ${orderType === "takeaway" ? "bg-primary text-primary-foreground" : "hover:bg-background"}`}
+            className={`min-h-12 rounded-lg px-3 text-sm font-semibold transition ${orderType === "delivery" ? "bg-primary text-primary-foreground" : "hover:bg-background"}`}
           >
-            🥡 خارجي
+            🛵 توصيل
           </button>
           <button
             onClick={() => setOrderType("dinein")}
             className={`min-h-12 rounded-lg px-3 text-sm font-semibold transition ${orderType === "dinein" ? "bg-primary text-primary-foreground" : "hover:bg-background"}`}
           >
-            🏠 داخل المحل
+            🏠 داخل المطعم
           </button>
         </div>
+        {orderType === "delivery" && (
+          <div className="grid gap-1.5">
+            <div className="grid grid-cols-2 gap-1.5">
+              <input
+                value={custName}
+                onChange={(e) => setCustName(e.target.value)}
+                placeholder="👤 اسم الزبون"
+                maxLength={120}
+                className="min-h-11 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+              />
+              <input
+                value={custPhone}
+                onChange={(e) => setCustPhone(e.target.value)}
+                // a full number, on leaving the box: their card, name and last address come back
+                onBlur={() => {
+                  const p = custPhone.replace(/\D/g, "");
+                  if (p.length >= 7 && !customer) void attachCaller(p);
+                }}
+                placeholder="📞 رقم الهاتف"
+                inputMode="tel"
+                dir="ltr"
+                maxLength={20}
+                className="min-h-11 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <input
+              value={custAddress}
+              onChange={(e) => setCustAddress(e.target.value)}
+              placeholder="📍 العنوان"
+              maxLength={300}
+              className="min-h-11 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+        )}
         {orderType === "dinein" && (
           <div className="flex flex-wrap gap-1.5">
             {tables.map((n) => (

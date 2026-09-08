@@ -317,17 +317,28 @@ function buildTicket(s: Slip, ticket: Ticket, opts: RenderOptions): void {
   // ── delivery details, before the items ──────────────────────────────────
   // On a delivery slip the address matters more than the food does: put it
   // where the driver sees it first, at double height, not in a footer.
+  // «=» لا «*»: الوكيل يرسم كخطّ ما كان من = - _ . ~ فقط؛ ٤٨ نجمة تحت Tahoma
+  // أعرض من الورقة فتلتفّ سطرين — وهذا ما ظهر على أول تذاكر التوصيل.
   if (ticket.order.isDelivery || ticket.order.addressNote || ticket.order.customerPhone) {
-    s.rule("*");
+    s.rule("=");
     s.center().bold(true).size(1, 2);
     if (ticket.order.customerName) s.line(ticket.order.customerName);
     if (ticket.order.customerPhone) s.line(ticket.order.customerPhone);
     s.size(1, 1);
     if (ticket.order.addressNote) s.size(1, 2).line(ticket.order.addressNote).size(1, 1);
     s.bold(false).right();
-    s.rule("*");
+    s.rule("=");
   } else {
     s.rule();
+  }
+
+  // ── note, BEFORE the items ──────────────────────────────────────────────
+  // «بدون بصل» is read before the cook starts, not found in the tail of the
+  // slip after the food is on the grill. It used to sit last on a kitchen
+  // ticket — and the kitchen printer kept losing it while the receipt did not.
+  if (ticket.order.note) {
+    s.size(1, 2).bold(true).line(`ملاحظة: ${ticket.order.note}`).bold(false).size(1, 1);
+    s.rule("=");
   }
 
   // ── lines ───────────────────────────────────────────────────────────────
@@ -345,12 +356,6 @@ function buildTicket(s: Slip, ticket: Ticket, opts: RenderOptions): void {
     } else {
       s.pair(`${name} ×${l.qty}`, formatIqd(l.amount));
     }
-  }
-
-  // ── note ────────────────────────────────────────────────────────────────
-  if (ticket.order.note) {
-    s.rule();
-    s.size(1, 2).bold(true).line(`ملاحظة: ${ticket.order.note}`).bold(false).size(1, 1);
   }
 
   // ── money (receipt only) ────────────────────────────────────────────────
