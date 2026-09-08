@@ -117,6 +117,22 @@ describe("delivery details", () => {
   });
 });
 
+describe("delivery company", () => {
+  // the expediter packs a Toters bag differently from a counter order, so the
+  // company is on the slip before the items — on the receipt and the assembly ticket
+  it("prints the company name, before the items, on every ticket", () => {
+    for (const t of build({ partnerName: "توترز" })) {
+      const text = asText(t);
+      expect(text.indexOf(printed("توترز"))).toBeGreaterThan(-1);
+      expect(text.indexOf(printed("توترز"))).toBeLessThan(text.indexOf(printed("ماشروم برجر")));
+    }
+  });
+
+  it("prints nothing of the kind on a counter sale", () => {
+    for (const t of build()) expect(asText(t)).not.toContain(printed("توترز"));
+  });
+});
+
 describe("order note", () => {
   // «بدون بصل» reached the receipt and not the kitchen. Whatever the printer
   // did with the tail of the slip, the note now precedes the food on every

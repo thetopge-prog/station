@@ -299,6 +299,14 @@ function buildTicket(s: Slip, ticket: Ticket, opts: RenderOptions): void {
   s.right();
   s.pair(ticket.order.dateTime, channelLabel(ticket.order.channel));
 
+  // ── delivery company, loud ──────────────────────────────────────────────
+  // A Toters bag is packed, sealed and handed over differently from a counter
+  // order. The expediter reads the company here, before anything about the food.
+  if (ticket.order.partnerName) {
+    s.rule("=");
+    s.center().size(2, 2).bold(true).line(ticket.order.partnerName).bold(false).size(1, 1).right();
+  }
+
   // ── accountability ──────────────────────────────────────────────────────
   // Who took the money and who bagged it, printed on the assembly ticket in
   // full size. This is the whole point of the expediter slip: when a customer

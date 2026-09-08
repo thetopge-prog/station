@@ -165,7 +165,7 @@ export async function buildOrderJobs(
     .from("orders")
     // one literal string, not a concatenation: supabase-js infers the row type
     // from the select text, and `a + b` erases that inference
-    .select("id, order_seq, pickup_code, channel, table_no, note, subtotal, discount, extra, extra_note, customer_phone, address_note, customer_name, cashier_id, expediter_id, created_at")
+    .select("id, order_seq, pickup_code, channel, table_no, note, subtotal, discount, extra, extra_note, customer_phone, address_note, customer_name, cashier_id, expediter_id, partner_id, created_at")
     .eq("id", orderId)
     .maybeSingle();
   if (!order) return { jobs: [], unrouted: [] };
@@ -196,6 +196,11 @@ export async function buildOrderJobs(
   const staffName = new Map((staffRows ?? []).map((e) => [e.id, e.name_ar]));
   const cashierName = order.cashier_id ? staffName.get(order.cashier_id) ?? null : null;
   const expediterName = order.expediter_id ? staffName.get(order.expediter_id) ?? null : null;
+
+  // stamped by payment (stampPayment) before this runs — the print effect fires after checkout commits
+  const { data: partner } = order.partner_id
+    ? await svc.from("delivery_partners").select("name_ar").eq("id", order.partner_id).maybeSingle()
+    : { data: null };
 
   const items: PrintItem[] = (rawItems ?? []).map((i) => ({
     name_ar: i.name_ar,
@@ -240,6 +245,7 @@ export async function buildOrderJobs(
       customerPhone: order.customer_phone,
       addressNote: order.address_note,
       customerName: order.customer_name,
+      partnerName: partner?.name_ar ?? null,
     },
     items,
     printers,

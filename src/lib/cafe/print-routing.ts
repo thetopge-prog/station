@@ -60,6 +60,8 @@ export type PrintOrder = {
   customerPhone?: string | null;
   addressNote?: string | null;
   customerName?: string | null;
+  /** the delivery company billed for this order — a Toters bag is packed differently */
+  partnerName?: string | null;
 };
 
 export type PrinterRow = {
@@ -108,6 +110,7 @@ export type Ticket = {
     customerPhone: string | null;
     addressNote: string | null;
     customerName: string | null;
+    partnerName: string | null;
     /** delivery/pickup tickets must carry the customer's details prominently */
     isDelivery: boolean;
   };
@@ -151,6 +154,7 @@ export function routeOrder(input: RouteInput): Ticket[] {
     customerPhone: order.customerPhone ?? null,
     addressNote: order.addressNote ?? null,
     customerName: order.customerName ?? null,
+    partnerName: order.partnerName ?? null,
     // curbside counts: the runner needs the phone and the car description to
     // find a customer who never comes inside
     isDelivery: order.channel === "delivery" || order.channel === "curbside",
