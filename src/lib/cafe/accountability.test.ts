@@ -59,9 +59,15 @@ describe("print accountability", () => {
     expect(text).toContain(printed("مصطفى"));
   });
 
-  it("says «غير محدّد» rather than printing a blank when no shift is open", () => {
+  // كان يطبع «غير محدّد». صاحب المحل أزال اختيار المجهّز من الكاشير: التجهيز
+  // يجري في المطبخ على تذكرة كاملة، فسطرٌ يقول «لا أحد» ضجيج لا محاسبة.
+  // الكاشير يبقى مسمّى دائماً — هو من أخذ المال.
+  it("omits the expediter line entirely when no one is on shift, and still names the cashier", () => {
     const exp = build({ expediterName: null }).find((t) => t.kind === "expediter")!;
-    expect(asText(exp)).toContain(printed("غير محدّد"));
+    const text = asText(exp);
+    expect(text).not.toContain(printed("غير محدّد"));
+    expect(text).not.toContain(printed("المجهّز"));
+    expect(text).toContain(printed("أحمد"));
   });
 
   it("carries the expediter name to every ticket, not just the assembly slip", () => {

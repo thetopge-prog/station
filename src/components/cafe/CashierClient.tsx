@@ -1,20 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { Check, Minus, Plus, Printer, QrCode, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { Check, Minus, Plus, Printer, Trash2 } from "lucide-react";
 import type { MenuCategoryView, MenuItemView } from "@/lib/cafe/menu-data";
 import { formatIqdLabel } from "@/lib/cafe/money";
 import { cashierCheckout, type PayMethod } from "@/lib/cafe/cashier-actions";
 import type { Partner } from "@/lib/cafe/partner-actions";
 import { buildOrderJobs, buildReceiptJob } from "@/lib/cafe/printer-actions";
 import { printJobs, kickDrawer as kickDrawerAgent } from "@/lib/cafe/print-client";
-import { findCard, redeemReward, type Card } from "@/lib/cafe/loyalty-actions";
-import { QrScanner } from "./QrScanner";
+import { redeemReward, type Card } from "@/lib/cafe/loyalty-actions";
 import { Receipt, type ReceiptData } from "./Receipt";
 import { MenuIcon } from "./MenuIcon";
 import { PriceInput } from "./PriceInput";
 import { CallBanner } from "./CallBanner";
-import { DutyRoster } from "./DutyRoster";
 import { ShortageAlert } from "./ShortageAlert";
 import { customerForCall, type LastLine } from "@/lib/cafe/call-actions";
 import { FridayPrayerNotice } from "./FridayPrayerNotice";
@@ -94,8 +92,6 @@ export function CashierClient({
   const [cart, dispatch] = useReducer(cartReducer, {});
   const [discount, setDiscount] = useState(0);
   const [customer, setCustomer] = useState<Card | null>(null);
-  const [serialInput, setSerialInput] = useState("");
-  const [scanOpen, setScanOpen] = useState(false);
   const [loyaltyMsg, setLoyaltyMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -217,23 +213,6 @@ export function CashierClient({
     else setLoyaltyMsg("تعذّر ربط الرقم بالطلب.");
   }
 
-  async function lookup(serial: string) {
-    const s = serial.trim();
-    if (!s) return;
-    setLoyaltyMsg(null);
-    const card = await findCard(s);
-    if (!card) {
-      setLoyaltyMsg("بطاقة غير موجودة.");
-      return;
-    }
-    setCustomer(card);
-  }
-
-  const onScanned = useCallback((text: string) => {
-    setScanOpen(false);
-    void lookup(text);
-  }, []);
-
   async function redeem() {
     if (!customer) return;
     setLoyaltyMsg(null);
@@ -303,7 +282,6 @@ export function CashierClient({
       setCustomer(null);
       setDiscount(0);
       setExtras([]);
-      setSerialInput("");
       setPayMethod("cash");
       setOrderType("takeaway");
       setTableNo("");
@@ -380,9 +358,6 @@ export function CashierClient({
             closed short and somebody has to ring the customer now */}
         <ShortageAlert />
 
-        {/* who is on the pass today — ticked once, corrected as people come
-            and go, and the only record of it the system will ever have */}
-        <DutyRoster />
 
         {/* who is calling — the loyalty box below is where that call lands */}
         <CallBanner
@@ -409,43 +384,25 @@ export function CashierClient({
           }}
         />
 
-        {/* loyalty */}
-        <div className="space-y-2 rounded-xl bg-secondary/60 p-3">
-          <p className="text-sm font-semibold">بطاقة الولاء</p>
-          {customer ? (
-            <div className="flex items-center justify-between gap-2 text-sm">
-              <div>
-                <p className="font-medium">{customer.name_ar ?? "زبون"}</p>
-                <p className="text-xs text-muted-foreground">الرصيد: {customer.points} نقطة</p>
-              </div>
-              <div className="flex gap-1.5">
-                <button onClick={redeem} className="min-h-11 rounded-lg bg-accent px-3 text-sm font-semibold text-accent-foreground hover:opacity-90">
-                  استبدال مكافأة
-                </button>
-                <button onClick={() => setCustomer(null)} aria-label="إزالة" className={`rounded-lg border border-border hover:bg-background ${TAP}`}>
-                  <Trash2 className="mx-auto size-4" />
-                </button>
-              </div>
+        {/* الزبون الملحَق بالطلب — يأتي من المكالمة. بطاقة الولاء وبحثها ومسحها
+            أُزيلت بطلب صاحب المحل: لا تُستعمل على هذا الكاونتر. */}
+        {customer && (
+          <div className="flex items-center justify-between gap-2 rounded-xl bg-secondary/60 p-3 text-sm">
+            <div>
+              <p className="font-medium">{customer.name_ar ?? "زبون"}</p>
+              <p className="text-xs text-muted-foreground">الرصيد: {customer.points} نقطة</p>
             </div>
-          ) : (
             <div className="flex gap-1.5">
-              <input
-                value={serialInput}
-                onChange={(e) => setSerialInput(e.target.value)}
-                placeholder="رقم البطاقة أو الهاتف"
-                dir="ltr"
-                className="min-h-11 w-full rounded-lg border border-input bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-              />
-              <button onClick={() => lookup(serialInput)} className="min-h-11 rounded-lg border border-border px-3 text-sm font-medium hover:bg-background">
-                بحث
+              <button onClick={redeem} className="min-h-11 rounded-lg bg-accent px-3 text-sm font-semibold text-accent-foreground">
+                استبدال مكافأة
               </button>
-              <button onClick={() => setScanOpen(true)} aria-label="مسح QR" className="rounded-lg bg-primary p-2 text-primary-foreground hover:opacity-90">
-                <QrCode className="size-4" />
+              <button onClick={() => setCustomer(null)} aria-label="إزالة" className="min-h-11 rounded-lg border border-border px-3">
+                <Trash2 className="mx-auto size-4" />
               </button>
             </div>
-          )}
-          {loyaltyMsg && <p className="text-xs text-muted-foreground">{loyaltyMsg}</p>}
-        </div>
+          </div>
+        )}
+        {loyaltyMsg && <p className="text-xs text-muted-foreground">{loyaltyMsg}</p>}
 
         {/* إضافات (surcharges for add-ons) */}
         <div className="space-y-2 rounded-xl bg-secondary/60 p-3">
@@ -581,7 +538,7 @@ export function CashierClient({
               <option value="">— اختر شركة التوصيل —</option>
               {partners.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name_ar}
+                  {p.name_ar}{p.settlement === "cash_at_pickup" ? ` · نقد −${p.commission_pct}٪` : ""}
                 </option>
               ))}
             </select>
@@ -609,7 +566,6 @@ export function CashierClient({
       </aside>
 
       {/* scanner */}
-      {scanOpen && <QrScanner onScan={onScanned} onClose={() => setScanOpen(false)} />}
 
       {/* success */}
       {success && (

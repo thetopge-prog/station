@@ -307,7 +307,8 @@ function buildTicket(s: Slip, ticket: Ticket, opts: RenderOptions): void {
     s.rule();
     s.bold(true);
     s.pair("الكاشير", ticket.order.cashierName ?? "—");
-    s.pair("المجهّز", ticket.order.expediterName ?? "غير محدّد");
+    // لا «غير محدّد»: في هذا المحل لا يُعيَّن مجهّز من الكاشير، والسطر الفارغ ضجيج
+    if (ticket.order.expediterName) s.pair("المجهّز", ticket.order.expediterName);
     s.bold(false);
   } else {
     s.pair("الكاشير", ticket.order.cashierName ?? "—");
@@ -330,12 +331,17 @@ function buildTicket(s: Slip, ticket: Ticket, opts: RenderOptions): void {
   }
 
   // ── lines ───────────────────────────────────────────────────────────────
+  // Kitchen slips are a TABLE — item on the right, count on the left — because
+  // that is how the cook reads the old system's ticket and asked for it back.
+  // Money is absent by construction (see routeOrder invariant 2).
+  if (ticket.kind !== "receipt") {
+    s.right().bold(true).pair("الصنف", "العدد").bold(false);
+    s.rule();
+  }
   for (const l of ticket.lines) {
     const name = l.flavor ? `${l.name} (${l.flavor})` : l.name;
     if (l.amount == null) {
-      // kitchen slip: quantity is what matters, so it is doubled in size and
-      // money is absent by construction (see routeOrder invariant 2)
-      s.size(2, 2).bold(true).line(`${l.qty} × ${name}`).bold(false).size(1, 1);
+      s.size(1, 2).bold(true).pair(name, String(l.qty)).bold(false).size(1, 1);
     } else {
       s.pair(`${name} ×${l.qty}`, formatIqd(l.amount));
     }

@@ -101,6 +101,10 @@ export function CashierSessionGate({ children }: { children: React.ReactNode }) 
         >
           {busy ? "…" : `أؤكّد استلام ${formatIqdLabel(counted)}`}
         </button>
+        {/* الصفر تصريح لا نسيان: زرّ يقوله بالاسم بدل حقل فارغ لا يُقبل */}
+        <button onClick={() => void start(handover.session_id, 0)} disabled={busy} className="min-h-12 w-full rounded-2xl border-2 border-border font-black">
+          استلمتُ الدرج فارغاً
+        </button>
         {counted > 0 && counted !== handover.amount && (
           <p className="rounded-xl border-2 border-destructive bg-destructive/10 px-3 py-2 text-sm font-black text-destructive">
             فرق {formatIqd(Math.abs(counted - handover.amount))} د.ع {counted < handover.amount ? "نقصاً" : "زيادة"} — سيُسجَّل
@@ -123,6 +127,9 @@ export function CashierSessionGate({ children }: { children: React.ReactNode }) 
           className="min-h-16 w-full rounded-2xl bg-primary text-xl font-black text-primary-foreground shadow-station disabled:opacity-50"
         >
           {busy ? "…" : `ابدأ الوردية بـ ${formatIqdLabel(float)}`}
+        </button>
+        <button onClick={() => void start(null, 0)} disabled={busy} className="min-h-12 w-full rounded-2xl border-2 border-border font-black">
+          الدرج فارغ — ابدأ بصفر
         </button>
         <p className="text-xs font-bold text-muted-foreground">
           كل بيع ومصروف ودين تسجّله من الآن يُنسَب إلى هذه الوردية وحدها.
@@ -176,11 +183,11 @@ function SessionBar({ session, onClosed }: { session: OpenSession; onClosed: () 
     }
   }
 
-  async function finish() {
+  async function finish(countedOverride?: number) {
     setBusy(true);
     setErr(null);
     try {
-      const res = await closeSession({ sessionId: session.id, counted, deposited, note });
+      const res = await closeSession({ sessionId: session.id, counted: countedOverride ?? counted, deposited, note });
       if (res.ok) setDone({ expected: res.expected, variance: res.variance });
       else setErr(res.error);
     } catch (e) {
@@ -275,6 +282,9 @@ function SessionBar({ session, onClosed }: { session: OpenSession; onClosed: () 
                     {busy ? "…" : "إنهاء وتسليم"}
                   </button>
                 </div>
+                <button onClick={() => void finish(0)} disabled={busy} className="mt-2 min-h-12 w-full rounded-xl border-2 border-border font-black">
+                  الدرج فارغ — أنهِ بصفر
+                </button>
               </>
             )}
           </div>

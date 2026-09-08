@@ -43,6 +43,8 @@ export function PartnersClient({ partners }: { partners: PartnerBalance[] }) {
   const [editing, setEditing] = useState<PartnerBalance | null>(null);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [settlement, setSettlement] = useState<"credit" | "cash_at_pickup">("credit");
+  const [commissionPct, setCommissionPct] = useState("0");
   const [adding, setAdding] = useState(false);
 
   // settle
@@ -88,6 +90,8 @@ export function PartnersClient({ partners }: { partners: PartnerBalance[] }) {
     setMsg(null);
     const res = await savePartner({
       id: editing?.id ?? null,
+      settlement,
+      commissionPct: Number(commissionPct) || 0,
       name: name.trim(),
       phone: phone.trim() || null,
       active: editing ? editing.is_active : true,
@@ -171,6 +175,19 @@ export function PartnersClient({ partners }: { partners: PartnerBalance[] }) {
               inputMode="tel"
               className="w-full rounded-lg border border-border bg-background px-3 py-2"
             />
+          </label>
+          {/* زاد يدفع الصافي نقداً عند الاستلام؛ غيرها على الحساب. الاثنان يختلفان
+              في الدرج وفي كشف الذمم، فلا بدّ أن تقولها الإدارة صراحةً. */}
+          <label className="min-w-44">
+            <span className="mb-1 block text-xs font-bold text-muted-foreground">آلية الدفع</span>
+            <select value={settlement} onChange={(e) => setSettlement(e.target.value as "credit" | "cash_at_pickup")} className="w-full rounded-lg border border-border bg-background px-3 py-2">
+              <option value="credit">على الحساب — تُسوَّى لاحقاً</option>
+              <option value="cash_at_pickup">نقد عند الاستلام — المندوب يدفع الصافي</option>
+            </select>
+          </label>
+          <label className="w-28">
+            <span className="mb-1 block text-xs font-bold text-muted-foreground">العمولة ٪</span>
+            <input value={commissionPct} onChange={(e) => setCommissionPct(e.target.value)} inputMode="decimal" dir="ltr" className="w-full rounded-lg border border-border bg-background px-3 py-2" />
           </label>
           <button
             onClick={submitPartner}

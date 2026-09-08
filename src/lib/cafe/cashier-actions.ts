@@ -145,14 +145,34 @@ async function stampPayment(
   partnerId: string | null,
 ): Promise<string | null> {
   const svc = createSupabaseServiceClient();
+
+  // شركة «نقد عند الاستلام» (زاد): المندوب يدفع الإجمالي ناقص عمولتها في
+  // الدرج الآن، ولا ذمّة. يُحسب هنا مرّة ويُثبَّت على الطلب، فيقرؤه الدرج
+  // المتوقّع وجرد اليوم من مكان واحد. الشركة الآجلة تترك الحقلين فارغين.
+  let partner_cash_received: number | null = null;
+  let partner_commission: number | null = null;
+  if (payMethod === "partner" && partnerId) {
+    const [{ data: p }, { data: o }] = await Promise.all([
+      svc.from("delivery_partners").select("settlement, commission_pct").eq("id", partnerId).maybeSingle(),
+      svc.from("orders").select("subtotal, discount, extra").eq("id", orderId).maybeSingle(),
+    ]);
+    if (p?.settlement === "cash_at_pickup" && o) {
+      const total = Math.max(0, (o.subtotal ?? 0) - (o.discount ?? 0) + (o.extra ?? 0));
+      partner_commission = Math.round((total * (Number(p.commission_pct) || 0)) / 100);
+      partner_cash_received = Math.max(0, total - partner_commission);
+    }
+  }
+
   const { error } = await svc
     .from("orders")
     .update({
       payment_method: payMethod,
       // The order belongs to the shift that took it — a partner order shows in
-      // the shift's count, never in its cash.
+      // the shift's count; its cash only when the courier actually paid it.
       session_id: await openSessionIdFor(employeeId),
       partner_id: payMethod === "partner" ? partnerId : null,
+      partner_cash_received,
+      partner_commission,
     })
     .eq("id", orderId);
   if (error) {

@@ -34,6 +34,10 @@ export type PartnerDay = {
   discounts: number;
   /** رصيدها الجاري كاملاً، لا اليوم وحده */
   balance: number;
+  /** 0068 — «نقد عند الاستلام»: ما دفعه المندوب في الدرج وما ذهب عمولةً */
+  settlement?: "credit" | "cash_at_pickup";
+  cash_received?: number;
+  commission?: number;
 };
 
 export type DailyCount = {

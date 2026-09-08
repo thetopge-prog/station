@@ -22,6 +22,10 @@ export type Partner = {
   name_ar: string;
   phone: string | null;
   is_active: boolean;
+  /** «على الحساب» يُقيَّد ويُسوَّى لاحقاً؛ «نقد عند الاستلام» المندوب يدفع الصافي في الدرج */
+  settlement: "credit" | "cash_at_pickup";
+  /** نسبة الشركة — تُحسم من الإجمالي قبل أن يدفع المندوب (نقد عند الاستلام) */
+  commission_pct: number;
 };
 
 export type PartnerBalance = Partner & {
@@ -43,7 +47,7 @@ export async function listActivePartners(): Promise<Partner[]> {
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase
     .from("delivery_partners")
-    .select("id, name_ar, phone, is_active")
+    .select("id, name_ar, phone, is_active, settlement, commission_pct")
     .eq("is_active", true)
     .order("sort")
     .order("name_ar");
@@ -64,6 +68,8 @@ export async function savePartner(input: {
   phone?: string | null;
   active?: boolean;
   note?: string | null;
+  settlement?: "credit" | "cash_at_pickup";
+  commissionPct?: number;
 }) {
   await requireAdmin();
   const supabase = await createSupabaseServerClient();
@@ -75,6 +81,16 @@ export async function savePartner(input: {
     p_note: input.note ?? null,
   });
   if (error) return { ok: false as const, error: friendly(error.message) };
+  // آلية التسوية والعمولة بعد الـRPC، بالاسم (فريد): كلمتان لا تستحقّان إعادة
+  // كتابة الدالة. تُحفظان فقط حين تُرسَلان — التبديل من الشاشة لا يمسّهما.
+  if (input.settlement !== undefined || input.commissionPct !== undefined) {
+    const svc = createSupabaseServiceClient();
+    const patch: { settlement?: "credit" | "cash_at_pickup"; commission_pct?: number } = {};
+    if (input.settlement !== undefined) patch.settlement = input.settlement;
+    if (input.commissionPct !== undefined) patch.commission_pct = Math.min(100, Math.max(0, Number(input.commissionPct) || 0));
+    const { error: e2 } = await svc.from("delivery_partners").update(patch).eq("name_ar", input.name.trim());
+    if (e2) return { ok: false as const, error: e2.message };
+  }
   revalidatePath("/partners");
   revalidatePath("/cashier");
   return { ok: true as const };

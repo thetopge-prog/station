@@ -199,6 +199,7 @@ export function DailyCountClient({ initial, cashier }: { initial: DailyCount; ca
                     <th>المبيعات</th>
                     <th>ملغاة</th>
                     <th>خصم</th>
+                    <th>استُلم نقداً</th>
                     <th>الباقي عليها</th>
                   </tr>
                 </thead>
@@ -212,7 +213,11 @@ export function DailyCountClient({ initial, cashier }: { initial: DailyCount; ca
                         {p.cancelled_count > 0 ? `${p.cancelled_count} · ${formatIqdLabel(p.cancelled_amount)}` : "—"}
                       </td>
                       <td className="tabular-nums">{formatIqdLabel(p.discounts)}</td>
-                      <td className="font-black tabular-nums">{formatIqdLabel(p.balance)}</td>
+                      {/* شركة نقدية: المندوب دفع الصافي في الدرج ولا شيء عليها؛ آجلة: العكس */}
+                      <td className="tabular-nums">
+                        {p.settlement === "cash_at_pickup" ? `${formatIqdLabel(p.cash_received ?? 0)}${p.commission ? ` (عمولة ${formatIqdLabel(p.commission)})` : ""}` : "—"}
+                      </td>
+                      <td className="font-black tabular-nums">{p.settlement === "cash_at_pickup" ? "—" : formatIqdLabel(p.balance)}</td>
                     </tr>
                   ))}
                 </tbody>
