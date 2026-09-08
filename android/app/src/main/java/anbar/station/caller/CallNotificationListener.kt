@@ -20,12 +20,30 @@ class CallNotificationListener : NotificationListenerService() {
 
   override fun onNotificationPosted(sbn: StatusBarNotification) {
     val pkg = sbn.packageName ?: return
-    if (!interesting(pkg)) return
-
     val x = sbn.notification?.extras ?: return
     val title = x.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
-    val text = x.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim().orEmpty()
+    // BIG_TEXT يحمل النصّ الكامل حين يُطوى الإشعار؛ TEXT قد يكون سطراً واحداً مقصوصاً
+    val text = (x.getCharSequence(Notification.EXTRA_BIG_TEXT)
+      ?: x.getCharSequence(Notification.EXTRA_TEXT))?.toString()?.trim().orEmpty()
     if (title.isEmpty() && text.isEmpty()) return
+
+    /*
+     * تطبيق شركة التوصيل على جهازها — توترز (com.toters.totersmerchant) وطلباتي.
+     * الإشعار يُرسَل كما هو إلى مدخل الطلبات؛ الخادم يقرّر إن كان طلباً
+     * كاملاً أو تنبيهاً برقم. تماماً كما يُرسَل رقم المتصل حين يرنّ الهاتف.
+     */
+    if (isOrderApp(pkg)) {
+      val body = JSONObject()
+        .put("secret", prefs(this).getString(SECRET_KEY, "") ?: "")
+        .put("app", pkg)
+        .put("title", title)
+        .put("text", text)
+      val ctx = this
+      Thread { post(ctx, body, "طلب · ${short(pkg)}", ordersUrl(ctx)) }.start()
+      return
+    }
+
+    if (!interesting(pkg)) return
 
     // Only a ringing/ongoing CALL is interesting. A chat message from the same
     // app is not, and would otherwise put every WhatsApp conversation on the
@@ -56,6 +74,11 @@ class CallNotificationListener : NotificationListenerService() {
    * أرسلناه لأنتجنا صفّاً فارغاً على شاشة الكاشير مع كل مكالمة ناجحة — وهو ما
    * حدث فعلاً ثلاث مرات في أول تجربة.
    */
+  private fun isOrderApp(pkg: String): Boolean {
+    val p = pkg.lowercase()
+    return p.contains("toters") || p.contains("talabat")
+  }
+
   private fun interesting(pkg: String): Boolean =
     pkg.contains("whatsapp") ||
       pkg.contains("viber") ||

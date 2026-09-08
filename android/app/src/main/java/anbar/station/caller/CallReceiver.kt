@@ -92,6 +92,16 @@ private const val LAST_AT = "last_at"
 fun prefs(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
 /**
+ * عنوان مدخل طلبات شركات التوصيل — مشتقّ من عنوان المكالمات المحفوظ، لا
+ * إعداد ثانٍ يُنسى: يُبدَّل «/api/calls» بـ«/api/orders/external».
+ */
+fun ordersUrl(ctx: Context): String {
+  val base = (prefs(ctx).getString(URL_KEY, "") ?: "").trim()
+  return if (base.contains("/api/calls")) base.replace("/api/calls", "/api/orders/external")
+  else base.trimEnd('/') + "/api/orders/external"
+}
+
+/**
  * يرسل رقماً مرة واحدة، ويكتب النتيجة حيث يراها صاحب المحل.
  *
  * بلا طابور ولا إعادة محاولة: «من يتصل الآن» بعد عشرين دقيقة ليس معلومة بل
@@ -121,9 +131,9 @@ fun send(ctx: Context, numberRaw: String, how: String, async: Boolean = true) {
  * الخادم يقبل الاثنتين ويكتفي بأيّهما طابق. سطر واحد يزيل صنفاً كاملاً من
  * الأعطال التي أضاعت علينا ليلة.
  */
-fun post(ctx: Context, body: JSONObject, label: String) {
+fun post(ctx: Context, body: JSONObject, label: String, urlOverride: String? = null) {
   val p = prefs(ctx)
-  val url = (p.getString(URL_KEY, "") ?: "").trim()
+  val url = (urlOverride ?: p.getString(URL_KEY, "") ?: "").trim()
   if (url.isEmpty()) return status(ctx, "$label · لا يوجد عنوان")
 
   var code = -1

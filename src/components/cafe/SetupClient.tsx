@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Inbox, Monitor, Printer, Terminal } from "lucide-react";
+import { Inbox, Monitor, Printer, Smartphone, Terminal } from "lucide-react";
 import { kickDrawer } from "@/lib/cafe/print-client";
 import { PrinterConnect, type ConnectRow } from "./PrinterConnect";
 import { CopyButton } from "./CopyButton";
@@ -82,6 +82,23 @@ export function SetupClient({
           افتح الدرج
         </button>
         <p className="mt-2 text-xs font-bold text-muted-foreground">يُفتح من طابعة الكاشير، فاربطها أولاً.</p>
+      </Section>
+
+      {/* تطبيق واحد لهاتف المطعم ولجهاز شركة التوصيل: يقرأ إشعار «طلب جديد» من
+          تطبيق توترز/طلباتي ويرسله كما يرسل رقم المتصل. لا واجهة برمجية عندهم. */}
+      <Section icon={<Smartphone className="size-5" />} title="٥ — جهاز توترز / طلباتي">
+        <a
+          href="/apk"
+          className="touch-pos block w-full rounded-xl bg-primary px-4 py-3 text-center font-black text-primary-foreground hover:opacity-90"
+        >
+          نزّل تطبيق ستيشن (APK) على الجهاز
+        </a>
+        <ol className="mt-3 list-inside list-decimal space-y-1 text-sm font-bold text-muted-foreground">
+          <li>افتح <code dir="ltr">station-anbar.netlify.app/apk</code> من متصفح الجهاز ونصّبه (اسمح بـ«مصادر غير معروفة»).</li>
+          <li>افتح التطبيق: نفس العنوان ونفس كلمة السرّ التي في هاتف المطعم، ثم «حفظ».</li>
+          <li>اضغط «وصول الإشعارات» وفعّل «ستيشن» في قائمة أندرويد — هذا هو الإذن الذي يقرأ إشعار توترز.</li>
+          <li>اطلب طلباً تجريبياً من توترز: يظهر على شاشة «الطلبات الواردة» خلال ثوانٍ — طلباً إن عُرفت أصنافه، أو تنبيهاً برقمه.</li>
+        </ol>
       </Section>
     </div>
   );

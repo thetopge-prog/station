@@ -16,7 +16,7 @@ import { formatIqdLabel } from "@/lib/cafe/money";
  */
 
 const CHANNEL_AR: Record<string, string> = { cashier: "كاشير", qr: "طاولة", kiosk: "كشك", delivery: "توصيل", pickup: "استلام", curbside: "من السيارة" };
-const SOURCE_AR: Record<string, string> = { telegram: "تليغرام", whatsapp: "واتساب", web: "الموقع" };
+const SOURCE_AR: Record<string, string> = { telegram: "تليغرام", whatsapp: "واتساب", web: "الموقع", toters: "توترز", talabaty: "طلباتي" };
 const STATUS_AR: Record<string, string> = { pending: "معلّق", paid: "مدفوع", cancelled: "ملغي", refunded: "مسترجع" };
 const PAY_AR: Record<string, string> = { cash: "نقد", card: "بطاقة", partner: "شركة توصيل" };
 

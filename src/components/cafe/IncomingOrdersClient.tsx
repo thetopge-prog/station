@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BellRing } from "lucide-react";
 import { formatIqdLabel } from "@/lib/cafe/money";
+import { latestExternalAlerts, markAlertHandled, type ExternalAlert } from "@/lib/cafe/external-actions";
 import { sinceLabel } from "@/lib/cafe/time";
 import { kickDrawer } from "@/lib/cafe/print-client";
 import {
@@ -13,7 +14,7 @@ import {
 } from "@/lib/cafe/cashier-actions";
 import { Receipt, type ReceiptData } from "./Receipt";
 
-const SOURCE_AR: Record<string, string> = { telegram: "تليغرام", whatsapp: "واتساب", web: "الموقع" };
+const SOURCE_AR: Record<string, string> = { telegram: "تليغرام", whatsapp: "واتساب", web: "الموقع", toters: "توترز", talabaty: "طلباتي" };
 const CHANNEL_AR: Record<string, string> = {
   qr: "موبايل",
   kiosk: "لوحي",
@@ -49,6 +50,19 @@ export function IncomingOrdersClient() {
 
   // device settings (shared with the cashier screen via the same localStorage keys)
   const [autoPrint, setAutoPrint] = useState(false);
+  // تنبيهات جهاز توترز/طلباتي — تُستطلع على حدة كي لا تمسّ استطلاع الطلبات
+  const [alerts, setAlerts] = useState<ExternalAlert[]>([]);
+  useEffect(() => {
+    let live = true;
+    const tick = () => void latestExternalAlerts().then((a) => { if (live) setAlerts(a); }).catch(() => {});
+    const kick = setTimeout(tick, 0);
+    const iv = setInterval(tick, 5000);
+    return () => { live = false; clearTimeout(kick); clearInterval(iv); };
+  }, []);
+  async function dismissAlert(id: string) {
+    setAlerts((a) => a.filter((x) => x.id !== id));
+    await markAlertHandled(id);
+  }
   const [drawerKick, setDrawerKick] = useState(false);
   const autoPrintRef = useRef(false);
   const drawerKickRef = useRef(false);
@@ -170,6 +184,27 @@ export function IncomingOrdersClient() {
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {/* طلبات شركات التوصيل كما وصلت من جهازها: إن طابقت المنيو فهي بطاقة طلب
+              أدناه أيضاً؛ وإلا فهذا كل ما يُعرف — الرقم، ليُفتح في تطبيقها ويُدخل. */}
+          {alerts.map((a) => (
+            <div key={a.id} className="flex flex-col rounded-2xl border-2 border-primary bg-primary/5 p-4 sm:col-span-full">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-lg font-black text-primary">
+                  🛵 طلب {SOURCE_AR[a.source] ?? a.source}{a.ref ? ` #${a.ref}` : ""}
+                </span>
+                <span className="text-xs font-bold text-muted-foreground">{sinceLabel(ageMinutes(a.created_at))}</span>
+              </div>
+              {(a.title || a.body) && <p className="mt-1 whitespace-pre-line text-sm">{[a.title, a.body].filter(Boolean).join("\n")}</p>}
+              <div className="mt-2 flex items-center justify-between gap-2 text-sm">
+                <span className="font-bold text-muted-foreground">
+                  {a.order_id ? "أُنشئ طلباً أدناه — اقبله" : "الأصناف لم تُطابَق — أدخلها من الكاشير كطلب توصيل"}
+                </span>
+                <button onClick={() => void dismissAlert(a.id)} className="rounded-lg border border-border px-3 py-1.5 font-bold hover:bg-secondary">
+                  تمّ
+                </button>
+              </div>
+            </div>
+          ))}
           {pending.map((o) => {
             const age = ageMinutes(o.created_at);
             return (
