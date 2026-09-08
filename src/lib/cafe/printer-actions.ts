@@ -176,31 +176,32 @@ export async function buildOrderJobs(
     .eq("order_id", orderId);
 
   const itemIds = [...new Set((rawItems ?? []).map((i) => i.item_id).filter(Boolean))] as string[];
-  const { data: menu } = itemIds.length
-    ? await svc.from("menu_items").select("id, category_id").in("id", itemIds)
-    : { data: [] };
+  const staffIds = [order.cashier_id, order.expediter_id].filter(Boolean) as string[];
+
+  // One round trip, not six. The database is ~200 ms away from the server;
+  // these six questions were asked one after another and the cashier waited
+  // over a second for paper that could have taken a fifth of that. None of
+  // them depends on another — only on the order and its lines, already here.
+  const [{ data: menu }, { data: cats }, { data: stationRows }, { data: staffRows }, { data: partner }, configs] = await Promise.all([
+    itemIds.length ? svc.from("menu_items").select("id, category_id").in("id", itemIds) : Promise.resolve({ data: [] as { id: string; category_id: string }[] }),
+    svc.from("categories").select("id, station_id"),
+    svc.from("stations").select("id, name_ar"),
+    staffIds.length ? svc.from("employees").select("id, name_ar").in("id", staffIds) : Promise.resolve({ data: [] as { id: string; name_ar: string }[] }),
+    // stamped by payment (stampPayment) before this runs — the print effect fires after checkout commits
+    order.partner_id ? svc.from("delivery_partners").select("name_ar").eq("id", order.partner_id).maybeSingle() : Promise.resolve({ data: null as { name_ar: string } | null }),
+    listPrinters(),
+  ]);
   const catOfItem = new Map((menu ?? []).map((m) => [m.id, m.category_id]));
 
-  const { data: cats } = await svc.from("categories").select("id, station_id");
   const categoryStation: Record<string, string | null> = {};
   for (const c of cats ?? []) categoryStation[c.id] = c.station_id;
 
-  const { data: stationRows } = await svc.from("stations").select("id, name_ar");
   const stations: StationRow[] = (stationRows ?? []).map((s) => ({ id: s.id, name_ar: s.name_ar }));
 
   // Both names go on the assembly ticket — that is the accountability record.
-  const staffIds = [order.cashier_id, order.expediter_id].filter(Boolean) as string[];
-  const { data: staffRows } = staffIds.length
-    ? await svc.from("employees").select("id, name_ar").in("id", staffIds)
-    : { data: [] };
   const staffName = new Map((staffRows ?? []).map((e) => [e.id, e.name_ar]));
   const cashierName = order.cashier_id ? staffName.get(order.cashier_id) ?? null : null;
   const expediterName = order.expediter_id ? staffName.get(order.expediter_id) ?? null : null;
-
-  // stamped by payment (stampPayment) before this runs — the print effect fires after checkout commits
-  const { data: partner } = order.partner_id
-    ? await svc.from("delivery_partners").select("name_ar").eq("id", order.partner_id).maybeSingle()
-    : { data: null };
 
   const items: PrintItem[] = (rawItems ?? []).map((i) => ({
     name_ar: i.name_ar,
@@ -211,7 +212,6 @@ export async function buildOrderJobs(
     note: i.note ?? null,
   }));
 
-  const configs = await listPrinters();
   const printers: PrinterRow[] = configs.map((p) => ({
     id: p.id,
     name_ar: p.name_ar,
