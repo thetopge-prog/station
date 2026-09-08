@@ -15,6 +15,7 @@ import { PriceInput } from "./PriceInput";
 import { CallBanner } from "./CallBanner";
 import { ShortageAlert } from "./ShortageAlert";
 import { customerForCall, rememberAddress, type LastLine } from "@/lib/cafe/call-actions";
+import { cleanPhone, normalizeIraqiPhone } from "@/lib/cafe/phone";
 import { FridayPrayerNotice } from "./FridayPrayerNotice";
 
 type Line = {
@@ -528,10 +529,13 @@ export function CashierClient({
               <input
                 value={custPhone}
                 onChange={(e) => setCustPhone(e.target.value)}
-                // a full number, on leaving the box: their card, name and last address come back
+                // on leaving the box the number is folded to 07XXXXXXXXX — braces,
+                // spaces and ٠-٩ gone, so the receipt prints one unbroken run —
+                // and a real mobile brings back their card, name and last address
                 onBlur={() => {
-                  const p = custPhone.replace(/\D/g, "");
-                  if (p.length >= 7 && !customer) void attachCaller(p);
+                  const p = cleanPhone(custPhone) ?? "";
+                  setCustPhone(p);
+                  if (normalizeIraqiPhone(p) && !customer) void attachCaller(p);
                 }}
                 placeholder="📞 رقم الهاتف"
                 inputMode="tel"

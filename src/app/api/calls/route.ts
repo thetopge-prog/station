@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
+import { normalizeIraqiPhone } from "@/lib/cafe/phone";
 
 /**
  * POST /api/calls — «الزبون يتصل الآن».
@@ -60,23 +61,6 @@ function secretMatches(given: string | null, expected: string): boolean {
   let diff = 0;
   for (let i = 0; i < given.length; i++) diff |= given.charCodeAt(i) ^ expected.charCodeAt(i);
   return diff === 0;
-}
-
-/**
- * Iraqi mobile numbers arrive in several shapes depending on the handset and
- * the network: +9647701234567, 009647701234567, 07701234567. The database
- * holds the local form, so everything is folded into it — otherwise the same
- * customer is three different people and none of them has an address.
- */
-export function normalizeIraqiPhone(raw: string): string | null {
-  const digits = raw.replace(/\D/g, "");
-  if (!digits) return null;
-  let local = digits;
-  if (local.startsWith("00964")) local = local.slice(5);
-  else if (local.startsWith("964")) local = local.slice(3);
-  if (!local.startsWith("0")) local = `0${local}`;
-  // 07XXXXXXXXX — anything shorter is a withheld or malformed number
-  return /^07\d{9}$/.test(local) ? local : null;
 }
 
 /**

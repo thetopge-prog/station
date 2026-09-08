@@ -10,6 +10,7 @@ import { notifyTelegramOrder } from "./telegram-notify";
 import { loyaltyConfig } from "./config";
 import { earnPoints } from "./points";
 import type { OrderLineInput } from "./order-actions";
+import { cleanPhone } from "./phone";
 
 /** How the counter was settled. "partner" = billed to a delivery company and
  *  collected later, so it never reaches the drawer. */
@@ -216,7 +217,7 @@ export async function cashierCheckout(input: {
     p_table: input.table?.trim() || null,
     p_note: input.note?.trim() || null,
     // كانت خمسة من تسعة: هاتف الزبون وعنوانه كانا يُكتبان في الملاحظة ويضيعان
-    p_phone: input.phone?.trim() || null,
+    p_phone: cleanPhone(input.phone),
     p_address: input.address?.trim() || null,
     p_customer_name: input.customerName?.trim() || null,
   });
