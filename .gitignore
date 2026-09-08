@@ -31,3 +31,6 @@ Thumbs.db
 
 # database snapshots — data, not code; they must never reach a git remote
 .backups/
+
+# graphify AST cache (knowledge graph tooling, not part of the app)
+graphify-out/
