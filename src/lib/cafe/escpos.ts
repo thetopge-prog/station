@@ -361,8 +361,12 @@ function buildTicket(s: Slip, ticket: Ticket, opts: RenderOptions): void {
     const name = l.flavor ? `${l.name} (${l.flavor})` : l.name;
     if (l.amount == null) {
       s.size(1, 2).bold(true).pair(name, String(l.qty)).bold(false).size(1, 1);
+      // the line's own note, under the line it belongs to — the cook reads
+      // «بدون بصل» against THIS burger, not against the order
+      if (l.note) s.size(1, 2).bold(true).line(`    ← ${l.note}`).bold(false).size(1, 1);
     } else {
       s.pair(`${name} ×${l.qty}`, formatIqd(l.amount));
+      if (l.note) s.line(`    ← ${l.note}`);
     }
   }
 
@@ -413,7 +417,7 @@ export function renderTicketDoc(ticket: Ticket, opts: RenderOptions = {}): Ticke
 
 function channelLabel(channel: string): string {
   return (
-    { cashier: "كاشير", qr: "طاولة", kiosk: "كشك", delivery: "توصيل", pickup: "استلام", curbside: "من السيارة" }[channel] ??
+    { cashier: "كاشير", qr: "طاولة", kiosk: "كشك", delivery: "توصيل", pickup: "استلام", curbside: "من السيارة", takeaway: "سفري" }[channel] ??
     channel
   );
 }
@@ -423,7 +427,10 @@ function channelLabel(channel: string): string {
  * than rasterising an image: it is a few bytes instead of a few kilobytes, and
  * it prints identically on every printer that supports the command.
  */
-export function qrCode(data: string, moduleSize = 6): number[] {
+// module 8, not 6: a 36-char UUID at 6 dots is a 21 mm square, which a
+// hand scanner under a heat lamp reads on the second or third try. 8 dots is
+// 28 mm, still well inside 80 mm paper. Mirrored in print-agent.ps1 (Qr-Bytes).
+export function qrCode(data: string, moduleSize = 8): number[] {
   const payload = [...new TextEncoder().encode(data)];
   const len = payload.length + 3; // pk + the two function bytes
   const pL = len & 0xff;

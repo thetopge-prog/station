@@ -45,6 +45,7 @@ const CHANNEL_AR: Record<string, string> = {
   kiosk: "كشك",
   delivery: "توصيل",
   pickup: "استلام",
+  takeaway: "سفري",
   curbside: "من السيارة",
 };
 

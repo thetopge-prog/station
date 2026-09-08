@@ -36,6 +36,8 @@ export type PrintItem = {
   unit_price: number;
   /** categories.id — the routing key. null ⇒ unknown category ⇒ no station. */
   category_id: string | null;
+  /** «بدون بصل» — this line's own note, printed under it */
+  note?: string | null;
 };
 
 export type PrintOrder = {
@@ -45,7 +47,7 @@ export type PrintOrder = {
   orderNumber: string;
   /** the «رمز الأمان» shown on the customer TV; null if generation was skipped */
   pickupCode: string | null;
-  channel: "cashier" | "qr" | "kiosk" | "delivery" | "pickup" | "curbside";
+  channel: "cashier" | "qr" | "kiosk" | "delivery" | "pickup" | "curbside" | "takeaway";
   tableNo: string | null;
   note: string | null;
   subtotal: number;
@@ -82,6 +84,7 @@ export type TicketLine = {
   qty: number;
   /** line total in IQD — null on kitchen tickets, which carry no money */
   amount: number | null;
+  note?: string | null;
 };
 
 export type Ticket = {
@@ -134,6 +137,7 @@ const CHANNEL_AR: Record<PrintOrder["channel"], string> = {
   delivery: "توصيل",
   pickup: "استلام",
   curbside: "من السيارة",
+  takeaway: "سفري",
 };
 
 /** Split one order into the tickets its printers should receive. */
@@ -176,6 +180,7 @@ export function routeOrder(input: RouteInput): Ticket[] {
       lines: items.map((it) => ({
         name: it.name_ar,
         flavor: it.flavor_ar,
+        note: it.note ?? null,
         qty: it.qty,
         amount: it.unit_price * it.qty,
       })),
@@ -217,6 +222,7 @@ export function routeOrder(input: RouteInput): Ticket[] {
       lines: mine.map((it) => ({
         name: it.name_ar,
         flavor: it.flavor_ar,
+        note: it.note ?? null,
         qty: it.qty,
         amount: null, // invariant 2
       })),
@@ -242,6 +248,7 @@ export function routeOrder(input: RouteInput): Ticket[] {
       lines: items.map((it) => ({
         name: it.name_ar,
         flavor: it.flavor_ar,
+        note: it.note ?? null,
         qty: it.qty,
         amount: null, // invariant 2
       })),

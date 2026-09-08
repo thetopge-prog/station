@@ -172,7 +172,7 @@ export async function buildOrderJobs(
 
   const { data: rawItems } = await svc
     .from("order_items")
-    .select("name_ar, flavor_ar, qty, unit_price, item_id")
+    .select("name_ar, flavor_ar, qty, unit_price, item_id, note")
     .eq("order_id", orderId);
 
   const itemIds = [...new Set((rawItems ?? []).map((i) => i.item_id).filter(Boolean))] as string[];
@@ -208,6 +208,7 @@ export async function buildOrderJobs(
     qty: i.qty,
     unit_price: i.unit_price,
     category_id: i.item_id ? catOfItem.get(i.item_id) ?? null : null,
+    note: i.note ?? null,
   }));
 
   const configs = await listPrinters();
@@ -262,7 +263,8 @@ export async function buildOrderJobs(
       host: p.host,
       port: p.port,
       share: p.share,
-      copies: p.copies,
+      // «سفري»: one receipt for the customer, one stapled to the bag
+      copies: t.kind === "receipt" && order.channel === "takeaway" ? 2 : p.copies,
       // Content, not bytes. The agent draws it — see PrintJob.doc.
       doc: renderTicketDoc(t, {
         // the drawer hangs off the receipt printer, and only for cash

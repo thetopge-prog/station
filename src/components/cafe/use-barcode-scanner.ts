@@ -22,7 +22,10 @@ import { useEffect, useRef } from "react";
  */
 export function useBarcodeScanner(
   onScan: (code: string) => void,
-  { maxGapMs = 40, minLength = 6 }: { maxGapMs?: number; minLength?: number } = {},
+  // 150 ms, not 40: a Bluetooth HID scanner pauses between characters, and at
+  // 40 the buffer was wiped mid-UUID, so the tail failed the shape check and
+  // the operator rescanned — «the scan is slow»
+  { maxGapMs = 150, minLength = 6 }: { maxGapMs?: number; minLength?: number } = {},
 ) {
   const buffer = useRef("");
   const lastKeyAt = useRef(0);

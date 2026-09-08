@@ -69,5 +69,7 @@ export function useLiveOrders<T>(
     };
   }, [refresh, channelName]);
 
-  return { rows, loaded, live, refresh };
+  // setRows: a screen that just confirmed an order paints it «ready» itself;
+  // the poll and the realtime event reconcile a moment later
+  return { rows, loaded, live, refresh, setRows };
 }

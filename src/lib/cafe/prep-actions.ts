@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { notifyTelegramOrder } from "./telegram-notify";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { requireRole, requireStaff } from "./auth";
@@ -27,6 +28,8 @@ export type PrepItem = {
   name_ar: string;
   flavor_ar: string | null;
   qty: number;
+  /** «بدون بصل» — this line's note, shown under it */
+  note?: string | null;
   /** null when the item's category has no station (sauces, drinks) */
   station_id: string | null;
   station_name: string | null;
@@ -95,7 +98,7 @@ export async function listPrepOrders(stationId: string | null = null): Promise<P
   // never, so they are fetched from cache alongside the items rather than in
   // two more sequential round trips after them
   const [{ data: rawItems }, cats, stations] = await Promise.all([
-    svc.from("order_items").select("id, order_id, name_ar, flavor_ar, qty, item_id, unavailable_at").in("order_id", ids),
+    svc.from("order_items").select("id, order_id, name_ar, flavor_ar, qty, item_id, unavailable_at, note").in("order_id", ids),
     cachedRef("categories", REF_TTL_MS, async () => (await svc.from("categories").select("id, name_ar, station_id")).data ?? []),
     cachedRef("stations", REF_TTL_MS, async () => (await svc.from("stations").select("id, name_ar")).data ?? []),
   ]);
@@ -126,6 +129,7 @@ export async function listPrepOrders(stationId: string | null = null): Promise<P
       name_ar: it.name_ar,
       flavor_ar: it.flavor_ar,
       qty: it.qty,
+      note: it.note ?? null,
       station_id: sid,
       station_name: sid ? stationName.get(sid) ?? null : null,
       category_name: c?.name_ar ?? null,
@@ -191,12 +195,33 @@ async function localPrep(orderId: string, status: "preparing" | "ready" | "hande
 
 async function rpc(fn: "claim_expediter" | "confirm_assembled", orderId: string) {
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc(fn, { p_order: orderId });
+  const { data, error } = await supabase.rpc(fn, { p_order: orderId });
   if (error) return { ok: false as const, error: error.message };
   revalidatePath("/queue");
   revalidatePath("/expediter");
   revalidatePath("/kds");
-  return { ok: true as const };
+  // confirm_assembled returns the order number — the scan toast needs it when
+  // the ticket was printed a second ago and the order is not in the list yet
+  const first = Array.isArray(data) ? (data[0] as { order_seq?: number } | undefined) : undefined;
+  return { ok: true as const, orderSeq: first?.order_seq ?? null };
+}
+
+/**
+ * «تجهيز الكل» — every queued order to «جاهز» in one statement (0072).
+ * Telegram customers are told afterwards, off the request.
+ */
+export async function confirmAssembledMany(orderIds: string[]) {
+  await requireRole("expediter", "cashier");
+  const ids = [...new Set(orderIds)].slice(0, 50);
+  if (!ids.length) return { ok: true as const, count: 0 };
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("confirm_assembled_many", { p_orders: ids });
+  if (error) return { ok: false as const, error: error.message };
+  revalidatePath("/queue");
+  revalidatePath("/expediter");
+  revalidatePath("/kds");
+  after(() => Promise.allSettled(ids.map((id) => notifyTelegramOrder(id, "ready"))));
+  return { ok: true as const, count: typeof data === "number" ? data : ids.length };
 }
 
 /** Expediter picks up an order — stamps their name and moves it to «قيد التجهيز». */
@@ -215,8 +240,9 @@ export async function claimOrder(orderId: string) {
 export async function confirmAssembled(orderId: string) {
   await requireRole("expediter", "cashier");
   const res = (await localPrep(orderId, "ready")) ?? (await rpc("confirm_assembled", orderId));
-  // زبون تليغرام يُبلَّغ من هنا — لحظة «جاهز» نفسها، لا من مهمة دورية
-  if (res.ok) await notifyTelegramOrder(orderId, "ready");
+  // زبون تليغرام يُبلَّغ من هنا — لحظة «جاهز» نفسها، لا من مهمة دورية.
+  // بعد الردّ لا قبله: كان يُنتظر حتى ٣ ثوانٍ في كل مسح، لطلبات لا تليغرام فيها
+  if (res.ok) after(() => notifyTelegramOrder(orderId, "ready"));
   return res;
 }
 

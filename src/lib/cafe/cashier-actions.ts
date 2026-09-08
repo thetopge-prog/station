@@ -200,6 +200,8 @@ export async function cashierCheckout(input: {
   phone?: string | null;
   address?: string | null;
   customerName?: string | null;
+  /** «سفري» — the customer collects; local numbering, receipt printed twice */
+  channel?: "cashier" | "takeaway";
 }): Promise<CheckoutResult> {
   const staff = await requireStaff();
   if (!input.lines?.length) return { ok: false, error: "لا توجد أصناف في الطلب." };
@@ -211,7 +213,7 @@ export async function cashierCheckout(input: {
 
   const supabase = await createSupabaseServerClient();
   const { data: placed, error } = await supabase.rpc("place_order", {
-    p_channel: "cashier",
+    p_channel: input.channel === "takeaway" ? "takeaway" : "cashier",
     p_lines: input.lines as unknown as Json,
     p_customer: input.customerId ?? null,
     p_table: input.table?.trim() || null,

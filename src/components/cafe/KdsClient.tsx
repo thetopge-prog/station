@@ -128,6 +128,7 @@ function KdsCard({ order, now, onStart }: { order: PrepOrder; now: number; onSta
             <span className="min-w-0 flex-1">
               <span className="block text-lg font-bold leading-tight">{it.name_ar}</span>
               {it.flavor_ar && <span className="block text-sm font-bold text-muted-foreground">{it.flavor_ar}</span>}
+              {it.note && <span className="block text-base font-black text-primary">← {it.note}</span>}
             </span>
           </li>
         ))}
@@ -155,4 +156,5 @@ const CHANNEL_AR: Record<string, string> = {
   kiosk: "كشك",
   delivery: "توصيل",
   pickup: "استلام",
+  takeaway: "سفري",
 };

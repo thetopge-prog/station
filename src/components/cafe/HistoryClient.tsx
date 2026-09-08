@@ -16,7 +16,7 @@ import { PartnerLogo } from "./PartnerLogo";
  * (buildReceiptJob + printJobs) فتخرج الورقة مطابقة للأصل حرفاً بحرف.
  */
 
-const CHANNEL_AR: Record<string, string> = { cashier: "كاشير", qr: "طاولة", kiosk: "كشك", delivery: "توصيل", pickup: "استلام", curbside: "من السيارة" };
+const CHANNEL_AR: Record<string, string> = { cashier: "كاشير", qr: "طاولة", kiosk: "كشك", delivery: "توصيل", pickup: "استلام", curbside: "من السيارة", takeaway: "سفري" };
 const SOURCE_AR: Record<string, string> = { telegram: "تليغرام", whatsapp: "واتساب", web: "الموقع", toters: "توترز", talabaty: "طلباتي" };
 const STATUS_AR: Record<string, string> = { pending: "معلّق", paid: "مدفوع", cancelled: "ملغي", refunded: "مسترجع" };
 const PAY_AR: Record<string, string> = { cash: "نقد", card: "بطاقة", partner: "شركة توصيل" };

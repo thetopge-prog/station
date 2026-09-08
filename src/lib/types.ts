@@ -7,7 +7,7 @@
  * When the schema grows, regenerate with `supabase gen types` or extend by hand.
  */
 
-export type OrderChannel = "qr" | "kiosk" | "cashier" | "delivery" | "pickup" | "curbside";
+export type OrderChannel = "qr" | "kiosk" | "cashier" | "delivery" | "pickup" | "curbside" | "takeaway";
 /** kitchen state - deliberately separate from OrderStatus, which is money */
 export type PrepStatus = "new" | "preparing" | "ready" | "handed";
 export type PrinterKind = "receipt" | "station" | "expediter";
@@ -376,11 +376,11 @@ export type Database = {
       order_items: {
         Row: Timestamped & {
           order_id: string; item_id: string | null; variant_id: string | null; name_ar: string; flavor_ar: string | null;
-          qty: number; unit_price: number; unit_cost: number; unavailable_at: string | null; line_total: number;
+          qty: number; unit_price: number; unit_cost: number; unavailable_at: string | null; line_total: number; note: string | null;
         };
         Insert: {
           id?: string; order_id: string; item_id?: string | null; variant_id?: string | null; name_ar: string; flavor_ar?: string | null;
-          qty: number; unit_price: number; unit_cost?: number; unavailable_at?: string | null; created_at?: string;
+          qty: number; unit_price: number; unit_cost?: number; unavailable_at?: string | null; created_at?: string; note?: string | null;
         };
         Update: Partial<{ qty: number; unit_price: number }>;
         Relationships: [];
@@ -609,6 +609,7 @@ export type Database = {
         Args: { p_order: string };
         Returns: { order_seq: number; pickup_code: string | null; expediter_name: string | null }[];
       };
+      confirm_assembled_many: { Args: { p_orders: string[] }; Returns: number };
       open_shift: {
         Args: { p_role: string; p_employee: string; p_station?: string | null; p_exclusive?: boolean };
         Returns: string;

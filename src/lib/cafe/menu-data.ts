@@ -25,6 +25,11 @@ export type MenuCategoryView = { name_ar: string; image_url: string | null; item
 let _menuCache: { at: number; data: MenuCategoryView[] } | null = null;
 const MENU_TTL_MS = 30_000;
 
+/** the cashier just created an item and wants it on the grid now, not in 30 s */
+export function bustMenuCache(): void {
+  _menuCache = null;
+}
+
 /** The public menu (active items only). Demo → local seed; real → cost-free DB views. */
 export async function getPublicMenu(): Promise<MenuCategoryView[]> {
   if (isDemoServer()) return DEMO_MENU;

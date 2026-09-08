@@ -15,6 +15,8 @@ export type OrderLineInput = {
   variant_id?: string | null;
   flavor?: string | null;
   qty: number;
+  /** «بدون بصل» — on this line, printed under this item (place_order v6) */
+  note?: string | null;
 };
 
 /** How the customer wants the order fulfilled. Maps 1:1 onto order_channel. */

@@ -133,6 +133,32 @@ describe("delivery company", () => {
   });
 });
 
+describe("line note", () => {
+  // «بدون بصل» on ONE burger of three: it is printed under that burger, on the
+  // kitchen and assembly tickets, before the next item begins
+  it("prints a line's note right under its line, on kitchen and assembly tickets", () => {
+    const tickets = routeOrder({
+      order: { orderId: "3f2b1c88-9a4d-4e11-b7c2-0d5e6f7a8b90", orderNumber: "908", pickupCode: null, channel: "cashier", tableNo: null, note: null, subtotal: 17000, discount: 0, extras: [], total: 17000, dateTime: "20/08 19:31", cashierName: "أحمد", expediterName: null },
+      items: [
+        { name_ar: "ماشروم برجر", flavor_ar: null, qty: 1, unit_price: 8500, category_id: "cat-burger", note: "بدون بصل" },
+        { name_ar: "زنجر", flavor_ar: null, qty: 1, unit_price: 8500, category_id: "cat-burger", note: null },
+      ],
+      printers: PRINTERS,
+      stations: STATIONS,
+      categoryStation: { "cat-burger": "st-burger" },
+    });
+    for (const t of tickets.filter((t) => t.kind !== "receipt")) {
+      const text = asText(t);
+      const burger = text.indexOf(printed("ماشروم برجر"));
+      const note = text.indexOf(printed("بدون بصل"));
+      const zinger = text.indexOf(printed("زنجر"));
+      expect(burger).toBeGreaterThan(-1);
+      expect(note).toBeGreaterThan(burger);
+      expect(zinger).toBeGreaterThan(note);
+    }
+  });
+});
+
 describe("order note", () => {
   // «بدون بصل» reached the receipt and not the kitchen. Whatever the printer
   // did with the tail of the slip, the note now precedes the food on every

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { Check, Minus, Plus, Printer, Trash2 } from "lucide-react";
+import { Check, Minus, Pencil, Plus, Printer, Trash2 } from "lucide-react";
 import type { MenuCategoryView, MenuItemView } from "@/lib/cafe/menu-data";
 import { formatIqdLabel } from "@/lib/cafe/money";
 import { cashierCheckout, type PayMethod } from "@/lib/cafe/cashier-actions";
@@ -18,6 +18,7 @@ import { customerForCall, rememberAddress, type LastLine } from "@/lib/cafe/call
 import { cleanPhone, normalizeIraqiPhone } from "@/lib/cafe/phone";
 import { FridayPrayerNotice } from "./FridayPrayerNotice";
 import { PartnerLogo } from "./PartnerLogo";
+import { cloneMenuItem } from "@/lib/cafe/menu-actions-cashier";
 
 type Line = {
   key: string;
@@ -27,18 +28,31 @@ type Line = {
   flavor: string | null;
   unitPrice: number;
   qty: number;
+  /** «بدون بصل» — on this line; part of the key, so two burgers with two notes are two lines */
+  note: string | null;
 };
 type Cart = Record<string, Line>;
 type CartAction =
   | { type: "add"; line: Omit<Line, "qty"> }
   | { type: "inc"; key: string }
   | { type: "dec"; key: string }
+  /** the pencil: a line edited in place, possibly under a new key */
+  | { type: "replace"; key: string; line: Line }
   /** drop a whole basket in at once — repeating a previous order */
   | { type: "load"; lines: Line[] }
   | { type: "clear" };
 
+const lineKey = (l: Pick<Line, "itemId" | "variantId" | "flavor" | "note">) => `${l.itemId}|${l.variantId ?? ""}|${l.flavor ?? ""}|${l.note ?? ""}`;
+
 function cartReducer(state: Cart, action: CartAction): Cart {
   switch (action.type) {
+    case "replace": {
+      const n = { ...state };
+      delete n[action.key];
+      const ex = n[action.line.key];
+      n[action.line.key] = ex ? { ...action.line, qty: ex.qty + action.line.qty } : action.line;
+      return n;
+    }
     case "add": {
       const ex = state[action.line.key];
       return { ...state, [action.line.key]: { ...action.line, qty: (ex?.qty ?? 0) + 1 } };
@@ -75,7 +89,7 @@ function cartReducer(state: Cart, action: CartAction): Cart {
 const TAP = "grid min-h-11 min-w-11 place-items-center";
 
 export function CashierClient({
-  menu,
+  menu: menuProp,
   tables,
   partners = [],
   cashierName = null,
@@ -90,7 +104,9 @@ export function CashierClient({
   /** اسم المجهّز — whoever holds the expediter shift right now */
   expediterName?: string | null;
 }) {
-  const [activeCat, setActiveCat] = useState(menu[0]?.name_ar ?? "");
+  // local copy: a cloned item goes on the grid now, not after the server's 30 s menu cache
+  const [menu, setMenu] = useState(menuProp);
+  const [activeCat, setActiveCat] = useState(menuProp[0]?.name_ar ?? "");
   const [cart, dispatch] = useReducer(cartReducer, {});
   const [discount, setDiscount] = useState(0);
   const [customer, setCustomer] = useState<Card | null>(null);
@@ -106,8 +122,13 @@ export function CashierClient({
   // «توصيل» is the counter's word for everything that leaves: the phone order
   // being keyed in. It stays channel `cashier` — the delivery channel numbers
   // from 901 (0043) and the customer block prints on phone/address, not channel.
-  const [orderType, setOrderType] = useState<"delivery" | "dinein">("delivery");
+  const [orderType, setOrderType] = useState<"delivery" | "dinein" | "takeaway">("delivery");
   const [tableNo, setTableNo] = useState("");
+  // the pencil on a cart line: name / price / qty / note. A new name or price
+  // becomes a menu item (cloneMenuItem) so it can be ordered again tomorrow.
+  const [edit, setEdit] = useState<{ key: string; name: string; price: string; qty: string; note: string } | null>(null);
+  const [editBusy, setEditBusy] = useState(false);
+  const [editErr, setEditErr] = useState<string | null>(null);
   // الزبون على الهاتف: كان يُكتب في الملاحظة «المستودع { 07866866156 }» ويضيع
   const [custName, setCustName] = useState("");
   const [custPhone, setCustPhone] = useState("");
@@ -215,6 +236,45 @@ export function CashierClient({
   }
   const cat = menu.find((c) => c.name_ar === activeCat) ?? menu[0];
 
+  async function saveEdit() {
+    if (!edit) return;
+    const cur = cart[edit.key];
+    if (!cur) return setEdit(null);
+    const name = edit.name.trim();
+    const price = Math.max(0, Math.round(Number(edit.price) || 0));
+    const qty = Math.max(1, Math.round(Number(edit.qty) || 1));
+    const note = edit.note.trim() || null;
+    if (!name) return setEditErr("أدخل اسم الصنف.");
+    let line: Line = { ...cur, qty, note };
+    if (name !== cur.name || price !== cur.unitPrice) {
+      setEditBusy(true);
+      setEditErr(null);
+      try {
+        const res = await cloneMenuItem({ fromItemId: cur.itemId, name_ar: name, price });
+        if (!res.ok) return setEditErr(res.error);
+        const it = res.item;
+        // the clone carries no size variant (place_order rejects a variant of another item)
+        line = { ...line, itemId: it.id, name: it.name_ar, unitPrice: it.price, variantId: null, flavor: cur.flavor && it.flavors.includes(cur.flavor) ? cur.flavor : null };
+        setMenu((ms) =>
+          ms.map((c) => {
+            const src = c.items.find((i) => i.id === cur.itemId);
+            if (!src) return c;
+            const exists = c.items.some((i) => i.id === it.id);
+            return exists
+              ? { ...c, items: c.items.map((i) => (i.id === it.id ? { ...i, price: it.price } : i)) }
+              : { ...c, items: [...c.items, { ...src, id: it.id, name_ar: it.name_ar, price: it.price, flavors: it.flavors, variants: [] }] };
+          }),
+        );
+      } catch {
+        return setEditErr("تعذّر الحفظ — تأكد من الاتصال.");
+      } finally {
+        setEditBusy(false);
+      }
+    }
+    dispatch({ type: "replace", key: edit.key, line: { ...line, key: lineKey(line) } });
+    setEdit(null);
+  }
+
   /** the ringing number — or a typed one — becomes the order's customer, existing or brand new */
   async function attachCaller(phone: string) {
     const cust = await customerForCall(phone);
@@ -260,9 +320,10 @@ export function CashierClient({
     try {
       const table = orderType === "dinein" ? tableNo : null;
       const extraNote = extras.map((x) => `${x.name} (${formatIqdLabel(x.price)})`).join("، ") || null;
-      const payload = lines.map((l) => ({ item_id: l.itemId, variant_id: l.variantId, flavor: l.flavor, qty: l.qty }));
+      const payload = lines.map((l) => ({ item_id: l.itemId, variant_id: l.variantId, flavor: l.flavor, qty: l.qty, note: l.note }));
       const cust = orderType === "delivery" ? { phone: custPhone.trim() || null, address: custAddress.trim() || null, customerName: custName.trim() || null } : { phone: null, address: null, customerName: null };
-      const res = await cashierCheckout({ lines: payload, discount, extra: extraTotal, extraNote, payMethod, partnerId: payMethod === "partner" ? partnerId : null, customerId: customer?.id ?? null, table, note: orderNote.trim() || null, ...cust });
+      const channel = orderType === "takeaway" ? ("takeaway" as const) : ("cashier" as const);
+      const res = await cashierCheckout({ lines: payload, discount, extra: extraTotal, extraNote, payMethod, partnerId: payMethod === "partner" ? partnerId : null, customerId: customer?.id ?? null, table, note: orderNote.trim() || null, channel, ...cust });
       if (!res.ok) {
         setErr(res.error);
         return;
@@ -275,7 +336,7 @@ export function CashierClient({
         orderNumber: res.orderNumber,
         cashierName,
         expediterName,
-        channel: "cashier",
+        channel,
         pickupCode: res.pickupCode ?? null,
         table,
         note: orderNote.trim() || null,
@@ -363,9 +424,20 @@ export function CashierClient({
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">{l.name}</p>
                   {l.flavor && <p className="text-xs text-muted-foreground">{l.flavor}</p>}
+                  {l.note && <p className="text-xs font-bold text-primary">← {l.note}</p>}
                   <p className="text-xs text-muted-foreground">{formatIqdLabel(l.unitPrice)}</p>
                 </div>
                 <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => {
+                      setEditErr(null);
+                      setEdit({ key: l.key, name: l.name, price: String(l.unitPrice), qty: String(l.qty), note: l.note ?? "" });
+                    }}
+                    aria-label="تعديل"
+                    className={`rounded-full border border-border hover:bg-secondary ${TAP}`}
+                  >
+                    <Pencil className="mx-auto size-4" />
+                  </button>
                   <button onClick={() => dispatch({ type: "dec", key: l.key })} aria-label="إنقاص" className={`rounded-full border border-border hover:bg-secondary ${TAP}`}>
                     <Minus className="mx-auto size-4" />
                   </button>
@@ -377,6 +449,57 @@ export function CashierClient({
               </li>
             ))}
           </ul>
+        )}
+
+        {edit && (
+          <div className="space-y-2 rounded-xl border-2 border-primary bg-card p-3">
+            <p className="text-sm font-bold">✏️ تعديل الصنف</p>
+            <input
+              value={edit.name}
+              onChange={(e) => setEdit({ ...edit, name: e.target.value })}
+              placeholder="اسم الصنف"
+              maxLength={80}
+              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+            <div className="grid grid-cols-2 gap-1.5">
+              <input
+                type="number"
+                inputMode="numeric"
+                dir="ltr"
+                value={edit.price}
+                onChange={(e) => setEdit({ ...edit, price: e.target.value })}
+                placeholder="السعر"
+                className="rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              />
+              <input
+                type="number"
+                inputMode="numeric"
+                dir="ltr"
+                min={1}
+                value={edit.qty}
+                onChange={(e) => setEdit({ ...edit, qty: e.target.value })}
+                placeholder="العدد"
+                className="rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <input
+              value={edit.note}
+              onChange={(e) => setEdit({ ...edit, note: e.target.value })}
+              placeholder="📝 ملاحظة على هذا الصنف: بدون بصل…"
+              maxLength={120}
+              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+            {editErr && <p className="text-sm text-destructive">{editErr}</p>}
+            <p className="text-xs text-muted-foreground">تغيير الاسم أو السعر يحفظ صنفاً في المنيو يُطلب لاحقاً.</p>
+            <div className="flex gap-1.5">
+              <button onClick={() => void saveEdit()} disabled={editBusy} className="min-h-11 flex-1 rounded-lg bg-primary font-bold text-primary-foreground disabled:opacity-50">
+                {editBusy ? "جارٍ الحفظ…" : "حفظ"}
+              </button>
+              <button onClick={() => setEdit(null)} className="min-h-11 rounded-lg border border-border px-4 font-bold hover:bg-secondary">
+                إلغاء
+              </button>
+            </div>
+          </div>
         )}
 
         {/* the only alert allowed to take the whole screen: a bag is being
@@ -396,11 +519,12 @@ export function CashierClient({
               lines: lines
                 .filter((l): l is LastLine & { itemId: string } => !!l.itemId)
                 .map((l) => ({
-                  key: `${l.itemId}|${l.variantId ?? ""}|${l.flavor ?? ""}`,
+                  key: `${l.itemId}|${l.variantId ?? ""}|${l.flavor ?? ""}|`,
                   itemId: l.itemId,
                   name: l.name,
                   variantId: l.variantId,
                   flavor: l.flavor,
+                  note: null,
                   unitPrice: l.unitPrice,
                   qty: l.qty,
                 })),
@@ -499,22 +623,33 @@ export function CashierClient({
 
         {err && <p className="text-sm text-destructive">{err}</p>}
 
-        {/* delivery / dine-in */}
-        <div className="grid grid-cols-2 gap-1.5 rounded-xl bg-secondary/60 p-1.5">
+        {/* delivery / dine-in / takeaway. «سفري» = the customer collects: local
+            numbering, «سفري» on every slip, and the receipt printed twice — one
+            for the hand, one for the bag. */}
+        <div className="grid grid-cols-3 gap-1.5 rounded-xl bg-secondary/60 p-1.5">
           <button
             onClick={() => {
               setOrderType("delivery");
               setTableNo("");
             }}
-            className={`min-h-12 rounded-lg px-3 text-sm font-semibold transition ${orderType === "delivery" ? "bg-primary text-primary-foreground" : "hover:bg-background"}`}
+            className={`min-h-12 rounded-lg px-2 text-sm font-semibold transition ${orderType === "delivery" ? "bg-primary text-primary-foreground" : "hover:bg-background"}`}
           >
             🛵 توصيل
           </button>
           <button
             onClick={() => setOrderType("dinein")}
-            className={`min-h-12 rounded-lg px-3 text-sm font-semibold transition ${orderType === "dinein" ? "bg-primary text-primary-foreground" : "hover:bg-background"}`}
+            className={`min-h-12 rounded-lg px-2 text-sm font-semibold transition ${orderType === "dinein" ? "bg-primary text-primary-foreground" : "hover:bg-background"}`}
           >
             🏠 داخل المطعم
+          </button>
+          <button
+            onClick={() => {
+              setOrderType("takeaway");
+              setTableNo("");
+            }}
+            className={`min-h-12 rounded-lg px-2 text-sm font-semibold transition ${orderType === "takeaway" ? "bg-primary text-primary-foreground" : "hover:bg-background"}`}
+          >
+            🛍️ سفري
           </button>
         </div>
         {orderType === "delivery" && (
@@ -723,11 +858,12 @@ function CashierItem({ item, category, onAdd }: { item: MenuItemView; category?:
 
   function add() {
     onAdd({
-      key: `${item.id}|${variantId ?? ""}|${flavor ?? ""}`,
+      key: `${item.id}|${variantId ?? ""}|${flavor ?? ""}|`,
       itemId: item.id,
       name: displayName,
       variantId,
       flavor,
+      note: null,
       unitPrice,
     });
     setAdded(true);

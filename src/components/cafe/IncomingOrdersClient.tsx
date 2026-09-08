@@ -22,6 +22,7 @@ const CHANNEL_AR: Record<string, string> = {
   cashier: "كاشير",
   delivery: "توصيل",
   pickup: "استلام",
+  takeaway: "سفري",
   curbside: "من السيارة",
 };
 
