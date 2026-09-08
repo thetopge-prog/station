@@ -17,6 +17,7 @@ import { ShortageAlert } from "./ShortageAlert";
 import { customerForCall, rememberAddress, type LastLine } from "@/lib/cafe/call-actions";
 import { cleanPhone, normalizeIraqiPhone } from "@/lib/cafe/phone";
 import { FridayPrayerNotice } from "./FridayPrayerNotice";
+import { PartnerLogo } from "./PartnerLogo";
 
 type Line = {
   key: string;
@@ -595,18 +596,24 @@ export function CashierClient({
 
         {payMethod === "partner" && (
           <div className="rounded-xl border border-amber-300 bg-amber-50 p-2 dark:border-amber-700 dark:bg-amber-950/40">
-            <select
-              value={partnerId}
-              onChange={(e) => setPartnerId(e.target.value)}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-semibold"
-            >
-              <option value="">— اختر شركة التوصيل —</option>
+            {/* شعارات لا قائمة منسدلة: ثلاث شركات، وإصبع على شاشة لمس */}
+            <div className="grid grid-cols-3 gap-1.5">
               {partners.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name_ar}{p.settlement === "cash_at_pickup" ? ` · نقد −${p.commission_pct}٪` : ""}
-                </option>
+                <button
+                  key={p.id}
+                  onClick={() => setPartnerId(p.id)}
+                  className={`flex min-h-16 flex-col items-center justify-center gap-1 rounded-lg border-2 bg-background px-2 py-1.5 text-xs font-bold transition ${
+                    partnerId === p.id ? "border-primary ring-2 ring-primary/30" : "border-border hover:bg-secondary"
+                  }`}
+                >
+                  <PartnerLogo name={p.name_ar} className="h-7" />
+                  <span>
+                    {p.name_ar}
+                    {p.settlement === "cash_at_pickup" ? ` · نقد −${p.commission_pct}٪` : ""}
+                  </span>
+                </button>
               ))}
-            </select>
+            </div>
             {/* said plainly, because the cashier is the one who gets blamed if
                 the drawer does not match at handover */}
             <p className="mt-1.5 text-xs font-bold text-amber-800 dark:text-amber-300">

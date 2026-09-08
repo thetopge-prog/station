@@ -13,6 +13,7 @@ import {
 } from "@/lib/cafe/partner-actions";
 import { formatIqdLabel } from "@/lib/cafe/money";
 import { PriceInput } from "./PriceInput";
+import { PartnerLogo } from "./PartnerLogo";
 
 /**
  * حسابات شركات التوصيل — what each aggregator owes and what they have paid.
@@ -220,6 +221,7 @@ export function PartnersClient({ partners }: { partners: PartnerBalance[] }) {
             <div className="flex flex-wrap items-center gap-3 p-4">
               <button onClick={() => void toggleOpen(p)} className="flex flex-1 items-center gap-2 text-right">
                 <ChevronDown className={`size-4 shrink-0 text-muted-foreground transition ${open === p.id ? "rotate-180" : ""}`} />
+                <PartnerLogo name={p.name_ar} className="h-6" />
                 <span className="font-bold">{p.name_ar}</span>
                 {!p.is_active && <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-bold">معطّلة</span>}
                 <span className="text-xs text-muted-foreground">{p.orders_count} طلب</span>

@@ -13,6 +13,7 @@ import {
   type PendingOrder,
 } from "@/lib/cafe/cashier-actions";
 import { Receipt, type ReceiptData } from "./Receipt";
+import { PartnerLogo } from "./PartnerLogo";
 
 const SOURCE_AR: Record<string, string> = { telegram: "تليغرام", whatsapp: "واتساب", web: "الموقع", toters: "توترز", talabaty: "طلباتي" };
 const CHANNEL_AR: Record<string, string> = {
@@ -189,7 +190,8 @@ export function IncomingOrdersClient() {
           {alerts.map((a) => (
             <div key={a.id} className="flex flex-col rounded-2xl border-2 border-primary bg-primary/5 p-4 sm:col-span-full">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-lg font-black text-primary">
+                <span className="flex items-center gap-2 text-lg font-black text-primary">
+                  <PartnerLogo name={a.source} className="h-7" />
                   🛵 طلب {SOURCE_AR[a.source] ?? a.source}{a.ref ? ` #${a.ref}` : ""}
                 </span>
                 <span className="text-xs font-bold text-muted-foreground">{sinceLabel(ageMinutes(a.created_at))}</span>
@@ -218,7 +220,10 @@ export function IncomingOrdersClient() {
                 <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                   <span>{CHANNEL_AR[o.channel] ?? o.channel}</span>
                   {SOURCE_AR[o.order_source] && (
-                    <span className="rounded-full bg-secondary px-2 py-0.5 font-bold text-primary">{SOURCE_AR[o.order_source]}</span>
+                    <span className="flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 font-bold text-primary">
+                      <PartnerLogo name={o.order_source} className="h-4" />
+                      {SOURCE_AR[o.order_source]}
+                    </span>
                   )}
                   <span>·</span>
                   <span className={age >= 10 ? "font-bold text-destructive" : ""}>{age === 0 ? "الآن" : `منذ ${sinceLabel(age)}`}</span>

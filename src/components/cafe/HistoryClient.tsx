@@ -6,6 +6,7 @@ import { listOrdersByDay, type HistoryOrder } from "@/lib/cafe/history-actions";
 import { buildReceiptJob } from "@/lib/cafe/printer-actions";
 import { printJobs } from "@/lib/cafe/print-client";
 import { formatIqdLabel } from "@/lib/cafe/money";
+import { PartnerLogo } from "./PartnerLogo";
 
 /**
  * سجلّ الطلبات — يوم، وبحث، وإعادة طباعة.
@@ -97,7 +98,12 @@ export function HistoryClient({ initialDay, initialOrders }: { initialDay: strin
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
                 <span className="rounded-full bg-secondary px-2 py-0.5 font-bold">{CHANNEL_AR[o.channel] ?? o.channel}</span>
-                {SOURCE_AR[o.order_source] && <span className="rounded-full bg-secondary px-2 py-0.5 font-bold text-primary">{SOURCE_AR[o.order_source]}</span>}
+                {SOURCE_AR[o.order_source] && (
+                  <span className="flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 font-bold text-primary">
+                    <PartnerLogo name={o.order_source} className="h-4" />
+                    {SOURCE_AR[o.order_source]}
+                  </span>
+                )}
                 {o.table_no && <span className="rounded-full bg-secondary px-2 py-0.5 font-bold">طاولة {o.table_no}</span>}
                 <span className={`rounded-full px-2 py-0.5 font-bold ${o.status === "paid" ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>
                   {STATUS_AR[o.status] ?? o.status}
