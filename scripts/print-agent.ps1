@@ -258,15 +258,25 @@ function Render-Doc([object]$Doc) {
     $text = [string]$ln.t
     if ($text -eq "") { $text = " " }
     $two = ($null -ne $ln.r) -and ("" -ne [string]$ln.r)
-    if ($two) {
-      # label and value measured on their own: the padded form wrapped or
-      # clipped under a proportional face, and the price was what got lost
-      $sz = $pg.MeasureString([string]$ln.l, $font)
+    # A rule is 48 of one character for a monospace face. Under Tahoma that is
+    # wider than the paper and wraps into a second, shorter rule - visible on
+    # the shop's first tickets. It is drawn as a line instead, never wrapped.
+    $rule = $text -match '^([=\-_.~])\1{9,}$'
+    $vw = 0
+    if ($rule) {
+      $h = 14
+    } elseif ($two) {
+      # value measured first; the label wraps inside the room the value leaves,
+      # rather than being trimmed - on a kitchen ticket the trimmed part was
+      # the dough type, which is the part the cook needs
+      $vw = [int][Math]::Ceiling($pg.MeasureString([string]$ln.r, $font).Width) + 6
+      $sz = $pg.MeasureString([string]$ln.l, $font, [Math]::Max(40, $W - $vw))
+      $h = [int][Math]::Ceiling($sz.Height)
     } else {
       $sz = $pg.MeasureString($text, $font, $W)
+      $h = [int][Math]::Ceiling($sz.Height)
     }
-    $h = [int][Math]::Ceiling($sz.Height)
-    $items += [pscustomobject]@{ text = $text; l = [string]$ln.l; r = [string]$ln.r; two = $two; font = $font; h = $h; align = [string]$ln.align }
+    $items += [pscustomobject]@{ text = $text; l = [string]$ln.l; r = [string]$ln.r; two = $two; rule = $rule; vw = $vw; font = $font; h = $h; align = [string]$ln.align }
     $total += $h
   }
   $pg.Dispose(); $probe.Dispose()
@@ -292,14 +302,16 @@ function Render-Doc([object]$Doc) {
       default { $fmt.Alignment = [System.Drawing.StringAlignment]::Near }
     }
     $rect = New-Object System.Drawing.RectangleF(0, $y, $W, $it.h)
-    if ($it.two) {
-      $vw = [int][Math]::Ceiling($g.MeasureString($it.r, $it.font).Width) + 6
+    if ($it.rule) {
+      $pen = New-Object System.Drawing.Pen([System.Drawing.Color]::Black, 2)
+      if ($it.text.StartsWith("=")) { $g.DrawLine($pen, 8, $y + 5, $W - 8, $y + 5); $g.DrawLine($pen, 8, $y + 9, $W - 8, $y + 9) }
+      else { $pen.DashStyle = [System.Drawing.Drawing2D.DashStyle]::Dot; $g.DrawLine($pen, 8, $y + 7, $W - 8, $y + 7) }
+      $pen.Dispose()
+    } elseif ($it.two) {
       $fmt.Alignment = [System.Drawing.StringAlignment]::Near     # RTL: the right edge
-      $fmt.Trimming  = [System.Drawing.StringTrimming]::EllipsisCharacter
-      $g.DrawString($it.l, $it.font, $black, (New-Object System.Drawing.RectangleF($vw, $y, ($W - $vw), $it.h)), $fmt)
-      $fmt.Trimming  = [System.Drawing.StringTrimming]::None
-      $fmt.Alignment = [System.Drawing.StringAlignment]::Far      # RTL: the left edge
-      $g.DrawString($it.r, $it.font, $black, $rect, $fmt)
+      $g.DrawString($it.l, $it.font, $black, (New-Object System.Drawing.RectangleF($it.vw, $y, ($W - $it.vw), $it.h)), $fmt)
+      $fmt.Alignment = [System.Drawing.StringAlignment]::Far      # RTL: the left edge, first line
+      $g.DrawString($it.r, $it.font, $black, (New-Object System.Drawing.RectangleF(0, $y, $W, $it.h)), $fmt)
     } else {
       $g.DrawString($it.text, $it.font, $black, $rect, $fmt)
     }
