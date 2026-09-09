@@ -33,10 +33,13 @@ export function SetupClient({
   printers,
   screens,
   installCommand,
+  webhookSecret = null,
 }: {
   printers: SetupPrinter[];
   screens: ScreenLink[];
   installCommand: string;
+  /** كلمة سرّ الأجهزة (هاتف المطعم، جهاز توترز) — تُعرض للمطوّر هنا لا في ملف */
+  webhookSecret?: string | null;
 }) {
   return (
     <div className="mx-auto max-w-2xl space-y-4">
@@ -93,11 +96,26 @@ export function SetupClient({
         >
           نزّل تطبيق ستيشن (APK) على الجهاز
         </a>
+        {/* كلمة السرّ التي يطلبها التطبيق — «فحص» يردّ 422 حين تكون صحيحة */}
+        <div className="mt-3 rounded-xl border border-border bg-background p-3">
+          <p className="mb-1 text-xs font-bold text-muted-foreground">كلمة السرّ للتطبيق (هاتف المطعم وجهاز توترز/طلباتي)</p>
+          {webhookSecret ? (
+            <div className="flex items-center gap-2">
+              <code dir="ltr" className="min-w-0 flex-1 select-all break-all rounded-lg bg-secondary px-3 py-2 text-sm font-bold">
+                {webhookSecret}
+              </code>
+              <CopyButton value={webhookSecret} />
+            </div>
+          ) : (
+            <p className="text-sm font-bold text-destructive">⚠ لا يوجد STATION_WEBHOOK_SECRET في متغيّرات الخادم — التطبيق لن يُقبل.</p>
+          )}
+        </div>
         <ol className="mt-3 list-inside list-decimal space-y-1 text-sm font-bold text-muted-foreground">
           <li>افتح <code dir="ltr">station-anbar.netlify.app/apk</code> من متصفح الجهاز ونصّبه (اسمح بـ«مصادر غير معروفة»).</li>
-          <li>افتح التطبيق: نفس العنوان ونفس كلمة السرّ التي في هاتف المطعم، ثم «حفظ».</li>
-          <li>اضغط «وصول الإشعارات» وفعّل «ستيشن» في قائمة أندرويد — هذا هو الإذن الذي يقرأ إشعار توترز.</li>
-          <li>اطلب طلباً تجريبياً من توترز: يظهر على شاشة «الطلبات الواردة» خلال ثوانٍ — طلباً إن عُرفت أصنافه، أو تنبيهاً برقمه.</li>
+          <li>افتح التطبيق: العنوان كما هو، وكلمة السرّ أعلاه، ثم «حفظ» ثم «فحص» — الجواب <b>422</b> يعني أنها صحيحة.</li>
+          <li>«تفعيل قراءة شاشة توترز وطلباتي» ← فعّل «ستيشن» — يقرأ شاشة الطلب حين تُفتح فيصل الكاشير طلباً كاملاً.</li>
+          <li>«تفعيل مكالمات واتساب» ← وصول الإشعارات ← «ستيشن» — احتياط: رقم الطلب يصل تنبيهاً ولو لم تُقرأ الشاشة.</li>
+          <li>أول طلب حقيقي: افتحه في توترز كالعادة ← يظهر على «الطلبات الواردة» بزرّ «قبول — توترز». اسم لم يُعرف؟ يُربط مرّة من «شركات التوصيل».</li>
         </ol>
       </Section>
     </div>

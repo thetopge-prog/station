@@ -67,5 +67,9 @@ export default async function SetupPage() {
     }),
   );
 
-  return <SetupClient printers={printers} screens={screens} installCommand={INSTALL} />;
+  // كلمة سرّ الجهاز — نفس منطق مفتاح الشاشة أعلاه: تُسلَّم هنا للمطوّر، لا تُبحث
+  // عنها في ملف بيئة على خادم. وهي كلمة الويبهوك التي يقبلها /api/calls و /api/orders/external.
+  const webhookSecret = process.env.STATION_WEBHOOK_SECRET ?? null;
+
+  return <SetupClient printers={printers} screens={screens} installCommand={INSTALL} webhookSecret={webhookSecret} />;
 }
