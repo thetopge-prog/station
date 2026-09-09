@@ -5,9 +5,9 @@ import { BellRing } from "lucide-react";
 import { formatIqdLabel } from "@/lib/cafe/money";
 import { latestExternalAlerts, markAlertHandled, type ExternalAlert } from "@/lib/cafe/external-actions";
 import { sinceLabel } from "@/lib/cafe/time";
-import { kickDrawer, printJobs } from "@/lib/cafe/print-client";
+import { agentAlive, kickDrawer, printJobs } from "@/lib/cafe/print-client";
 import { buildOrderJobs } from "@/lib/cafe/printer-actions";
-import { claimPrint } from "@/lib/cafe/print-spool-actions";
+import { claimPrint, releasePrint } from "@/lib/cafe/print-spool-actions";
 import {
   listPendingOrders,
   payPendingOrder,
@@ -152,9 +152,11 @@ export function IncomingOrdersClient() {
       // unmarked; the till prints it within seconds.
       void (async () => {
         try {
+          // a printer here ⇒ claim first, so no other tab prints it meanwhile
+          if (await agentAlive(500)) await claimPrint(id);
           const { jobs } = await buildOrderJobs(id);
           const out = jobs.length ? await printJobs(jobs) : { sent: 0 };
-          if (out.sent > 0) await claimPrint(id);
+          if (out.sent === 0) await releasePrint(id);
         } catch {
           /* the spooler will try */
         }

@@ -7,7 +7,7 @@ import { formatIqdLabel } from "@/lib/cafe/money";
 import { cashierCheckout, type PayMethod } from "@/lib/cafe/cashier-actions";
 import type { Partner } from "@/lib/cafe/partner-actions";
 import { buildOrderJobs, buildReceiptJob } from "@/lib/cafe/printer-actions";
-import { printJobs, kickDrawer as kickDrawerAgent } from "@/lib/cafe/print-client";
+import { agentAlive, printJobs, kickDrawer as kickDrawerAgent } from "@/lib/cafe/print-client";
 import { claimPrint } from "@/lib/cafe/print-spool-actions";
 import { redeemReward, type Card } from "@/lib/cafe/loyalty-actions";
 import { Receipt, type ReceiptData } from "./Receipt";
@@ -182,8 +182,7 @@ export function CashierClient({
         if (cancelled) return;
         const out = jobs.length ? await printJobs(jobs) : { sent: 0, queued: 0, agent: false, skipped: [], errors: [] };
         if (cancelled) return;
-        // printed here ⇒ the spooler on the till must not print it again;
-        // nothing sent (phone, no agent) ⇒ left unmarked, the till picks it up
+        // claimed at checkout when the agent answered; this is the belt to that brace
         if (out.sent > 0) void claimPrint(receipt.orderId!).catch(() => {});
         // All three warnings, not one of them. These were an if/else chain, so a
         // shop with any permanently-unrouted category (sauces legitimately are)
@@ -332,6 +331,10 @@ export function CashierClient({
         setErr(res.error);
         return;
       }
+      // This till has a printer ⇒ this order is mine to print: claim it now, before
+      // the spooler on any other tab sees the row change. No agent (a phone) ⇒ no
+      // claim, and the till prints it within a second.
+      void agentAlive(500).then((ok) => ok && claimPrint(res.orderId).catch(() => {}));
       setReceipt({
         orderId: res.orderId,
         // the QR encodes orders.id so the expediter can scan the slip — the

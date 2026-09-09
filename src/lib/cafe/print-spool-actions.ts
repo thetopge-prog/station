@@ -11,7 +11,7 @@ import { requireStaff } from "./auth";
  * تبويبين. ومن أخفق في الطباعة بعد الادّعاء يُطلقه ليُلتقط ثانيةً.
  */
 
-/** مدفوع منذ ١٥ ثانية على الأقل (الجهاز الذي أدخله يطبع فوراً ويعلّم) وخلال ساعتين (ورقة قديمة ضجيج) */
+/** مدفوع منذ ثانيتين على الأقل (الجهاز الذي أدخله يدّعيه فوراً إن كانت عنده طابعة) وخلال ساعتين (ورقة قديمة ضجيج) */
 export async function listUnprinted(): Promise<{ id: string; order_seq: number }[]> {
   await requireStaff();
   const svc = createSupabaseServiceClient();
@@ -22,7 +22,7 @@ export async function listUnprinted(): Promise<{ id: string; order_seq: number }
     .eq("status", "paid")
     .is("printed_at", null)
     .gte("paid_at", new Date(now - 2 * 3_600_000).toISOString())
-    .lte("paid_at", new Date(now - 15_000).toISOString())
+    .lte("paid_at", new Date(now - 2_000).toISOString())
     .order("paid_at", { ascending: true })
     .limit(10);
   return data ?? [];
