@@ -34,12 +34,15 @@ export function SetupClient({
   screens,
   installCommand,
   webhookSecret = null,
+  whatsapp,
 }: {
   printers: SetupPrinter[];
   screens: ScreenLink[];
   installCommand: string;
   /** كلمة سرّ الأجهزة (هاتف المطعم، جهاز توترز) — تُعرض للمطوّر هنا لا في ملف */
   webhookSecret?: string | null;
+  /** بوت واتساب: ما يُلصق في لوحة Meta */
+  whatsapp?: { url: string; verifyToken: string | null; ready: boolean };
 }) {
   return (
     <div className="mx-auto max-w-2xl space-y-4">
@@ -118,6 +121,41 @@ export function SetupClient({
           <li>أول طلب حقيقي: افتحه في توترز كالعادة ← يظهر على «الطلبات الواردة» بزرّ «قبول — توترز». اسم لم يُعرف؟ يُربط مرّة من «شركات التوصيل».</li>
         </ol>
       </Section>
+
+      {/* بوت واتساب: نفس محرّك بوت تليغرام، ويُربط من لوحة Meta بهذين السطرين */}
+      {whatsapp && (
+        <Section icon={<Smartphone className="size-5" />} title="٦ — بوت واتساب">
+          <p className={`mb-2 text-sm font-bold ${whatsapp.ready ? "text-primary" : "text-destructive"}`}>
+            {whatsapp.ready ? "✅ المتغيّرات الأربعة مضبوطة — البوت جاهز للربط." : "⚠ ناقص في متغيّرات Netlify: WHATSAPP_TOKEN · WHATSAPP_PHONE_NUMBER_ID · WHATSAPP_APP_SECRET · WHATSAPP_VERIFY_TOKEN"}
+          </p>
+          <div className="space-y-2 rounded-xl border border-border bg-background p-3">
+            <div>
+              <p className="mb-1 text-xs font-bold text-muted-foreground">Callback URL — يُلصق في Meta ← WhatsApp ← Configuration</p>
+              <div className="flex items-center gap-2">
+                <code dir="ltr" className="min-w-0 flex-1 select-all break-all rounded-lg bg-secondary px-3 py-2 text-sm font-bold">{whatsapp.url}</code>
+                <CopyButton value={whatsapp.url} />
+              </div>
+            </div>
+            <div>
+              <p className="mb-1 text-xs font-bold text-muted-foreground">Verify token — نفس القيمة في Netlify وفي Meta</p>
+              {whatsapp.verifyToken ? (
+                <div className="flex items-center gap-2">
+                  <code dir="ltr" className="min-w-0 flex-1 select-all break-all rounded-lg bg-secondary px-3 py-2 text-sm font-bold">{whatsapp.verifyToken}</code>
+                  <CopyButton value={whatsapp.verifyToken} />
+                </div>
+              ) : (
+                <p className="text-sm font-bold text-destructive">⚠ لا يوجد WHATSAPP_VERIFY_TOKEN في متغيّرات الخادم.</p>
+              )}
+            </div>
+          </div>
+          <ol className="mt-3 list-inside list-decimal space-y-1 text-sm font-bold text-muted-foreground">
+            <li>في Meta: التطبيق ← WhatsApp ← Configuration ← Edit، الصق العنوان والكلمة أعلاه ثم Verify and save.</li>
+            <li>اشترك في الحقل <code dir="ltr">messages</code> من جدول Webhook fields.</li>
+            <li>WhatsApp ← API Setup: أضف رقم هاتفك في «To» ليصلك من الرقم الاختباري، ثم أرسل «مرحبا» للبوت.</li>
+            <li>الطلب يصل «الطلبات الواردة» على الكاشير بزرّ قبول، ويُبلَّغ الزبون على واتساب حين يُقبل ويجهز.</li>
+          </ol>
+        </Section>
+      )}
     </div>
   );
 }

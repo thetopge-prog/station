@@ -71,5 +71,12 @@ export default async function SetupPage() {
   // عنها في ملف بيئة على خادم. وهي كلمة الويبهوك التي يقبلها /api/calls و /api/orders/external.
   const webhookSecret = process.env.STATION_WEBHOOK_SECRET ?? null;
 
-  return <SetupClient printers={printers} screens={screens} installCommand={INSTALL} webhookSecret={webhookSecret} />;
+  // بوت واتساب: العنوان الذي تُلصقه في Meta، والكلمة التي تتحقّق بها من أنه نحن
+  const whatsapp = {
+    url: `${origin}/api/whatsapp/webhook`,
+    verifyToken: process.env.WHATSAPP_VERIFY_TOKEN ?? null,
+    ready: Boolean(process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_APP_SECRET && process.env.WHATSAPP_VERIFY_TOKEN),
+  };
+
+  return <SetupClient printers={printers} screens={screens} installCommand={INSTALL} webhookSecret={webhookSecret} whatsapp={whatsapp} />;
 }
