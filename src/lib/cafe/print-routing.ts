@@ -64,6 +64,9 @@ export type PrintOrder = {
   customerName?: string | null;
   /** the delivery company billed for this order — a Toters bag is packed differently */
   partnerName?: string | null;
+  /** 0077 — رقم الشركة وسعرها، يُطبعان تحت اسمها للمطابقة عند التسليم */
+  partnerRef?: string | null;
+  partnerTotal?: number | null;
 };
 
 export type PrinterRow = {
@@ -114,6 +117,8 @@ export type Ticket = {
     addressNote: string | null;
     customerName: string | null;
     partnerName: string | null;
+    partnerRef: string | null;
+    partnerTotal: number | null;
     /** delivery/pickup tickets must carry the customer's details prominently */
     isDelivery: boolean;
   };
@@ -159,6 +164,8 @@ export function routeOrder(input: RouteInput): Ticket[] {
     addressNote: order.addressNote ?? null,
     customerName: order.customerName ?? null,
     partnerName: order.partnerName ?? null,
+    partnerRef: order.partnerRef ?? null,
+    partnerTotal: order.partnerTotal ?? null,
     // curbside counts: the runner needs the phone and the car description to
     // find a customer who never comes inside
     isDelivery: order.channel === "delivery" || order.channel === "curbside",

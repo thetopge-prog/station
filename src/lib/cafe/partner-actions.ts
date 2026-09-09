@@ -24,9 +24,11 @@ export type Partner = {
   is_active: boolean;
   /** «على الحساب» يُقيَّد ويُسوَّى لاحقاً؛ «نقد عند الاستلام» المندوب يدفع الصافي في الدرج؛
    *  «مخصّص» (زاد) الكاشير يكتب ما دفعه المندوب في كل طلب — لا ذمّة ولا نسبة */
-  settlement: "credit" | "cash_at_pickup" | "custom" | "custom";
+  settlement: "credit" | "cash_at_pickup" | "custom";
   /** نسبة الشركة — تُحسم من الإجمالي قبل أن يدفع المندوب (نقد عند الاستلام) */
   commission_pct: number;
+  /** «مخصّص»: أجرة التوصيل التي ندفعها للشركة — الافتراضي لخانة «دفع المندوب الآن» */
+  delivery_fee: number;
 };
 
 export type PartnerBalance = Partner & {
@@ -48,7 +50,7 @@ export async function listActivePartners(): Promise<Partner[]> {
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase
     .from("delivery_partners")
-    .select("id, name_ar, phone, is_active, settlement, commission_pct")
+    .select("id, name_ar, phone, is_active, settlement, commission_pct, delivery_fee")
     .eq("is_active", true)
     .order("sort")
     .order("name_ar");
@@ -71,6 +73,8 @@ export async function savePartner(input: {
   note?: string | null;
   settlement?: "credit" | "cash_at_pickup" | "custom";
   commissionPct?: number;
+  /** أجرة التوصيل الافتراضية؛ غير مُرسَلة = لا تغيير (toggleActive يعتمد على ذلك) */
+  deliveryFee?: number;
 }) {
   await requireAdmin();
   const supabase = await createSupabaseServerClient();
@@ -80,6 +84,7 @@ export async function savePartner(input: {
     p_phone: input.phone ?? null,
     p_active: input.active ?? true,
     p_note: input.note ?? null,
+    p_fee: input.deliveryFee == null ? null : Math.max(0, Math.round(input.deliveryFee)),
   });
   if (error) return { ok: false as const, error: friendly(error.message) };
   // آلية التسوية والعمولة بعد الـRPC، بالاسم (فريد): كلمتان لا تستحقّان إعادة
@@ -127,6 +132,10 @@ export async function settlePartner(input: {
 }
 
 export type LedgerRow = {
+  /** 0077 — سعر الشركة وما ذهب لها وما دفعه مندوبها؛ null لغير الطلبات */
+  partner_total: number | null;
+  commission: number | null;
+  cash_received: number | null;
   kind: "order" | "settlement";
   ref: string;
   at: string;

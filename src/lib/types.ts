@@ -474,6 +474,7 @@ export type Database = {
         Row: {
           id: string; name_ar: string; is_active: boolean; phone: string | null;
           settlement: "credit" | "cash_at_pickup" | "custom"; commission_pct: number;  // 0068
+          delivery_fee: number;  // 0077 — ما ندفعه للشركة عن الطلب
           billed: number; settled: number; balance: number; orders_count: number;
           last_order_at: string | null; last_settled_at: string | null;
         };
@@ -502,6 +503,8 @@ export type Database = {
         Returns: {
           partner_id: string; name_ar: string; orders_count: number; sales: number;
           cancelled_count: number; cancelled_amount: number; discounts: number; balance: number;
+          settlement: "credit" | "cash_at_pickup" | "custom"; cash_received: number; commission: number;  // 0068
+          partner_total: number;  // 0077 — مجموع سعر الشركة، للمطابقة لا للجرد
         }[];
       };
       // قفل الشاشة (0057) — الرمز لا يُقرأ، يُسأل عنه فقط
@@ -546,7 +549,8 @@ export type Database = {
       };
       partner_ledger: {
         Args: { p_partner: string; p_from?: string | null; p_to?: string | null };
-        Returns: { kind: "order" | "settlement"; ref: string; at: string; label: string; amount: number }[];
+        // 0077 — الأرقام الثلاثة: سعر الشركة، ما ذهب لها، ما دفعه مندوبها
+        Returns: { kind: "order" | "settlement"; ref: string; at: string; label: string; amount: number; partner_total: number | null; commission: number | null; cash_received: number | null }[];
       };
       partner_order_items: {
         Args: { p_order: string };

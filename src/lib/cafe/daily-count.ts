@@ -38,6 +38,8 @@ export type PartnerDay = {
   settlement?: "credit" | "cash_at_pickup" | "custom";
   cash_received?: number;
   commission?: number;
+  /** 0077 — مجموع سعر الشركة اليوم، للمطابقة مع كشفها لا للجرد */
+  partner_total?: number;
 };
 
 export type DailyCount = {
@@ -117,7 +119,7 @@ async function getDailyCountFull(day: string): Promise<DailyCount> {
       svc.rpc("guest_estimate", { p_from: day, p_to: day }),
       svc.from("daily_counts").select("counted_cash, deposited, note, closed_at").eq("business_day", day).maybeSingle(),
       // the money split the Z-report makes per shift, made once for the day
-      svc.from("orders").select("subtotal, discount, extra, payment_method").eq("business_day", day).eq("status", "paid"),
+      svc.from("orders").select("subtotal, discount, extra, payment_method, partner_cash_received").eq("business_day", day).eq("status", "paid"),
       svc.rpc("daily_partner_breakdown", { p_day: day }),
       // كل مصاريف اليوم بفئاتها وأصحابها — لا المجموع وحده
       svc.from("expenses").select("amount, category, employee_id").eq("business_day", day),
@@ -163,7 +165,9 @@ async function getDailyCountFull(day: string): Promise<DailyCount> {
 
   const opening_float = sessions.reduce((t, s) => t + (s.opening_float ?? 0), 0);
   const deposited = sessions.reduce((t, s) => t + (s.deposited ?? 0), 0);
-  const cash_sales = sumBy("cash");
+  // نقد مندوبي الشركات (زاد) في الدرج يُضاف هنا كما يضيفه session_report (0068)
+  // لبطاقة الوردية — وإلا قال الجرد «زيادة» وقالت البطاقة «مطابقة» عن الدرج نفسه.
+  const cash_sales = sumBy("cash") + paid.reduce((t, o) => t + (o.partner_cash_received ?? 0), 0);
   const expenses = summary?.expenses ?? 0;
 
   // Debts issued today, which left the drawer as goods and not as money.

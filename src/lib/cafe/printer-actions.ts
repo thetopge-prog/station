@@ -165,7 +165,7 @@ export async function buildOrderJobs(
     .from("orders")
     // one literal string, not a concatenation: supabase-js infers the row type
     // from the select text, and `a + b` erases that inference
-    .select("id, order_seq, pickup_code, channel, table_no, note, subtotal, discount, extra, extra_note, customer_phone, address_note, customer_name, cashier_id, expediter_id, partner_id, created_at")
+    .select("id, order_seq, pickup_code, channel, table_no, note, subtotal, discount, extra, extra_note, customer_phone, address_note, customer_name, cashier_id, expediter_id, partner_id, partner_ref, partner_total, created_at")
     .eq("id", orderId)
     .maybeSingle();
   if (!order) return { jobs: [], unrouted: [] };
@@ -247,6 +247,8 @@ export async function buildOrderJobs(
       addressNote: order.address_note,
       customerName: order.customer_name,
       partnerName: partner?.name_ar ?? null,
+      partnerRef: order.partner_ref ?? null,
+      partnerTotal: order.partner_total ?? null,
     },
     items,
     printers,

@@ -322,6 +322,11 @@ function buildTicket(s: Slip, ticket: Ticket, opts: RenderOptions): void {
   if (ticket.order.partnerName) {
     s.rule("=");
     s.center().size(2, 2).bold(true).line(ticket.order.partnerName).bold(false).size(1, 1).right();
+    // رقم الشركة وسعرها: يطابقهما المندوب على تطبيقه عند الاستلام. نصّ عادي
+    // فلا يمسّ الوكيل القديم. سعرنا هو ما يُحاسَب عليه؛ هذا للمطابقة فقط.
+    const ref = ticket.order.partnerRef ? `رقمهم ${ticket.order.partnerRef}` : "";
+    const theirs = ticket.order.partnerTotal ? `سعر الشركة ${formatIqd(ticket.order.partnerTotal)}` : "";
+    if (ref || theirs) s.center().line([ref, theirs].filter(Boolean).join(" · ")).right();
   }
 
   // ── accountability ──────────────────────────────────────────────────────

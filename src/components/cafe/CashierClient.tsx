@@ -762,13 +762,21 @@ export function CashierClient({
                 the drawer does not match at handover */}
             {partners.find((p) => p.id === partnerId)?.settlement === "custom" ? (
               <label className="mt-1.5 block">
-                <span className="mb-1 block text-xs font-bold text-amber-800 dark:text-amber-300">دفع المندوب الآن (فارغ = كامل المبلغ)</span>
+                {/* الافتراضي = الإجمالي ناقص أجرة الشركة (نحن ندفعها في مناطق التوصيل
+                    المجاني). الزبون دفع الأجرة للمندوب؟ يكتب الكاشير الإجمالي كاملاً. */}
+                <span className="mb-1 block text-xs font-bold text-amber-800 dark:text-amber-300">
+                  {(() => {
+                    const fee = partners.find((p) => p.id === partnerId)?.delivery_fee ?? 0;
+                    const def = Math.max(0, total - fee);
+                    return `دفع المندوب الآن (فارغ = ${formatIqdLabel(def)}${fee ? ` بعد أجرة توصيل ${formatIqdLabel(fee)}` : ""})`;
+                  })()}
+                </span>
                 <input
                   value={partnerCash}
                   onChange={(e) => setPartnerCash(e.target.value.replace(/[^\d]/g, ""))}
                   inputMode="numeric"
                   dir="ltr"
-                  placeholder="كامل المبلغ"
+                  placeholder={String(Math.max(0, total - (partners.find((p) => p.id === partnerId)?.delivery_fee ?? 0)))}
                   className="w-full rounded-lg border border-border bg-background px-3 py-2 text-lg font-black tabular-nums"
                 />
               </label>

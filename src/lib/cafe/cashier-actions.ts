@@ -10,6 +10,7 @@ import { notifyCustomerOrder } from "./customer-notify";
 import { loyaltyConfig } from "./config";
 import { earnPoints } from "./points";
 import type { OrderLineInput } from "./order-actions";
+import { customSplit } from "./money";
 import { cleanPhone } from "./phone";
 
 /** How the counter was settled. "partner" = billed to a delivery company and
@@ -35,6 +36,9 @@ export type PendingOrder = {
   partner_id: string | null;
   partner_ref: string | null;
   partner_total: number | null;
+  /** 0077 — زرّ القبول يسأل عن دفع المندوب لشركة «مخصّص» ويملأ الافتراضي من أجرتها */
+  partner_settlement: "credit" | "cash_at_pickup" | "custom" | null;
+  partner_fee: number;
 };
 
 /** Self-orders (qr/kiosk) awaiting the counter, oldest first. */
@@ -53,6 +57,13 @@ export async function listPendingOrders(): Promise<PendingOrder[]> {
     .from("order_items")
     .select("order_id, name_ar, flavor_ar, qty, unit_price, line_total")
     .in("order_id", ids);
+
+  // آلية الشركة وأجرتها — استعلام ثانٍ لا علاقة مضمّنة: أنواع القاعدة مكتوبة يدوياً ولا تعرف المفتاح
+  const partnerIds = [...new Set(orders.map((o) => o.partner_id).filter((x): x is string => !!x))];
+  const { data: partnerRows } = partnerIds.length
+    ? await supabase.from("delivery_partners").select("id, settlement, delivery_fee").in("id", partnerIds)
+    : { data: [] as { id: string; settlement: "credit" | "cash_at_pickup" | "custom"; delivery_fee: number }[] };
+  const partnerOf = new Map((partnerRows ?? []).map((r) => [r.id, r]));
 
   const byOrder = new Map<string, PendingItem[]>();
   for (const it of items ?? []) {
@@ -76,6 +87,8 @@ export async function listPendingOrders(): Promise<PendingOrder[]> {
     partner_id: o.partner_id ?? null,
     partner_ref: o.partner_ref ?? null,
     partner_total: o.partner_total ?? null,
+    partner_settlement: (o.partner_id && partnerOf.get(o.partner_id)?.settlement) || null,
+    partner_fee: (o.partner_id && partnerOf.get(o.partner_id)?.delivery_fee) || 0,
   }));
 }
 
@@ -163,7 +176,7 @@ async function stampPayment(
   let partner_commission: number | null = null;
   if (payMethod === "partner" && partnerId) {
     const [{ data: p }, { data: o }] = await Promise.all([
-      svc.from("delivery_partners").select("settlement, commission_pct").eq("id", partnerId).maybeSingle(),
+      svc.from("delivery_partners").select("settlement, commission_pct, delivery_fee").eq("id", partnerId).maybeSingle(),
       svc.from("orders").select("subtotal, discount, extra").eq("id", orderId).maybeSingle(),
     ]);
     if (p?.settlement === "cash_at_pickup" && o) {
@@ -171,11 +184,12 @@ async function stampPayment(
       partner_commission = Math.round((total * (Number(p.commission_pct) || 0)) / 100);
       partner_cash_received = Math.max(0, total - partner_commission);
     } else if (p?.settlement === "custom" && o) {
-      // زاد: الرقم من يد الكاشير لا من نسبة. فارغ = دفع المندوب كل المبلغ.
+      // زاد: الرقم من يد الكاشير لا من نسبة. فارغ = الإجمالي ناقص أجرة التوصيل
+      // الافتراضية (مناطق التوصيل المجاني)؛ والفرق هو ما دفعناه للشركة.
       const total = Math.max(0, (o.subtotal ?? 0) - (o.discount ?? 0) + (o.extra ?? 0));
-      const paid = partnerCashReceived == null ? total : Math.min(total, Math.max(0, Math.round(partnerCashReceived)));
-      partner_cash_received = paid;
-      partner_commission = total - paid;
+      const split = customSplit(total, Number(p.delivery_fee) || 0, partnerCashReceived);
+      partner_cash_received = split.paid;
+      partner_commission = split.commission;
     }
   }
 
@@ -284,13 +298,15 @@ export async function payPendingOrder(
   customerId: string | null = null,
   payMethod: PayMethod = "cash",
   partnerId: string | null = null,
+  /** شركة «مخصّص»: ما دفعه المندوب الآن؛ null = الإجمالي ناقص أجرتها الافتراضية */
+  partnerCashReceived: number | null = null,
 ) {
   const staff = await requireStaff();
   if (payMethod === "partner" && !partnerId) return { ok: false as const, error: "اختر شركة التوصيل." };
   const supabase = await createSupabaseServerClient();
   const paid = await payOrder(supabase, orderId, discount, customerId);
   if (!paid.ok) return paid;
-  const stampErr = await stampPayment(orderId, staff.employeeId, payMethod, partnerId);
+  const stampErr = await stampPayment(orderId, staff.employeeId, payMethod, partnerId, partnerCashReceived);
   revalidatePath("/cashier");
   revalidatePath("/dashboard");
   return {

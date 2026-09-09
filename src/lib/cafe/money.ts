@@ -12,3 +12,16 @@ export function formatIqd(amount: number): string {
 export function formatIqdLabel(amount: number): string {
   return `${formatIqd(amount)} ${CURRENCY_LABEL_AR}`;
 }
+
+/**
+ * زاد («مخصّص»): ما دفعه المندوب وما ذهب أجرةَ توصيل.
+ *
+ * فارغ = الافتراضي: الإجمالي ناقص أجرة الشركة (مناطق التوصيل المجاني، نحن
+ * ندفعها). حيث يدفع الزبون للمندوب يكتب الكاشير الإجمالي كاملاً فتصير صفراً.
+ * الرقم مقيَّد بين صفر والإجمالي: لا يدفع المندوب أكثر مما بيع.
+ */
+export function customSplit(total: number, fee: number, typed: number | null): { paid: number; commission: number } {
+  const t = Math.max(0, Math.round(total));
+  const paid = typed == null ? Math.max(0, t - Math.max(0, Math.round(fee))) : Math.min(t, Math.max(0, Math.round(typed)));
+  return { paid, commission: t - paid };
+}

@@ -49,6 +49,7 @@ export function PartnersClient({ partners, menu = [] }: { partners: PartnerBalan
   const [phone, setPhone] = useState("");
   const [settlement, setSettlement] = useState<"credit" | "cash_at_pickup" | "custom">("credit");
   const [commissionPct, setCommissionPct] = useState("0");
+  const [deliveryFee, setDeliveryFee] = useState("0");
   const [adding, setAdding] = useState(false);
 
   // settle
@@ -96,6 +97,7 @@ export function PartnersClient({ partners, menu = [] }: { partners: PartnerBalan
       id: editing?.id ?? null,
       settlement,
       commissionPct: Number(commissionPct) || 0,
+      deliveryFee: Number(deliveryFee) || 0,
       name: name.trim(),
       phone: phone.trim() || null,
       active: editing ? editing.is_active : true,
@@ -190,9 +192,14 @@ export function PartnersClient({ partners, menu = [] }: { partners: PartnerBalan
               <option value="custom">مخصّص — الكاشير يكتب ما دفعه المندوب، لا ذمّة ولا نسبة</option>
             </select>
           </label>
-          <label className={`w-28 ${settlement === "custom" ? "hidden" : ""}`}>
+          <label className={`w-28 ${settlement === "cash_at_pickup" ? "" : "hidden"}`}>
             <span className="mb-1 block text-xs font-bold text-muted-foreground">العمولة ٪</span>
             <input value={commissionPct} onChange={(e) => setCommissionPct(e.target.value)} inputMode="decimal" dir="ltr" className="w-full rounded-lg border border-border bg-background px-3 py-2" />
+          </label>
+          {/* زاد: ما ندفعه لها عن الطلب في مناطق التوصيل المجاني — افتراضي خانة الكاشير */}
+          <label className={`w-40 ${settlement === "custom" ? "" : "hidden"}`}>
+            <span className="mb-1 block text-xs font-bold text-muted-foreground">أجرة التوصيل — ندفعها للشركة</span>
+            <input value={deliveryFee} onChange={(e) => setDeliveryFee(e.target.value.replace(/[^\d]/g, ""))} inputMode="numeric" dir="ltr" className="w-full rounded-lg border border-border bg-background px-3 py-2" />
           </label>
           <button
             onClick={submitPartner}
@@ -257,6 +264,10 @@ export function PartnersClient({ partners, menu = [] }: { partners: PartnerBalan
                   setAdding(false);
                   setName(p.name_ar);
                   setPhone(p.phone ?? "");
+                  // كانت الآلية لا تُملأ فيعيدها أي تعديل إلى «على الحساب» بصمت
+                  setSettlement(p.settlement);
+                  setCommissionPct(String(p.commission_pct ?? 0));
+                  setDeliveryFee(String(p.delivery_fee ?? 0));
                 }}
                 className="rounded-lg border border-border px-3 py-2 text-sm font-bold text-muted-foreground"
               >
@@ -325,7 +336,10 @@ export function PartnersClient({ partners, menu = [] }: { partners: PartnerBalan
                         <tr>
                           <th className="p-2 text-right font-bold">الحركة</th>
                           <th className="p-2 text-right font-bold">التاريخ</th>
-                          <th className="p-2 text-left font-bold">المبلغ</th>
+                          <th className="p-2 text-left font-bold">سعر النظام</th>
+                          <th className="p-2 text-left font-bold">سعر الشركة</th>
+                          <th className="p-2 text-left font-bold">الفرق</th>
+                          <th className="p-2 text-left font-bold">{p.settlement === "custom" ? "التوصيل" : "العمولة"}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -353,10 +367,26 @@ export function PartnersClient({ partners, menu = [] }: { partners: PartnerBalan
                                 {r.amount < 0 ? "− " : ""}
                                 {formatIqdLabel(Math.abs(r.amount))}
                               </td>
+                              {/* أسعار الشركة للمطابقة فقط — لا تدخل حسابنا. الفرق السالب = عرض أو خصم عندهم */}
+                              <td className="p-2 text-left tabular-nums text-muted-foreground">
+                                {r.partner_total != null ? formatIqdLabel(r.partner_total) : "—"}
+                              </td>
+                              <td className={`p-2 text-left tabular-nums ${r.partner_total != null && r.partner_total - r.amount < 0 ? "font-bold text-success" : "text-muted-foreground"}`}>
+                                {r.partner_total == null
+                                  ? "—"
+                                  : r.partner_total - r.amount < 0
+                                    ? `عرض/خصم − ${formatIqdLabel(r.amount - r.partner_total)}`
+                                    : r.partner_total - r.amount > 0
+                                      ? `+ ${formatIqdLabel(r.partner_total - r.amount)}`
+                                      : "مطابق"}
+                              </td>
+                              <td className="p-2 text-left tabular-nums text-muted-foreground">
+                                {r.commission != null ? formatIqdLabel(r.commission) : "—"}
+                              </td>
                             </tr>
                             {openOrder === r.ref && (
                               <tr className="bg-secondary/30">
-                                <td colSpan={3} className="px-6 py-2">
+                                <td colSpan={6} className="px-6 py-2">
                                   {!items[r.ref] && <span className="text-xs text-muted-foreground">جارٍ التحميل…</span>}
                                   <ul className="space-y-0.5 text-xs">
                                     {(items[r.ref] ?? []).map((it, i) => (
@@ -381,10 +411,18 @@ export function PartnersClient({ partners, menu = [] }: { partners: PartnerBalan
                       <tfoot>
                         <tr className="border-t-2 border-border">
                           <td className="p-2 font-black" colSpan={2}>
-                            صافي الفترة
+                            {p.settlement === "custom" ? "مبيعات الفترة" : "صافي الفترة"}
                           </td>
                           <td className="p-2 text-left font-black tabular-nums">
                             {formatIqdLabel(rows.reduce((s, r) => s + r.amount, 0))}
+                          </td>
+                          <td className="p-2 text-left tabular-nums text-muted-foreground">
+                            {formatIqdLabel(rows.reduce((s, r) => s + (r.partner_total ?? 0), 0))}
+                          </td>
+                          <td></td>
+                          {/* لزاد هذا هو الرقم المطلوب: مجموع ما دفعناه لها في الفترة */}
+                          <td className="p-2 text-left font-black tabular-nums">
+                            {formatIqdLabel(rows.reduce((s, r) => s + (r.commission ?? 0), 0))}
                           </td>
                         </tr>
                       </tfoot>

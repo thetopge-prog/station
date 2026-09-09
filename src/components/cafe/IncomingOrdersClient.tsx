@@ -134,15 +134,28 @@ export function IncomingOrdersClient() {
     return () => clearInterval(t);
   }, [refreshPending]);
 
-  async function accept(id: string, method: "cash" | "card" | "partner", partnerId: string | null = null) {
+  async function accept(id: string, method: "cash" | "card" | "partner", partnerId: string | null = null, o?: PendingOrder) {
     setQueueErr(null);
+    // شركة «مخصّص» (زاد): المندوب يدفع الآن. الافتراضي = سعرنا ناقص أجرة التوصيل
+    // التي ندفعها؛ حيث يدفعها الزبون للمندوب يكتب الكاشير الإجمالي كاملاً.
+    // قبولٌ صامت بالافتراضي خطأ في نصف الحالات، فيُسأل. إلغاء = يبقى معلّقاً.
+    let cash: number | null = null;
+    if (method === "partner" && o?.partner_settlement === "custom") {
+      const def = Math.max(0, o.subtotal - (o.partner_fee ?? 0));
+      const v = window.prompt(
+        `دفع المندوب الآن؟\nسعر النظام ${formatIqdLabel(o.subtotal)} · سعر الشركة ${o.partner_total ? formatIqdLabel(o.partner_total) : "—"}${o.partner_fee ? ` · أجرة التوصيل ${formatIqdLabel(o.partner_fee)}` : ""}`,
+        String(def),
+      );
+      if (v == null) return;
+      cash = Number(v.replace(/[^\d]/g, "")) || 0;
+    }
     // `method` was taken and then dropped: payPendingOrder defaults to "cash",
     // so every card sale accepted here was booked as cash and counted into the
     // shift's expected drawer — a shortage the cashier is asked to explain at
     // close, for money that was never in the drawer to begin with.
     // A company order read off its own device arrives with the company attached:
     // one tap books it to them (credit or cash-at-pickup, per their settlement).
-    const res = await payPendingOrder(id, 0, null, method, partnerId);
+    const res = await payPendingOrder(id, 0, null, method, partnerId, cash);
     if (!res.ok) setQueueErr(res.error);
     else {
       if (method === "cash") openDrawer();
@@ -260,7 +273,7 @@ export function IncomingOrdersClient() {
                 )}
                 {o.partner_id && (o.partner_ref || o.partner_total) && (
                   <p className="mt-2 text-xs font-bold text-muted-foreground" dir="ltr">
-                    {o.partner_ref ?? ""}{o.partner_total ? ` · ${formatIqdLabel(o.partner_total)} عندهم` : ""}
+                    {o.partner_ref ?? ""}{o.partner_total ? ` · سعر الشركة ${formatIqdLabel(o.partner_total)}` : ""}{o.partner_fee ? ` · توصيل ${formatIqdLabel(o.partner_fee)}` : ""}
                   </p>
                 )}
                 {o.note && (
@@ -281,7 +294,7 @@ export function IncomingOrdersClient() {
                   <span className="text-lg font-extrabold">{formatIqdLabel(o.subtotal)}</span>
                   <div className="flex gap-1.5">
                     {o.partner_id ? (
-                      <button onClick={() => accept(o.id, "partner", o.partner_id)} className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90">
+                      <button onClick={() => accept(o.id, "partner", o.partner_id, o)} className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90">
                         <PartnerLogo name={o.order_source} className="h-4" />
                         ✅ قبول — {SOURCE_AR[o.order_source] ?? "شركة"}
                       </button>

@@ -199,6 +199,7 @@ export function DailyCountClient({ initial, cashier }: { initial: DailyCount; ca
                     <th>المبيعات</th>
                     <th>ملغاة</th>
                     <th>خصم</th>
+                    <th>سعر الشركة</th>
                     <th>استُلم نقداً</th>
                     <th>الباقي عليها</th>
                   </tr>
@@ -213,15 +214,19 @@ export function DailyCountClient({ initial, cashier }: { initial: DailyCount; ca
                         {p.cancelled_count > 0 ? `${p.cancelled_count} · ${formatIqdLabel(p.cancelled_amount)}` : "—"}
                       </td>
                       <td className="tabular-nums">{formatIqdLabel(p.discounts)}</td>
-                      {/* شركة نقدية: المندوب دفع الصافي في الدرج ولا شيء عليها؛ آجلة: العكس */}
+                      {/* سعر الشركة للمطابقة مع كشفها فقط — لا يدخل الحسابات */}
+                      <td className="tabular-nums text-muted-foreground">{p.partner_total ? formatIqdLabel(p.partner_total) : "—"}</td>
+                      {/* شركة نقدية: المندوب دفع الصافي في الدرج ولا شيء عليها؛ آجلة: العكس.
+                          لزاد الفرق أجرة توصيل دفعناها، لا عمولة نسبة */}
                       <td className="tabular-nums">
-                        {p.settlement === "cash_at_pickup" || p.settlement === "custom" ? `${formatIqdLabel(p.cash_received ?? 0)}${p.commission ? ` (عمولة ${formatIqdLabel(p.commission)})` : ""}` : "—"}
+                        {p.settlement === "cash_at_pickup" || p.settlement === "custom" ? `${formatIqdLabel(p.cash_received ?? 0)}${p.commission ? ` (${p.settlement === "custom" ? "توصيل" : "عمولة"} ${formatIqdLabel(p.commission)})` : ""}` : "—"}
                       </td>
                       <td className="font-black tabular-nums">{p.settlement === "cash_at_pickup" || p.settlement === "custom" ? "—" : formatIqdLabel(p.balance)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              <p className="mt-2 text-xs font-bold text-muted-foreground">أسعار الشركات وعروضها للمطابقة فقط — لا تدخل الحسابات.</p>
             </div>
           </div>
         )}
