@@ -23,8 +23,11 @@ class TotersReaderService : AccessibilityService() {
 
   private val handler = Handler(Looper.getMainLooper())
   private var pending: Runnable? = null
+  private var lastPkg: String = ""
 
   override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+    // التطبيق الذي رُسمت شاشته — توترز أو طلباتي — يذهب مع النصّ ليعرف الخادم الشركة
+    event?.packageName?.toString()?.let { if (it.isNotEmpty()) lastPkg = it }
     // القوائم تُرسم تدريجياً: انتظر هدوءاً قصيراً ثم اقرأ الشاشة كاملة مرّة واحدة
     pending?.let { handler.removeCallbacks(it) }
     val r = Runnable { readAndSend() }
@@ -36,6 +39,8 @@ class TotersReaderService : AccessibilityService() {
 
   private fun readAndSend() {
     val root: AccessibilityNodeInfo = rootInActiveWindow ?: return
+    val pkg = root.packageName?.toString()?.takeIf { it.isNotEmpty() } ?: lastPkg
+    if (pkg.isEmpty()) return
     val lines = ArrayList<String>()
     collect(root, lines, 0)
     if (lines.isEmpty()) return
@@ -55,14 +60,15 @@ class TotersReaderService : AccessibilityService() {
     for (l in lines) arr.put(l)
     val body = JSONObject()
       .put("secret", p.getString(SECRET_KEY, "") ?: "")
-      .put("app", "com.toters.totersmerchant")
+      .put("app", pkg)
       .put("title", "screen")
       .put("text", lines.joinToString("\n"))
       .put("lines", arr)
       .put("ref", ref)
       .put("again", sameRef)
     val ctx = this
-    Thread { post(ctx, body, "شاشة توترز #$ref", ordersUrl(ctx)) }.start()
+    val who = if (pkg.contains("talabat")) "طلباتي" else "توترز"
+    Thread { post(ctx, body, "شاشة $who #$ref", ordersUrl(ctx)) }.start()
   }
 
   /** النصوص المرئية بترتيب الشجرة — ترتيب القراءة على الشاشة */
@@ -91,6 +97,7 @@ class TotersReaderService : AccessibilityService() {
     private const val SCREEN_AT = "screen_at"
     private const val SCREEN_LINES = "screen_lines"
     private const val ARABIC_DIGITS = "٠١٢٣٤٥٦٧٨٩"
-    private val REF = Regex("""الطلب\s*#\s*(\d{2,7})""")
+    // «الطلب #٩٠٨» عند توترز؛ «طلب رقم 123» / «Order #123» احتياطاً لطلباتي — شكل شاشتها لم يُرَ بعد
+    private val REF = Regex("""(?:الطلب|طلب|order)\s*(?:رقم|#|no\.?)?\s*[:#]?\s*(\d{2,9})""", RegexOption.IGNORE_CASE)
   }
 }

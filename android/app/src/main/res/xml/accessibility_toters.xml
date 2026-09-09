@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  قراءة شاشة طلب توترز — تطبيق واحد لا غير.
+  قراءة شاشة الطلب — تطبيقا الشركتين لا غير.
 
-  packageNames يقيّد الخدمة ببرنامج توترز للتجّار: لا تصلها أحداث من أي تطبيق
-  آخر على الجهاز، ولا تستطيع قراءته. هذا هو الإذن كله: نصّ شاشة الطلب حين
+  packageNames يقيّد الخدمة ببرنامجي توترز (com.toters.totersmerchant) وطلباتي
+  للمطاعم (com.talabatey.partner2): لا تصلها أحداث من أي تطبيق آخر على الجهاز،
+  ولا تستطيع قراءته. هذا هو الإذن كله: نصّ شاشة الطلب حين
   يفتحها المجهّز، ليصل الكاشير طلباً لا رقماً.
 -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/acc_desc"
-    android:packageNames="com.toters.totersmerchant"
+    android:packageNames="com.toters.totersmerchant,com.talabatey.partner2"
     android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
     android:accessibilityFlags="flagRetrieveInteractiveWindows"
