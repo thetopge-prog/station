@@ -214,6 +214,8 @@ function signed(raw: string, header: string | null): boolean {
 }
 
 export async function POST(req: Request) {
+  // أول سطر، قبل أي فحص: يظهر في سجل نتلفاي حتى لو سقط كل ما بعده
+  console.log("wa-hit", req.headers.get("x-hub-signature-256") ? "signed" : "unsigned", req.headers.get("user-agent") ?? "");
   if (!APP_SECRET() || !TOKEN() || !PHONE_ID()) {
     await note(503, "", "المتغيّرات ناقصة على الخادم");
     return new Response("not configured", { status: 503 });
