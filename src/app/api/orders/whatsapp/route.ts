@@ -41,6 +41,8 @@ type IncomingOrder = {
   source?: "whatsapp" | "telegram";
   /** محادثة زبون تليغرام، ليُبلَّغ حين يُقبل طلبه ويجهز */
   telegram_chat_id?: string;
+  /** رقم الزبون على واتساب (wa_id) — ليُبلَّغ حين يُقبل طلبه ويجهز */
+  whatsapp_wa_id?: string;
   customer_name?: string;
   phone?: string;
   address?: string;
@@ -140,6 +142,12 @@ export async function POST(req: Request) {
     await svc
       .from("orders")
       .update({ order_source: "telegram", telegram_chat_id: String(body.telegram_chat_id ?? "").slice(0, 32) || null })
+      .eq("id", placed.order_id);
+  } else if (body.whatsapp_wa_id) {
+    // المصدر 'whatsapp' كتبته place_order أصلاً؛ يبقى رقم الزبون ليُبلَّغ
+    await svc
+      .from("orders")
+      .update({ whatsapp_wa_id: String(body.whatsapp_wa_id).slice(0, 32) })
       .eq("id", placed.order_id);
   }
 

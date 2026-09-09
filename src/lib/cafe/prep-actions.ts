@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
-import { notifyTelegramOrder } from "./telegram-notify";
+import { notifyCustomerOrder } from "./customer-notify";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { requireRole, requireStaff } from "./auth";
 import { hubEnabled, isLocalOrder, liveLocalOrders, queuePrep, setLocalPrep } from "@/lib/hub/store";
@@ -220,7 +220,7 @@ export async function confirmAssembledMany(orderIds: string[]) {
   revalidatePath("/queue");
   revalidatePath("/expediter");
   revalidatePath("/kds");
-  after(() => Promise.allSettled(ids.map((id) => notifyTelegramOrder(id, "ready"))));
+  after(() => Promise.allSettled(ids.map((id) => notifyCustomerOrder(id, "ready"))));
   return { ok: true as const, count: typeof data === "number" ? data : ids.length };
 }
 
@@ -242,7 +242,7 @@ export async function confirmAssembled(orderId: string) {
   const res = (await localPrep(orderId, "ready")) ?? (await rpc("confirm_assembled", orderId));
   // زبون تليغرام يُبلَّغ من هنا — لحظة «جاهز» نفسها، لا من مهمة دورية.
   // بعد الردّ لا قبله: كان يُنتظر حتى ٣ ثوانٍ في كل مسح، لطلبات لا تليغرام فيها
-  if (res.ok) after(() => notifyTelegramOrder(orderId, "ready"));
+  if (res.ok) after(() => notifyCustomerOrder(orderId, "ready"));
   return res;
 }
 

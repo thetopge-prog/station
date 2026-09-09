@@ -6,7 +6,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/lib/types";
 import { requireStaff } from "./auth";
 import { openSessionIdFor } from "./session-of";
-import { notifyTelegramOrder } from "./telegram-notify";
+import { notifyCustomerOrder } from "./customer-notify";
 import { loyaltyConfig } from "./config";
 import { earnPoints } from "./points";
 import type { OrderLineInput } from "./order-actions";
@@ -295,7 +295,7 @@ export async function cancelOrder(orderId: string) {
   const { error } = await supabase.rpc("cancel_order", { p_order: orderId });
   if (error) return { ok: false as const, error: error.message };
   revalidatePath("/cashier");
-  await notifyTelegramOrder(orderId, "accepted");
-  await notifyTelegramOrder(orderId, "cancelled");
+  await notifyCustomerOrder(orderId, "accepted");
+  await notifyCustomerOrder(orderId, "cancelled");
   return { ok: true as const };
 }

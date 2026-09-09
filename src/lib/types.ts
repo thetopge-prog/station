@@ -40,6 +40,12 @@ export type Database = {
         Update: Partial<{ ended_at: string | null; auto_closed: boolean }>;
         Relationships: [];
       };
+      bot_state: {  // 0006 — حالة محادثة البوت، صفّ لكل محادثة: تليغرام بالرقم، وواتساب بمفتاح wa:
+        Row: { chat_id: string; state: Json; updated_at: string };
+        Insert: { chat_id: string; state: Json; updated_at?: string };
+        Update: Partial<{ state: Json; updated_at: string }>;
+        Relationships: [];
+      };
       external_order_alerts: {  // 0069 — إشعار «طلب جديد» من جهاز توترز/طلباتي · 0073 unknown_items
         Row: { id: string; source: "toters" | "talabaty" | "other"; ref: string | null; title: string | null; body: string | null; order_id: string | null; handled_at: string | null; created_at: string; unknown_items: string[] | null };
         Insert: { id?: string; source: "toters" | "talabaty" | "other"; ref?: string | null; title?: string | null; body?: string | null; order_id?: string | null; handled_at?: string | null; unknown_items?: string[] | null };
@@ -360,6 +366,7 @@ export type Database = {
           payment_method: "cash" | "card" | "partner" | null; session_id: string | null; partner_id: string | null; courier_requested_at: string | null; courier_ref: string | null;
           partner_ref: string | null; partner_total: number | null;  // 0073 — رقم الشركة ومبلغها، للمطابقة
           printed_at: string | null;  // 0074 — الطابعة تتبع الطلب
+          whatsapp_wa_id: string | null;  // 0075 — زبون بوت واتساب، ليُبلَّغ
         };
         Insert: {
           id?: string; business_day?: string; order_seq: number; channel: OrderChannel; status?: OrderStatus;
@@ -378,7 +385,7 @@ export type Database = {
           prep_status: PrepStatus; expediter_id: string | null; eta_minutes: number | null; updated_at: string; payment_method: "cash" | "card" | "partner" | null; session_id: string | null; partner_id: string | null; courier_requested_at: string | null; courier_ref: string | null;
           order_source: "pos" | "web" | "whatsapp" | "telegram" | "toters" | "talabaty"; telegram_chat_id: string | null;
           partner_cash_received: number | null; partner_commission: number | null;
-          partner_ref: string | null; partner_total: number | null; printed_at: string | null;
+          partner_ref: string | null; partner_total: number | null; printed_at: string | null; whatsapp_wa_id: string | null;
         }>;
         Relationships: [];
       };
