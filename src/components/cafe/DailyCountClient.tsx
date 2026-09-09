@@ -215,9 +215,9 @@ export function DailyCountClient({ initial, cashier }: { initial: DailyCount; ca
                       <td className="tabular-nums">{formatIqdLabel(p.discounts)}</td>
                       {/* شركة نقدية: المندوب دفع الصافي في الدرج ولا شيء عليها؛ آجلة: العكس */}
                       <td className="tabular-nums">
-                        {p.settlement === "cash_at_pickup" ? `${formatIqdLabel(p.cash_received ?? 0)}${p.commission ? ` (عمولة ${formatIqdLabel(p.commission)})` : ""}` : "—"}
+                        {p.settlement === "cash_at_pickup" || p.settlement === "custom" ? `${formatIqdLabel(p.cash_received ?? 0)}${p.commission ? ` (عمولة ${formatIqdLabel(p.commission)})` : ""}` : "—"}
                       </td>
-                      <td className="font-black tabular-nums">{p.settlement === "cash_at_pickup" ? "—" : formatIqdLabel(p.balance)}</td>
+                      <td className="font-black tabular-nums">{p.settlement === "cash_at_pickup" || p.settlement === "custom" ? "—" : formatIqdLabel(p.balance)}</td>
                     </tr>
                   ))}
                 </tbody>

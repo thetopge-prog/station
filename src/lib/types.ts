@@ -147,9 +147,9 @@ export type Database = {
         Relationships: [];
       };
       delivery_partners: {
-        Row: Timestamped & { name_ar: string; phone: string | null; is_active: boolean; settlement: "credit" | "cash_at_pickup"; commission_pct: number; delivery_fee: number; api_key: string | null; dispatch_url: string | null; dispatch_headers: Json | null; sort: number; note: string | null };
+        Row: Timestamped & { name_ar: string; phone: string | null; is_active: boolean; settlement: "credit" | "cash_at_pickup" | "custom"; commission_pct: number; delivery_fee: number; api_key: string | null; dispatch_url: string | null; dispatch_headers: Json | null; sort: number; note: string | null };
         Insert: { id?: string; name_ar: string; phone?: string | null; is_active?: boolean; sort?: number; note?: string | null; created_at?: string };
-        Update: Partial<{ name_ar: string; phone: string | null; is_active: boolean; settlement: "credit" | "cash_at_pickup"; commission_pct: number; delivery_fee: number; api_key: string | null; dispatch_url: string | null; dispatch_headers: Json | null; sort: number; note: string | null }>;
+        Update: Partial<{ name_ar: string; phone: string | null; is_active: boolean; settlement: "credit" | "cash_at_pickup" | "custom"; commission_pct: number; delivery_fee: number; api_key: string | null; dispatch_url: string | null; dispatch_headers: Json | null; sort: number; note: string | null }>;
         Relationships: [];
       };
       partner_settlements: {
@@ -473,7 +473,7 @@ export type Database = {
       partner_balances: {
         Row: {
           id: string; name_ar: string; is_active: boolean; phone: string | null;
-          settlement: "credit" | "cash_at_pickup"; commission_pct: number;  // 0068
+          settlement: "credit" | "cash_at_pickup" | "custom"; commission_pct: number;  // 0068
           billed: number; settled: number; balance: number; orders_count: number;
           last_order_at: string | null; last_settled_at: string | null;
         };

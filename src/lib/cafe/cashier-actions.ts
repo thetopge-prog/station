@@ -151,6 +151,8 @@ async function stampPayment(
   employeeId: string,
   payMethod: PayMethod,
   partnerId: string | null,
+  /** «مخصّص»: ما دفعه المندوب فعلاً؛ null = كامل المبلغ */
+  partnerCashReceived: number | null = null,
 ): Promise<string | null> {
   const svc = createSupabaseServiceClient();
 
@@ -168,6 +170,12 @@ async function stampPayment(
       const total = Math.max(0, (o.subtotal ?? 0) - (o.discount ?? 0) + (o.extra ?? 0));
       partner_commission = Math.round((total * (Number(p.commission_pct) || 0)) / 100);
       partner_cash_received = Math.max(0, total - partner_commission);
+    } else if (p?.settlement === "custom" && o) {
+      // زاد: الرقم من يد الكاشير لا من نسبة. فارغ = دفع المندوب كل المبلغ.
+      const total = Math.max(0, (o.subtotal ?? 0) - (o.discount ?? 0) + (o.extra ?? 0));
+      const paid = partnerCashReceived == null ? total : Math.min(total, Math.max(0, Math.round(partnerCashReceived)));
+      partner_cash_received = paid;
+      partner_commission = total - paid;
     }
   }
 
@@ -203,6 +211,8 @@ export async function cashierCheckout(input: {
   payMethod?: PayMethod;
   /** required when payMethod is "partner": which company is being billed */
   partnerId?: string | null;
+  /** شركة «مخصّص»: ما دفعه المندوب الآن؛ غير مُرسَل = كامل المبلغ */
+  partnerCashReceived?: number | null;
   /** طلب على الهاتف: تُكتب على الإيصال وتذكرة المطبخ بحجم مضاعف (0043 يخزّنها) */
   phone?: string | null;
   address?: string | null;
@@ -241,6 +251,7 @@ export async function cashierCheckout(input: {
     staff.employeeId,
     input.payMethod ?? "cash",
     input.partnerId ?? null,
+    input.partnerCashReceived ?? null,
   );
 
   revalidatePath("/cashier");

@@ -119,6 +119,8 @@ export function CashierClient({
   // cash opens the drawer; Qi-card payments happen on the Qi device — no drawer.
   const [payMethod, setPayMethod] = useState<PayMethod>("cash");
   const [partnerId, setPartnerId] = useState<string>("");
+  // شركة «مخصّص» (زاد): ما دفعه المندوب الآن — فارغ يعني كامل المبلغ
+  const [partnerCash, setPartnerCash] = useState<string>("");
   // dine-in orders carry a table number → they show on the live tables screen.
   // «توصيل» is the counter's word for everything that leaves: the phone order
   // being keyed in. It stays channel `cashier` — the delivery channel numbers
@@ -326,7 +328,7 @@ export function CashierClient({
       const payload = lines.map((l) => ({ item_id: l.itemId, variant_id: l.variantId, flavor: l.flavor, qty: l.qty, note: l.note }));
       const cust = orderType === "delivery" ? { phone: custPhone.trim() || null, address: custAddress.trim() || null, customerName: custName.trim() || null } : { phone: null, address: null, customerName: null };
       const channel = orderType === "takeaway" ? ("takeaway" as const) : ("cashier" as const);
-      const res = await cashierCheckout({ lines: payload, discount, extra: extraTotal, extraNote, payMethod, partnerId: payMethod === "partner" ? partnerId : null, customerId: customer?.id ?? null, table, note: orderNote.trim() || null, channel, ...cust });
+      const res = await cashierCheckout({ lines: payload, discount, extra: extraTotal, extraNote, payMethod, partnerId: payMethod === "partner" ? partnerId : null, partnerCashReceived: payMethod === "partner" && partnerCash.trim() !== "" ? Number(partnerCash) : null, customerId: customer?.id ?? null, table, note: orderNote.trim() || null, channel, ...cust });
       if (!res.ok) {
         setErr(res.error);
         return;
@@ -751,16 +753,30 @@ export function CashierClient({
                   <PartnerLogo name={p.name_ar} className="h-7" />
                   <span>
                     {p.name_ar}
-                    {p.settlement === "cash_at_pickup" ? ` · نقد −${p.commission_pct}٪` : ""}
+                    {p.settlement === "cash_at_pickup" ? ` · نقد −${p.commission_pct}٪` : p.settlement === "custom" ? " · مخصّص" : ""}
                   </span>
                 </button>
               ))}
             </div>
             {/* said plainly, because the cashier is the one who gets blamed if
                 the drawer does not match at handover */}
-            <p className="mt-1.5 text-xs font-bold text-amber-800 dark:text-amber-300">
-              بالآجل — لا يدخل صندوق الكاشير ولا يُحتسب عليك في نهاية الوردية.
-            </p>
+            {partners.find((p) => p.id === partnerId)?.settlement === "custom" ? (
+              <label className="mt-1.5 block">
+                <span className="mb-1 block text-xs font-bold text-amber-800 dark:text-amber-300">دفع المندوب الآن (فارغ = كامل المبلغ)</span>
+                <input
+                  value={partnerCash}
+                  onChange={(e) => setPartnerCash(e.target.value.replace(/[^\d]/g, ""))}
+                  inputMode="numeric"
+                  dir="ltr"
+                  placeholder="كامل المبلغ"
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-lg font-black tabular-nums"
+                />
+              </label>
+            ) : (
+              <p className="mt-1.5 text-xs font-bold text-amber-800 dark:text-amber-300">
+                بالآجل — لا يدخل صندوق الكاشير ولا يُحتسب عليك في نهاية الوردية.
+              </p>
+            )}
           </div>
         )}
 

@@ -22,8 +22,9 @@ export type Partner = {
   name_ar: string;
   phone: string | null;
   is_active: boolean;
-  /** «على الحساب» يُقيَّد ويُسوَّى لاحقاً؛ «نقد عند الاستلام» المندوب يدفع الصافي في الدرج */
-  settlement: "credit" | "cash_at_pickup";
+  /** «على الحساب» يُقيَّد ويُسوَّى لاحقاً؛ «نقد عند الاستلام» المندوب يدفع الصافي في الدرج؛
+   *  «مخصّص» (زاد) الكاشير يكتب ما دفعه المندوب في كل طلب — لا ذمّة ولا نسبة */
+  settlement: "credit" | "cash_at_pickup" | "custom" | "custom";
   /** نسبة الشركة — تُحسم من الإجمالي قبل أن يدفع المندوب (نقد عند الاستلام) */
   commission_pct: number;
 };
@@ -68,7 +69,7 @@ export async function savePartner(input: {
   phone?: string | null;
   active?: boolean;
   note?: string | null;
-  settlement?: "credit" | "cash_at_pickup";
+  settlement?: "credit" | "cash_at_pickup" | "custom";
   commissionPct?: number;
 }) {
   await requireAdmin();
@@ -85,7 +86,7 @@ export async function savePartner(input: {
   // كتابة الدالة. تُحفظان فقط حين تُرسَلان — التبديل من الشاشة لا يمسّهما.
   if (input.settlement !== undefined || input.commissionPct !== undefined) {
     const svc = createSupabaseServiceClient();
-    const patch: { settlement?: "credit" | "cash_at_pickup"; commission_pct?: number } = {};
+    const patch: { settlement?: "credit" | "cash_at_pickup" | "custom"; commission_pct?: number } = {};
     if (input.settlement !== undefined) patch.settlement = input.settlement;
     if (input.commissionPct !== undefined) patch.commission_pct = Math.min(100, Math.max(0, Number(input.commissionPct) || 0));
     const { error: e2 } = await svc.from("delivery_partners").update(patch).eq("name_ar", input.name.trim());
