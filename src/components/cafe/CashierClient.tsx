@@ -8,6 +8,7 @@ import { cashierCheckout, type PayMethod } from "@/lib/cafe/cashier-actions";
 import type { Partner } from "@/lib/cafe/partner-actions";
 import { buildOrderJobs, buildReceiptJob } from "@/lib/cafe/printer-actions";
 import { printJobs, kickDrawer as kickDrawerAgent } from "@/lib/cafe/print-client";
+import { claimPrint } from "@/lib/cafe/print-spool-actions";
 import { redeemReward, type Card } from "@/lib/cafe/loyalty-actions";
 import { Receipt, type ReceiptData } from "./Receipt";
 import { MenuIcon } from "./MenuIcon";
@@ -181,6 +182,9 @@ export function CashierClient({
         if (cancelled) return;
         const out = jobs.length ? await printJobs(jobs) : { sent: 0, queued: 0, agent: false, skipped: [], errors: [] };
         if (cancelled) return;
+        // printed here ⇒ the spooler on the till must not print it again;
+        // nothing sent (phone, no agent) ⇒ left unmarked, the till picks it up
+        if (out.sent > 0) void claimPrint(receipt.orderId!).catch(() => {});
         // All three warnings, not one of them. These were an if/else chain, so a
         // shop with any permanently-unrouted category (sauces legitimately are)
         // could NEVER see «تذكرة لم تُطبع» — the printer-down warning was dead

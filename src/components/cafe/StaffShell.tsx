@@ -15,6 +15,7 @@ import { canAccess, type StaffRole } from "@/lib/cafe/roles";
 import { listPendingOrders } from "@/lib/cafe/cashier-actions";
 import { savePushSubscription, removePushSubscription } from "@/lib/cafe/push-actions";
 import { StationMark } from "./Logo";
+import { PrintSpooler } from "./PrintSpooler";
 
 function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
   const padding = "=".repeat((4 - (base64.length % 4)) % 4);
@@ -308,6 +309,8 @@ export function StaffShell({
           </div>
         </div>
       </header>
+      {/* الطابعة تتبع الطلب: أي شاشة موظّف على حاسوب الكاشير تطبع ما لم يُطبع */}
+      <PrintSpooler />
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-5 pb-24 md:pb-5">{children}</main>
 
       {/* app-like bottom tab bar (mobile only) */}

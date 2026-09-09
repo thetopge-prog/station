@@ -359,6 +359,7 @@ export type Database = {
           partner_cash_received: number | null; partner_commission: number | null;  // 0068 — نقد عند الاستلام
           payment_method: "cash" | "card" | "partner" | null; session_id: string | null; partner_id: string | null; courier_requested_at: string | null; courier_ref: string | null;
           partner_ref: string | null; partner_total: number | null;  // 0073 — رقم الشركة ومبلغها، للمطابقة
+          printed_at: string | null;  // 0074 — الطابعة تتبع الطلب
         };
         Insert: {
           id?: string; business_day?: string; order_seq: number; channel: OrderChannel; status?: OrderStatus;
@@ -377,7 +378,7 @@ export type Database = {
           prep_status: PrepStatus; expediter_id: string | null; eta_minutes: number | null; updated_at: string; payment_method: "cash" | "card" | "partner" | null; session_id: string | null; partner_id: string | null; courier_requested_at: string | null; courier_ref: string | null;
           order_source: "pos" | "web" | "whatsapp" | "telegram" | "toters" | "talabaty"; telegram_chat_id: string | null;
           partner_cash_received: number | null; partner_commission: number | null;
-          partner_ref: string | null; partner_total: number | null;
+          partner_ref: string | null; partner_total: number | null; printed_at: string | null;
         }>;
         Relationships: [];
       };

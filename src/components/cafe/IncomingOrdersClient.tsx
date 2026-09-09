@@ -5,7 +5,9 @@ import { BellRing } from "lucide-react";
 import { formatIqdLabel } from "@/lib/cafe/money";
 import { latestExternalAlerts, markAlertHandled, type ExternalAlert } from "@/lib/cafe/external-actions";
 import { sinceLabel } from "@/lib/cafe/time";
-import { kickDrawer } from "@/lib/cafe/print-client";
+import { kickDrawer, printJobs } from "@/lib/cafe/print-client";
+import { buildOrderJobs } from "@/lib/cafe/printer-actions";
+import { claimPrint } from "@/lib/cafe/print-spool-actions";
 import {
   listPendingOrders,
   payPendingOrder,
@@ -134,7 +136,6 @@ export function IncomingOrdersClient() {
 
   async function accept(id: string, method: "cash" | "card" | "partner", partnerId: string | null = null) {
     setQueueErr(null);
-    const o = pending.find((p) => p.id === id);
     // `method` was taken and then dropped: payPendingOrder defaults to "cash",
     // so every card sale accepted here was booked as cash and counted into the
     // shift's expected drawer — a shortage the cashier is asked to explain at
@@ -145,8 +146,19 @@ export function IncomingOrdersClient() {
     if (!res.ok) setQueueErr(res.error);
     else {
       if (method === "cash") openDrawer();
-      // print the paid receipt for the customer (silent under --kiosk-printing)
-      if (o) setTickets((q) => [...q, ticketFor(o)]);
+      // Paper comes from the agent now — receipt AND kitchen tickets, the same
+      // slips a counter sale gets — and the order is marked printed so the
+      // spooler does not print it twice. No agent here (a phone)? Left
+      // unmarked; the till prints it within seconds.
+      void (async () => {
+        try {
+          const { jobs } = await buildOrderJobs(id);
+          const out = jobs.length ? await printJobs(jobs) : { sent: 0 };
+          if (out.sent > 0) await claimPrint(id);
+        } catch {
+          /* the spooler will try */
+        }
+      })();
     }
     void refreshPending();
   }
