@@ -386,6 +386,7 @@ export type Database = {
           order_source: "pos" | "web" | "whatsapp" | "telegram" | "toters" | "talabaty"; telegram_chat_id: string | null;
           partner_cash_received: number | null; partner_commission: number | null;
           partner_ref: string | null; partner_total: number | null; printed_at: string | null; whatsapp_wa_id: string | null;
+          cashier_id: string | null;  // من قبض الطلب — يُختم عند الدفع ويُطبع على الإيصال
         }>;
         Relationships: [];
       };

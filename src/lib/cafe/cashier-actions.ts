@@ -197,6 +197,12 @@ async function stampPayment(
     .from("orders")
     .update({
       payment_method: payMethod,
+      // من نفّذ الطلب — يُطبع على الإيصال.
+      //
+      // place_order يختم الكاشير من الجلسة، فطلبات الكاشير تحمله. أما ما يصل
+      // من الخارج (بوت، QR، شركة توصيل) فيُنشأ بلا جلسة وcashier_id فارغ،
+      // فكان الإيصال يقول «الكاشير: —». من يقبض هو من نفّذ، فيُختم هنا.
+      cashier_id: employeeId,
       // The order belongs to the shift that took it — a partner order shows in
       // the shift's count; its cash only when the courier actually paid it.
       session_id: await openSessionIdFor(employeeId),

@@ -13,6 +13,8 @@ import "server-only";
 const GRAPH = "https://graph.facebook.com/v21.0";
 // معرّف حساب الاختبار — ليس سرّاً، ويُستبدل بمتغيّر عند الانتقال لحساب المطعم
 const WABA = () => (process.env.WHATSAPP_WABA_ID ?? "1570721767741303").trim();
+// تطبيقنا. الحساب قد يكون مشتركاً في تطبيقات أخرى ولا يعنينا ذلك — يعنينا نحن.
+const APP_ID = () => (process.env.WHATSAPP_APP_ID ?? "2222096702050542").trim();
 const TOKEN = () => (process.env.WHATSAPP_TOKEN ?? "").trim();
 
 export type WabaSubscription = { ok: boolean; detail: string };
@@ -25,8 +27,13 @@ export async function ensureWabaSubscribed(): Promise<WabaSubscription> {
       cache: "no-store",
     }).then((r) => r.json() as Promise<{ data?: { whatsapp_business_api_data?: { id: string; name: string } }[]; error?: { message: string } }>);
     if (list.error) return { ok: false, detail: `قراءة الاشتراك: ${list.error.message}` };
-    const apps = (list.data ?? []).map((d) => d.whatsapp_business_api_data?.name ?? "?");
-    if (apps.length) return { ok: true, detail: `مشترك: ${apps.join("، ")}` };
+    // «القائمة غير فارغة» لا تكفي: الحساب كان مشتركاً في تطبيق آخر اسمه
+    // «المحطة التقنية» فظنّ الفحص أن كل شيء سليم، بينما تطبيقنا غير مشترك
+    // فلا تصله رسالة واحدة. السؤال الصحيح: هل *نحن* في القائمة؟
+    const apps = (list.data ?? []).map((d) => d.whatsapp_business_api_data).filter((a): a is { id: string; name: string } => !!a);
+    if (apps.some((a) => a.id === APP_ID())) {
+      return { ok: true, detail: `مشترك: ${apps.map((a) => a.name).join("، ")}` };
+    }
 
     const sub = await fetch(`${GRAPH}/${WABA()}/subscribed_apps`, {
       method: "POST",
@@ -34,7 +41,8 @@ export async function ensureWabaSubscribed(): Promise<WabaSubscription> {
       cache: "no-store",
     }).then((r) => r.json() as Promise<{ success?: boolean; error?: { message: string } }>);
     if (sub.error) return { ok: false, detail: `الاشتراك رُفض: ${sub.error.message}` };
-    return { ok: Boolean(sub.success), detail: sub.success ? "اشتُرك الآن — أرسل رسالة للتجربة" : "لم يُقبل الاشتراك" };
+    const others = apps.length ? ` (كان مشتركاً في: ${apps.map((a) => a.name).join("، ")} فقط)` : "";
+    return { ok: Boolean(sub.success), detail: sub.success ? `اشتُرك الآن — أرسل رسالة للتجربة${others}` : "لم يُقبل الاشتراك" };
   } catch (e) {
     return { ok: false, detail: e instanceof Error ? e.message : "تعذّر الوصول إلى Meta" };
   }
