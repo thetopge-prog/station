@@ -7,16 +7,8 @@
  * الاسم: الصفحة لا تنكسر لأن صورة لم تُرفع بعد.
  */
 
-const SLUGS: [RegExp, string][] = [
-  [/toters|توترز/i, "toters"],
-  [/talabat|طلبات/i, "talabatey"],
-  [/\bzad\b|زاد/i, "zad"],
-];
-
-export function partnerSlug(nameOrSource: string | null | undefined): string | null {
-  if (!nameOrSource) return null;
-  return SLUGS.find(([re]) => re.test(nameOrSource))?.[1] ?? null;
-}
+import { partnerSlug } from "@/lib/cafe/partners";
+export { partnerSlug };
 
 export function PartnerLogo({ name, className = "h-6" }: { name: string | null | undefined; className?: string }) {
   const slug = partnerSlug(name);

@@ -1,20 +1,24 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
-import { parseExternalOrder } from "@/lib/cafe/external-order";
+import { parseExternalOrder, parseTotersScreen, resolveLines, type ScreenItem } from "@/lib/cafe/external-order";
+import { partnerSlug, SOURCE_OF_SLUG } from "@/lib/cafe/partners";
 import type { Json } from "@/lib/types";
 
 /**
  * POST /api/orders/external — «وصل طلب من توترز/طلباتي».
  *
- * تطبيق المتصل، على جهاز شركة التوصيل، يرسل إشعار «طلب جديد» كما ظهر:
- * { secret, app, title, text }. لا واجهة برمجية عند الشركتين؛ الإشعار هو كل
- * ما يُرى، وهذا المسار يأخذ منه ما يُؤخذ:
+ * تطبيق المتصل، على جهاز شركة التوصيل، يرسل أحد شكلين:
+ *   · إشعار «طلب جديد» كما ظهر: { secret, app, title, text }
+ *   · نصّ شاشة تفاصيل الطلب سطراً سطراً: { …, title:"screen", lines:[…], ref, again }
  *
- *   الأصناف مكتوبة وكلها في المنيو  ← طلب معلّق على /orders بزرّ «قبول»
- *   وإلا                              ← تنبيه برقم الطلب على الشاشة نفسها
+ * الفهم كله هنا لا على الجهاز: حين يغيّر توترز شكل شاشته يُصلَح المحلّل
+ * بنشر ويب، لا بتطبيق جديد. الأسماء تُترجم إلى أصنافنا عبر partner_item_aliases
+ * (أسعارنا هي المعتمدة في المطبخ والجرد)، والاسم المجهول لا يُخترع:
  *
- * كل شيء أو لا شيء، كمدخل واتساب: نصف طلب يصل المطبخ أسوأ من تنبيه يقول
- * «افتح التطبيق». والسرّ نفسه والمقارنة نفسها بوقت ثابت.
+ *   كل الأصناف معروفة  ← طلب معلّق على /orders بزرّ «قبول — توترز»
+ *   وإلا                ← تنبيه برقم الطلب والأسماء المجهولة، لتُربط من /partners
+ *
+ * والسرّ نفسه والمقارنة نفسها بوقت ثابت.
  */
 
 export const dynamic = "force-dynamic";
@@ -26,15 +30,13 @@ function secretMatches(given: string | null, expected: string): boolean {
   return diff === 0;
 }
 
-const norm = (s: string) => s.trim().replace(/\s+/g, " ").toLowerCase();
-
 async function note(status: number, raw: string, why: string) {
   try {
     const svc = createSupabaseServiceClient();
     await svc.rpc("log_webhook", {
       p_route: "/api/orders/external",
       p_status: status,
-      p_body: raw.replace(/("secret"\s*:\s*")[^"]*"/i, '$1***"').slice(0, 600),
+      p_body: raw.replace(/("secret"\s*:\s*")[^"]*"/i, '$1***"').slice(0, 4000),
       p_note: why,
     });
   } catch {
@@ -42,12 +44,14 @@ async function note(status: number, raw: string, why: string) {
   }
 }
 
+type Body = { secret?: string; app?: string; title?: string; text?: string; lines?: unknown; ref?: string; again?: boolean };
+
 export async function POST(req: Request) {
   const expected = process.env.STATION_WEBHOOK_SECRET;
   if (!expected) return NextResponse.json({ ok: false, error: "webhook not configured" }, { status: 503 });
 
   const raw = await req.text();
-  let body: { secret?: string; app?: string; title?: string; text?: string } = {};
+  let body: Body = {};
   try {
     body = JSON.parse(raw);
   } catch {
@@ -63,72 +67,128 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "bad secret" }, { status: 403 });
   }
 
-  const parsed = parseExternalOrder({ pkg: String(body.app ?? ""), title: body.title ?? null, text: body.text ?? null });
   const svc = createSupabaseServiceClient();
+  const isScreen = body.title === "screen" && Array.isArray(body.lines);
 
-  // الإشعار نفسه مرّتين (أندرويد يُحدّث الإشعار) ⇒ صفّ واحد
-  if (parsed.ref) {
+  // ── ما يُفهم من المدخل ─────────────────────────────────────────────────
+  const parsed = parseExternalOrder({ pkg: String(body.app ?? ""), title: body.title ?? null, text: body.text ?? null });
+  let ref = parsed.ref;
+  let items: ScreenItem[] = parsed.lines.map((l) => ({ name: l.name, qty: l.qty, option: null }));
+  let customerName: string | null = null;
+  let partnerTotal: number | null = parsed.total;
+  let refLong: string | null = null;
+  if (isScreen) {
+    const s = parseTotersScreen((body.lines as unknown[]).map((l) => String(l ?? "")));
+    ref = s.ref ?? (body.ref ? String(body.ref) : null);
+    items = s.items;
+    customerName = s.customerName;
+    partnerTotal = s.total;
+    refLong = s.refLong;
+  }
+  const source = parsed.source;
+
+  // ── التكرار: نفس المرجع خلال نصف ساعة ─────────────────────────────────
+  // إشعار ثم شاشة لنفس الطلب ليسا تكراراً: الشاشة تحمل الأصناف. والشاشة
+  // نفسها ثانيةً (again) تُعاد فقط إن لم يُنشأ طلب بعد — المجهّز مرّرها فظهر
+  // ما لم يظهر.
+  let priorAlertId: string | null = null;
+  if (ref) {
     const { data: dup } = await svc
       .from("external_order_alerts")
-      .select("id")
-      .eq("source", parsed.source)
-      .eq("ref", parsed.ref)
+      .select("id, order_id, title")
+      .eq("source", source)
+      .eq("ref", ref)
       .gte("created_at", new Date(Date.now() - 30 * 60_000).toISOString())
+      .order("created_at", { ascending: false })
       .limit(1);
-    if (dup?.length) {
-      await note(200, raw, `مكرّر ${parsed.source} #${parsed.ref}`);
-      return NextResponse.json({ ok: true, duplicate: true, ref: parsed.ref });
+    const prev = dup?.[0];
+    if (prev) {
+      if (prev.order_id) {
+        await note(200, raw, `مكرّر ${source} #${ref} — الطلب أُنشئ`);
+        return NextResponse.json({ ok: true, duplicate: true, ref });
+      }
+      if (!isScreen) {
+        await note(200, raw, `مكرّر ${source} #${ref}`);
+        return NextResponse.json({ ok: true, duplicate: true, ref });
+      }
+      priorAlertId = prev.id; // شاشة بعد إشعار، أو شاشة أكمل: يُحاول الحلّ
     }
   }
 
-  // ── الأصناف: كلها في المنيو أو لا طلب ────────────────────────────────
+  // ── الأصناف: كلها معروفة أو لا طلب ────────────────────────────────────
   let orderId: string | null = null;
   let orderNumber: string | null = null;
-  if (parsed.lines.length) {
-    const { data: menu } = await svc.from("menu_items").select("id, name_ar").eq("is_active", true);
-    const byName = new Map((menu ?? []).map((m) => [norm(m.name_ar), m.id]));
-    const lines: { item_id: string; variant_id: null; flavor: null; qty: number }[] = [];
-    let unknown = 0;
-    for (const l of parsed.lines) {
-      const id = byName.get(norm(l.name));
-      if (!id) { unknown++; continue; }
-      lines.push({ item_id: id, variant_id: null, flavor: null, qty: l.qty });
-    }
-    if (!unknown && lines.length) {
-      const src = parsed.source === "other" ? "web" : parsed.source;
+  let unknown: string[] = [];
+  if (items.length) {
+    const [{ data: menu }, { data: aliases }] = await Promise.all([
+      svc.from("menu_items").select("id, name_ar").eq("is_active", true),
+      source === "other"
+        ? Promise.resolve({ data: [] as { alias_key: string; item_id: string; variant_id: string | null; flavor: string | null }[] })
+        : svc.from("partner_item_aliases").select("alias_key, item_id, variant_id, flavor").eq("source", source),
+    ]);
+    const resolved = resolveLines(items, aliases ?? [], menu ?? []);
+    unknown = resolved.unknown;
+    if (!unknown.length && resolved.lines.length) {
+      const src = source === "other" ? "web" : source;
+      const noteText = [`${src === "toters" ? "توترز" : src === "talabaty" ? "طلباتي" : src} #${ref ?? "?"}`, refLong, partnerTotal ? `مبلغهم ${partnerTotal.toLocaleString("en-US")}` : null]
+        .filter(Boolean)
+        .join(" · ");
       const { data, error } = await svc.rpc("place_order", {
         p_channel: "delivery",
-        p_lines: lines as unknown as Json,
+        p_lines: resolved.lines as unknown as Json,
         p_customer: null,
         p_table: null,
-        p_note: `${parsed.source} #${parsed.ref ?? "?"}` + (body.text ? ` — ${String(body.text).slice(0, 200)}` : ""),
+        p_note: noteText,
         p_phone: null,
         p_address: null,
         p_source: "whatsapp",
-        p_customer_name: null,
+        p_customer_name: customerName,
       });
       if (!error && data?.[0]) {
         orderId = data[0].order_id;
         orderNumber = String(data[0].order_seq).padStart(3, "0");
+        // الشركة نفسها تُلحق بالطلب سلفاً: الكاشير يضغط «قبول» لا يختار
+        const { data: partners } = await svc.from("delivery_partners").select("id, name_ar").eq("is_active", true);
+        const partner = (partners ?? []).find((p) => {
+          const slug = partnerSlug(p.name_ar);
+          return slug && SOURCE_OF_SLUG[slug] === src;
+        });
         // place_order تُرجع المصادر المجهولة إلى pos؛ يُكتب بعد الإدراج (كتليغرام)
-        await svc.from("orders").update({ order_source: src }).eq("id", orderId);
+        await svc
+          .from("orders")
+          .update({ order_source: src, partner_id: partner?.id ?? null, partner_ref: refLong ?? ref, partner_total: partnerTotal })
+          .eq("id", orderId);
+      } else if (error) {
+        await note(500, raw, `place_order: ${error.message}`);
       }
     }
   }
 
-  // ── التنبيه، دائماً: حتى مع طلب مُنشأ، يبقى المرجع ظاهراً حتى يُضغط «تمّ» ──
-  const { error: aErr } = await svc.from("external_order_alerts").insert({
-    source: parsed.source,
-    ref: parsed.ref,
-    title: (body.title ?? "").slice(0, 120) || null,
-    body: (body.text ?? "").slice(0, 1000) || null,
+  // ── التنبيه: يبقى المرجع ظاهراً حتى يُضغط «تمّ»، ومعه ما لم يُعرف ──────
+  const alertRow = {
+    source,
+    ref,
+    title: isScreen ? `شاشة${customerName ? ` · ${customerName}` : ""}` : (body.title ?? "").slice(0, 120) || null,
+    body: isScreen
+      ? items.map((i) => `${i.qty} × ${i.name}${i.option ? ` / ${i.option}` : ""}`).join("\n").slice(0, 1000) || null
+      : (body.text ?? "").slice(0, 1000) || null,
     order_id: orderId,
-  });
+    unknown_items: unknown.length ? unknown : null,
+  };
+  const { error: aErr } = priorAlertId
+    ? await svc.from("external_order_alerts").update(alertRow).eq("id", priorAlertId)
+    : await svc.from("external_order_alerts").insert(alertRow);
   if (aErr) {
     await note(500, raw, aErr.message);
     return NextResponse.json({ ok: false, error: aErr.message }, { status: 500 });
   }
 
-  await note(200, raw, orderId ? `طلب ${orderNumber} من ${parsed.source} #${parsed.ref ?? "?"}` : `تنبيه ${parsed.source} #${parsed.ref ?? "?"} (${parsed.lines.length} سطر، لم يُطابَق)`);
-  return NextResponse.json({ ok: true, ref: parsed.ref, order_number: orderNumber, matched: !!orderId });
+  await note(
+    200,
+    raw,
+    orderId
+      ? `طلب ${orderNumber} من ${source} #${ref ?? "?"} (${items.length} صنف)`
+      : `تنبيه ${source} #${ref ?? "?"} (${items.length} صنف، مجهول: ${unknown.join("، ") || "—"})`,
+  );
+  return NextResponse.json({ ok: true, ref, order_number: orderNumber, matched: !!orderId, unknown });
 }

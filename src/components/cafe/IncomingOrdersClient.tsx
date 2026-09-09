@@ -132,14 +132,16 @@ export function IncomingOrdersClient() {
     return () => clearInterval(t);
   }, [refreshPending]);
 
-  async function accept(id: string, method: "cash" | "card") {
+  async function accept(id: string, method: "cash" | "card" | "partner", partnerId: string | null = null) {
     setQueueErr(null);
     const o = pending.find((p) => p.id === id);
     // `method` was taken and then dropped: payPendingOrder defaults to "cash",
     // so every card sale accepted here was booked as cash and counted into the
     // shift's expected drawer — a shortage the cashier is asked to explain at
     // close, for money that was never in the drawer to begin with.
-    const res = await payPendingOrder(id, 0, null, method);
+    // A company order read off its own device arrives with the company attached:
+    // one tap books it to them (credit or cash-at-pickup, per their settlement).
+    const res = await payPendingOrder(id, 0, null, method, partnerId);
     if (!res.ok) setQueueErr(res.error);
     else {
       if (method === "cash") openDrawer();
@@ -198,9 +200,14 @@ export function IncomingOrdersClient() {
                 <span className="text-xs font-bold text-muted-foreground">{sinceLabel(ageMinutes(a.created_at))}</span>
               </div>
               {(a.title || a.body) && <p className="mt-1 whitespace-pre-line text-sm">{[a.title, a.body].filter(Boolean).join("\n")}</p>}
+              {a.unknown_items?.length ? (
+                <p className="mt-1 rounded-lg border border-amber-500/50 bg-amber-500/10 px-2.5 py-1.5 text-sm font-bold">
+                  أصناف غير معروفة عندنا: {a.unknown_items.join("، ")} — تُربط مرّة واحدة من صفحة «شركات التوصيل»
+                </p>
+              ) : null}
               <div className="mt-2 flex items-center justify-between gap-2 text-sm">
                 <span className="font-bold text-muted-foreground">
-                  {a.order_id ? "أُنشئ طلباً أدناه — اقبله" : "الأصناف لم تُطابَق — أدخلها من الكاشير كطلب توصيل"}
+                  {a.order_id ? "أُنشئ طلباً أدناه — اقبله" : a.unknown_items?.length ? "لم يُنشأ طلب — أدخله من الكاشير هذه المرّة" : "الأصناف لم تُطابَق — أدخلها من الكاشير كطلب توصيل"}
                 </span>
                 <button onClick={() => void dismissAlert(a.id)} className="rounded-lg border border-border px-3 py-1.5 font-bold hover:bg-secondary">
                   تمّ
@@ -237,6 +244,11 @@ export function IncomingOrdersClient() {
                     {o.address_note && <p>📍 {o.address_note}</p>}
                   </div>
                 )}
+                {o.partner_id && (o.partner_ref || o.partner_total) && (
+                  <p className="mt-2 text-xs font-bold text-muted-foreground" dir="ltr">
+                    {o.partner_ref ?? ""}{o.partner_total ? ` · ${formatIqdLabel(o.partner_total)} عندهم` : ""}
+                  </p>
+                )}
                 {o.note && (
                   <p className="mt-2 rounded-lg border border-amber-500/50 bg-amber-500/10 px-2.5 py-1.5 text-sm font-bold">📝 {o.note}</p>
                 )}
@@ -254,12 +266,21 @@ export function IncomingOrdersClient() {
                 <div className="flex items-center justify-between gap-2 border-t border-border pt-3">
                   <span className="text-lg font-extrabold">{formatIqdLabel(o.subtotal)}</span>
                   <div className="flex gap-1.5">
-                    <button onClick={() => accept(o.id, "cash")} className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90">
-                      💵 نقدي
-                    </button>
-                    <button onClick={() => accept(o.id, "card")} className="rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-accent-foreground hover:opacity-90">
-                      💳 كي كارد
-                    </button>
+                    {o.partner_id ? (
+                      <button onClick={() => accept(o.id, "partner", o.partner_id)} className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90">
+                        <PartnerLogo name={o.order_source} className="h-4" />
+                        ✅ قبول — {SOURCE_AR[o.order_source] ?? "شركة"}
+                      </button>
+                    ) : (
+                      <>
+                        <button onClick={() => accept(o.id, "cash")} className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90">
+                          💵 نقدي
+                        </button>
+                        <button onClick={() => accept(o.id, "card")} className="rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-accent-foreground hover:opacity-90">
+                          💳 كي كارد
+                        </button>
+                      </>
+                    )}
                     <button onClick={() => reject(o.id)} className="rounded-lg border border-border px-3 py-2 text-sm font-semibold text-destructive hover:bg-secondary">
                       إلغاء
                     </button>

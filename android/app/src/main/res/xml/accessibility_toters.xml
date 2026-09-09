@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  قراءة شاشة طلب توترز — تطبيق واحد لا غير.
+
+  packageNames يقيّد الخدمة ببرنامج توترز للتجّار: لا تصلها أحداث من أي تطبيق
+  آخر على الجهاز، ولا تستطيع قراءته. هذا هو الإذن كله: نصّ شاشة الطلب حين
+  يفتحها المجهّز، ليصل الكاشير طلباً لا رقماً.
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/acc_desc"
+    android:packageNames="com.toters.totersmerchant"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagRetrieveInteractiveWindows"
+    android:canRetrieveWindowContent="true"
+    android:notificationTimeout="600" />

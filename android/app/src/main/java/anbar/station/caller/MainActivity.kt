@@ -74,6 +74,15 @@ class MainActivity : Activity() {
       }
     }
 
+    // قراءة شاشة توترز: خدمة إمكانية وصول تُفعَّل من صفحتها في الإعدادات
+    findViewById<Button>(R.id.acc).setOnClickListener {
+      try {
+        startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+      } catch (_: Throwable) {
+        startActivity(Intent(Settings.ACTION_SETTINGS))
+      }
+    }
+
     ask()
   }
 

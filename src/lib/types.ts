@@ -40,10 +40,16 @@ export type Database = {
         Update: Partial<{ ended_at: string | null; auto_closed: boolean }>;
         Relationships: [];
       };
-      external_order_alerts: {  // 0069 — إشعار «طلب جديد» من جهاز توترز/طلباتي
-        Row: { id: string; source: "toters" | "talabaty" | "other"; ref: string | null; title: string | null; body: string | null; order_id: string | null; handled_at: string | null; created_at: string };
-        Insert: { id?: string; source: "toters" | "talabaty" | "other"; ref?: string | null; title?: string | null; body?: string | null; order_id?: string | null; handled_at?: string | null };
-        Update: Partial<{ handled_at: string | null; order_id: string | null }>;
+      external_order_alerts: {  // 0069 — إشعار «طلب جديد» من جهاز توترز/طلباتي · 0073 unknown_items
+        Row: { id: string; source: "toters" | "talabaty" | "other"; ref: string | null; title: string | null; body: string | null; order_id: string | null; handled_at: string | null; created_at: string; unknown_items: string[] | null };
+        Insert: { id?: string; source: "toters" | "talabaty" | "other"; ref?: string | null; title?: string | null; body?: string | null; order_id?: string | null; handled_at?: string | null; unknown_items?: string[] | null };
+        Update: Partial<{ source: "toters" | "talabaty" | "other"; ref: string | null; title: string | null; body: string | null; handled_at: string | null; order_id: string | null; unknown_items: string[] | null }>;
+        Relationships: [];
+      };
+      partner_item_aliases: {  // 0073 — اسم الصنف عند شركة التوصيل → صنفنا
+        Row: { id: string; source: "toters" | "talabaty" | "zad"; alias: string; alias_key: string; item_id: string; variant_id: string | null; flavor: string | null; created_at: string };
+        Insert: { id?: string; source: "toters" | "talabaty" | "zad"; alias: string; alias_key: string; item_id: string; variant_id?: string | null; flavor?: string | null };
+        Update: Partial<{ alias: string; alias_key: string; item_id: string; variant_id: string | null; flavor: string | null }>;
         Relationships: [];
       };
       manual_daily_sales: {  // 0065 — مبيعات يوم سابق، رقم واحد لكل يوم
@@ -352,6 +358,7 @@ export type Database = {
           telegram_chat_id: string | null;  // 0066 — زبون البوت، ليُبلَّغ
           partner_cash_received: number | null; partner_commission: number | null;  // 0068 — نقد عند الاستلام
           payment_method: "cash" | "card" | "partner" | null; session_id: string | null; partner_id: string | null; courier_requested_at: string | null; courier_ref: string | null;
+          partner_ref: string | null; partner_total: number | null;  // 0073 — رقم الشركة ومبلغها، للمطابقة
         };
         Insert: {
           id?: string; business_day?: string; order_seq: number; channel: OrderChannel; status?: OrderStatus;
@@ -370,6 +377,7 @@ export type Database = {
           prep_status: PrepStatus; expediter_id: string | null; eta_minutes: number | null; updated_at: string; payment_method: "cash" | "card" | "partner" | null; session_id: string | null; partner_id: string | null; courier_requested_at: string | null; courier_ref: string | null;
           order_source: "pos" | "web" | "whatsapp" | "telegram" | "toters" | "talabaty"; telegram_chat_id: string | null;
           partner_cash_received: number | null; partner_commission: number | null;
+          partner_ref: string | null; partner_total: number | null;
         }>;
         Relationships: [];
       };

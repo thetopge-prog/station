@@ -31,6 +31,10 @@ export type PendingOrder = {
   customer_phone: string | null;
   address_note: string | null;
   order_source: string;
+  /** طلب شركة توصيل قُرئ من جهازها: الشركة معروفة سلفاً، ورقمها ومبلغها للمطابقة */
+  partner_id: string | null;
+  partner_ref: string | null;
+  partner_total: number | null;
 };
 
 /** Self-orders (qr/kiosk) awaiting the counter, oldest first. */
@@ -39,7 +43,7 @@ export async function listPendingOrders(): Promise<PendingOrder[]> {
   const supabase = await createSupabaseServerClient();
   const { data: orders } = await supabase
     .from("orders")
-    .select("id, order_seq, channel, subtotal, table_no, note, created_at, customer_name, customer_phone, address_note, order_source")
+    .select("id, order_seq, channel, subtotal, table_no, note, created_at, customer_name, customer_phone, address_note, order_source, partner_id, partner_ref, partner_total")
     .eq("status", "pending")
     .order("created_at", { ascending: true });
   if (!orders?.length) return [];
@@ -69,6 +73,9 @@ export async function listPendingOrders(): Promise<PendingOrder[]> {
     customer_phone: o.customer_phone ?? null,
     address_note: o.address_note ?? null,
     order_source: o.order_source ?? "pos",
+    partner_id: o.partner_id ?? null,
+    partner_ref: o.partner_ref ?? null,
+    partner_total: o.partner_total ?? null,
   }));
 }
 

@@ -9,6 +9,9 @@
   <string name="refresh">تحديث</string>
   <string name="saved">حُفظ</string>
   <string name="wa_access">تفعيل مكالمات واتساب</string>
+  <string name="acc_access">تفعيل قراءة شاشة توترز</string>
+  <string name="acc_label">ستيشن — قراءة طلبات توترز</string>
+  <string name="acc_desc">يقرأ نصّ شاشة الطلب في تطبيق توترز للتجّار فقط ويرسله إلى نظام ستيشن ليظهر على الكاشير طلباً كاملاً. لا يقرأ أي تطبيق آخر.</string>
   <string name="never_yet">لم يصل شيء بعد — اطلب من أحد أن يتصل بالمحل.</string>
   <string name="help">اضغط «فحص» بعد الحفظ. الجواب ٤٢٢ يعني أن العنوان وكلمة السر صحيحان.</string>
 </resources>

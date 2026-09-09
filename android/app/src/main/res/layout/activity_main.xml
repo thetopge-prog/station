@@ -93,5 +93,13 @@
         android:layout_marginTop="20dp"
         android:text="@string/wa_access" />
 
+    <!-- إمكانية الوصول: إذن نظام يُمنح من الإعدادات، لا من نافذة عادية -->
+    <Button
+        android:id="@+id/acc"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="@string/acc_access" />
+
   </LinearLayout>
 </ScrollView>

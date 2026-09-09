@@ -15,7 +15,113 @@ export type ExternalSource = "toters" | "talabaty" | "other";
 export type ParsedLine = { name: string; qty: number };
 export type ParsedExternal = { source: ExternalSource; ref: string | null; lines: ParsedLine[]; total: number | null };
 
-const normDigits = (s: string) => s.replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
+export const normDigits = (s: string) => s.replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
+
+/**
+ * طيّ عربي للمطابقة — نفس القواعد حرفاً بحرف في fold_ar (0073) كي يتّفق
+ * ما يُكتب من التطبيق مع ما تبذره القاعدة: أرقام لاتينية، لا تشكيل ولا تطويل،
+ * الهمزات ألفاً، التاء المربوطة هاءً، الألف المقصورة والهمزة على نبرة ياءً.
+ */
+export function foldArabic(s: string): string {
+  return normDigits(s)
+    .replace(/[ًٌٍَُِّْٰـ]/g, "")
+    .replace(/[أإآٱ]/g, "ا")
+    .replace(/ة/g, "ه")
+    .replace(/[ىئ]/g, "ي")
+    .replace(/ؤ/g, "و")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+// ── شاشة طلب توترز، كما يقرؤها تطبيق SUNMI ──────────────────────────────
+//
+// الشاشة كما صُوّرت: «الطلب #٩٠٨» · «٥١٣١٣-٧٩٩٠٨» · «Maztotrz H» · «هوية …»
+// · «عنصران» · قسم · «١x» · «وجبة كنتاكي» · «٩,٧٥٠ د.ع. / ٣ قطع» · «٩,٧٥٠ د.ع.»
+// الخيار بعد «/» هو ما يغيّر الصنف عندنا (٣ قطع ≠ ٨ قطع)، فيُحمل مع الاسم.
+
+export type ScreenItem = { name: string; qty: number; option: string | null };
+export type ParsedScreen = { ref: string | null; refLong: string | null; customerName: string | null; items: ScreenItem[]; total: number | null };
+
+const QTY_LINE = /^(?:(\d{1,2})\s*[x×]|[x×]\s*(\d{1,2}))$/i;
+const PRICE_LINE = /^([\d,.]+)\s*د\.?\s*ع\.?(?:\s*\/\s*(.+))?$/;
+const NOISE = /^(?:تم|جديد|تحضير|جاهز|هوية|اليوم|لديك|الطلب جاهز|بإنتظار|بانتظار|نمنحك|عنصر|عنصران|\d+\s*عناصر)/;
+
+export function parseTotersScreen(rawLines: string[]): ParsedScreen {
+  const lines = rawLines.map((l) => normDigits(String(l ?? "")).replace(/\s+/g, " ").trim()).filter(Boolean);
+  let ref: string | null = null;
+  let refLong: string | null = null;
+  let customerName: string | null = null;
+  const items: ScreenItem[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    if (!ref) {
+      const m = l.match(/الطلب\s*#\s*(\d{2,7})/);
+      if (m) { ref = m[1]; continue; }
+    }
+    if (!refLong && /^\d{3,}-\d{3,}$/.test(l)) {
+      refLong = l;
+      // الاسم هو السطر التالي الذي ليس ضجيجاً ولا رقماً
+      for (let j = i + 1; j < Math.min(i + 4, lines.length); j++) {
+        const c = lines[j];
+        if (/^\d/.test(c) || NOISE.test(c) || /^[x×]/i.test(c)) continue;
+        customerName = c.slice(0, 120);
+        break;
+      }
+      continue;
+    }
+    const q = l.match(QTY_LINE);
+    if (!q) continue;
+    const qty = Number(q[1] ?? q[2]);
+    const name = lines[i + 1];
+    if (!name || qty < 1 || qty > 50 || PRICE_LINE.test(name) || NOISE.test(name)) continue;
+    let option: string | null = null;
+    for (let j = i + 2; j < Math.min(i + 5, lines.length); j++) {
+      const pm = lines[j].match(PRICE_LINE);
+      if (pm) {
+        const opt = (pm[2] ?? "").trim();
+        if (opt && !/^عنصر$/.test(opt)) option = opt;
+        break;
+      }
+    }
+    items.push({ name: name.slice(0, 120), qty, option });
+    i += 1;
+  }
+
+  // مجموع الشاشة إن كُتب صراحة؛ أسعار الأسطر ليست مجموعاً
+  let total: number | null = null;
+  const tm = lines.find((l) => /(?:المجموع|الإجمالي|الاجمالي|total)/i.test(l));
+  if (tm) {
+    const n = Number((tm.match(/([\d,.]{3,})/)?.[1] ?? "").replace(/[,.]/g, ""));
+    if (Number.isFinite(n) && n > 0) total = n;
+  }
+  return { ref, refLong, customerName, items, total };
+}
+
+export type AliasRow = { alias_key: string; item_id: string; variant_id: string | null; flavor: string | null };
+export type ResolvedLine = { item_id: string; variant_id: string | null; flavor: string | null; qty: number };
+
+/**
+ * كل اسم من الشاشة إلى صنفنا: أولاً «الاسم / الخيار» في الأسماء البديلة، ثم
+ * الاسم وحده، ثم اسم منيونا نفسه. ما لم يُعرف يعود بالاسم كما ظهر — للتنبيه
+ * وللربط من /partners، لا يُخترع.
+ */
+export function resolveLines(items: ScreenItem[], aliases: AliasRow[], menu: { id: string; name_ar: string }[]): { lines: ResolvedLine[]; unknown: string[] } {
+  const byKey = new Map(aliases.map((a) => [a.alias_key, a]));
+  const byMenu = new Map(menu.map((m) => [foldArabic(m.name_ar), m.id]));
+  const lines: ResolvedLine[] = [];
+  const unknown: string[] = [];
+  for (const it of items) {
+    const full = it.option ? `${it.name} / ${it.option}` : it.name;
+    const a = byKey.get(foldArabic(full)) ?? byKey.get(foldArabic(it.name));
+    if (a) { lines.push({ item_id: a.item_id, variant_id: a.variant_id, flavor: a.flavor, qty: it.qty }); continue; }
+    const id = byMenu.get(foldArabic(it.name));
+    if (id) { lines.push({ item_id: id, variant_id: null, flavor: null, qty: it.qty }); continue; }
+    unknown.push(full);
+  }
+  return { lines, unknown };
+}
 
 export function sourceOf(pkg: string): ExternalSource {
   const p = pkg.toLowerCase();

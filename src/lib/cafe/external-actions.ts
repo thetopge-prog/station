@@ -20,6 +20,8 @@ export type ExternalAlert = {
   body: string | null;
   order_id: string | null;
   created_at: string;
+  /** أسماء من شاشة الشركة لا مقابل لها عندنا بعد — تُربط من /partners */
+  unknown_items: string[] | null;
 };
 
 export async function latestExternalAlerts(): Promise<ExternalAlert[]> {
@@ -28,7 +30,7 @@ export async function latestExternalAlerts(): Promise<ExternalAlert[]> {
   const since = new Date(Date.now() - WINDOW_MINUTES * 60_000).toISOString();
   const { data } = await svc
     .from("external_order_alerts")
-    .select("id, source, ref, title, body, order_id, created_at")
+    .select("id, source, ref, title, body, order_id, created_at, unknown_items")
     .is("handled_at", null)
     .gte("created_at", since)
     .order("created_at", { ascending: false })

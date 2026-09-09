@@ -14,6 +14,9 @@ import {
 import { formatIqdLabel } from "@/lib/cafe/money";
 import { PriceInput } from "./PriceInput";
 import { PartnerLogo } from "./PartnerLogo";
+import { PartnerAliases } from "./PartnerAliases";
+import { partnerSlug, SOURCE_OF_SLUG } from "@/lib/cafe/partners";
+import type { AdminCategory } from "@/lib/cafe/menu-admin-actions";
 
 /**
  * حسابات شركات التوصيل — what each aggregator owes and what they have paid.
@@ -27,7 +30,7 @@ const TODAY = () => new Date().toISOString().slice(0, 10);
 
 type OrderItem = { name_ar: string; flavor_ar: string | null; qty: number; line_total: number };
 
-export function PartnersClient({ partners }: { partners: PartnerBalance[] }) {
+export function PartnersClient({ partners, menu = [] }: { partners: PartnerBalance[]; menu?: AdminCategory[] }) {
   const router = useRouter();
   const [open, setOpen] = useState<string | null>(null);
   const [rows, setRows] = useState<LedgerRow[]>([]);
@@ -269,6 +272,11 @@ export function PartnersClient({ partners }: { partners: PartnerBalance[] }) {
 
             {open === p.id && (
               <div className="border-t border-border p-4">
+                {/* شركة لها جهاز يُقرأ (توترز/طلباتي/زاد): جدول ترجمة أسمائها إلى منيونا */}
+                {(() => {
+                  const slug = partnerSlug(p.name_ar);
+                  return slug ? <PartnerAliases source={SOURCE_OF_SLUG[slug]} menu={menu} /> : null;
+                })()}
                 <div className="mb-3 flex flex-wrap items-end gap-2">
                   <label>
                     <span className="mb-1 block text-xs font-bold text-muted-foreground">من</span>
