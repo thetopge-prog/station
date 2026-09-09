@@ -42,7 +42,7 @@ export function SetupClient({
   /** كلمة سرّ الأجهزة (هاتف المطعم، جهاز توترز) — تُعرض للمطوّر هنا لا في ملف */
   webhookSecret?: string | null;
   /** بوت واتساب: ما يُلصق في لوحة Meta */
-  whatsapp?: { url: string; verifyToken: string | null; ready: boolean };
+  whatsapp?: { url: string; verifyToken: string | null; ready: boolean; subscription: { ok: boolean; detail: string } };
 }) {
   return (
     <div className="mx-auto max-w-2xl space-y-4">
@@ -127,6 +127,10 @@ export function SetupClient({
         <Section icon={<Smartphone className="size-5" />} title="٦ — بوت واتساب">
           <p className={`mb-2 text-sm font-bold ${whatsapp.ready ? "text-primary" : "text-destructive"}`}>
             {whatsapp.ready ? "✅ المتغيّرات الأربعة مضبوطة — البوت جاهز للربط." : "⚠ ناقص في متغيّرات Netlify: WHATSAPP_TOKEN · WHATSAPP_PHONE_NUMBER_ID · WHATSAPP_APP_SECRET · WHATSAPP_VERIFY_TOKEN"}
+          </p>
+          {/* اشتراك الحساب في التطبيق — يُفحص ويُصلَح عند كل فتح لهذه الصفحة */}
+          <p className={`mb-2 text-sm font-bold ${whatsapp.subscription.ok ? "text-primary" : "text-destructive"}`}>
+            {whatsapp.subscription.ok ? "✅" : "⚠"} اشتراك الحساب في التطبيق: {whatsapp.subscription.detail}
           </p>
           <div className="space-y-2 rounded-xl border border-border bg-background p-3">
             <div>

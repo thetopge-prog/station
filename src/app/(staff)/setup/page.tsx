@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { requireDeveloper } from "@/lib/cafe/auth";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { SetupClient, type ScreenLink, type SetupPrinter } from "@/components/cafe/SetupClient";
+import { ensureWabaSubscribed } from "@/lib/bot/whatsapp-admin";
 
 /**
  * /setup — التركيب.
@@ -76,6 +77,8 @@ export default async function SetupPage() {
     url: `${origin}/api/whatsapp/webhook`,
     verifyToken: process.env.WHATSAPP_VERIFY_TOKEN ?? null,
     ready: Boolean(process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_APP_SECRET && process.env.WHATSAPP_VERIFY_TOKEN),
+    // الحساب مشترك في التطبيق؟ يُقرأ من Meta ويُصلَح إن لزم — علامة الصحّ في لوحتهم لا تكفي
+    subscription: await ensureWabaSubscribed(),
   };
 
   return <SetupClient printers={printers} screens={screens} installCommand={INSTALL} webhookSecret={webhookSecret} whatsapp={whatsapp} />;
