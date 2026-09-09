@@ -4,68 +4,75 @@ import { useEffect, useRef, useState } from "react";
 import { chimeReady } from "@/lib/cafe/chime";
 
 /**
- * Camera QR scanner (@zxing/browser — works on iOS Safari where native
- * BarcodeDetector doesn't exist). Started only after an explicit user tap
- * (getUserMedia requires HTTPS/localhost + a gesture). Parent should offer a
- * manual serial-entry fallback for denied cameras.
+ * Camera QR scanner — nimiq's qr-scanner.
  *
- * Any other app read the assembly ticket first time; this one needed tries.
- * It opened whatever camera the browser handed it — on a tablet the FRONT one,
- * low-res and mirrored — with no size hint and the fast decoder. Now: the rear
- * camera, 720p, TRY_HARDER, QR only, a torch where the device has one, and a
- * chime so the expediter hears the read instead of looking for it.
+ * Every other app read the assembly ticket first time; the previous decoder
+ * (zxing, generic, front camera by default) needed tries. This one is built
+ * for phone cameras: it uses the browser's own hardware-accelerated
+ * BarcodeDetector where the device has it (Android Chrome), a worker-based
+ * decoder elsewhere, prefers the rear camera, draws the code's outline on
+ * the preview so the expediter sees it lock, and has the torch built in.
+ * Started only after an explicit tap (getUserMedia needs HTTPS + a gesture).
+ *
+ * The decoded text is shown LARGE the instant it is read — «908-73S» — so
+ * the person sees what the machine saw, before the screen does anything.
  */
 export function QrScanner({ onScan, onClose, title = "امسح بطاقة الولاء" }: { onScan: (text: string) => void; onClose: () => void; title?: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState<string | null>(null);
-  const [torch, setTorch] = useState<"none" | "off" | "on">("none");
-  const trackRef = useRef<MediaStreamTrack | null>(null);
+  const [flash, setFlash] = useState<"none" | "off" | "on">("none");
+  const [read, setRead] = useState<string | null>(null);
+  const scannerRef = useRef<{ toggleFlash: () => Promise<void>; isFlashOn: () => boolean; stop: () => void; destroy: () => void } | null>(null);
 
   useEffect(() => {
     let stopped = false;
-    let controls: { stop: () => void } | null = null;
+    let scanner: (typeof scannerRef)["current"] = null;
     (async () => {
       try {
-        const [{ BrowserQRCodeReader }, lib] = await Promise.all([import("@zxing/browser"), import("@zxing/library")]);
-        const hints = new Map();
-        hints.set(lib.DecodeHintType.TRY_HARDER, true);
-        hints.set(lib.DecodeHintType.POSSIBLE_FORMATS, [lib.BarcodeFormat.QR_CODE]);
-        const reader = new BrowserQRCodeReader(hints, { delayBetweenScanAttempts: 150 });
-        controls = await reader.decodeFromConstraints(
-          { video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } } },
-          videoRef.current ?? undefined,
+        const { default: QrScanner } = await import("qr-scanner");
+        const video = videoRef.current;
+        if (!video) return;
+        const s = new QrScanner(
+          video,
           (result) => {
-            if (result && !stopped) {
-              stopped = true;
-              controls?.stop();
-              chimeReady();
-              onScan(result.getText());
-            }
+            if (stopped) return;
+            stopped = true;
+            setRead(result.data);
+            chimeReady();
+            s.stop();
+            // a beat so the number is seen on screen before the sheet closes
+            setTimeout(() => onScan(result.data), 350);
+          },
+          {
+            preferredCamera: "environment",
+            maxScansPerSecond: 15,
+            highlightScanRegion: true,
+            highlightCodeOutline: true,
+            returnDetailedScanResult: true,
           },
         );
-        // torch: only some rear cameras expose it; the button appears when they do
-        const stream = videoRef.current?.srcObject as MediaStream | null;
-        const track = stream?.getVideoTracks()[0] ?? null;
-        trackRef.current = track;
-        const caps = track?.getCapabilities?.() as (MediaTrackCapabilities & { torch?: boolean }) | undefined;
-        if (caps?.torch) setTorch("off");
+        scanner = s;
+        scannerRef.current = s;
+        await s.start();
+        if (await s.hasFlash()) setFlash(s.isFlashOn() ? "on" : "off");
       } catch {
         setError("تعذّر تشغيل الكاميرا — اسمح للمتصفح بالكاميرا ثم أعد المحاولة.");
       }
     })();
     return () => {
       stopped = true;
-      controls?.stop();
+      scanner?.stop();
+      scanner?.destroy();
+      scannerRef.current = null;
     };
   }, [onScan]);
 
-  async function toggleTorch() {
-    const t = trackRef.current;
-    if (!t) return;
-    const next = torch !== "on";
+  async function toggleFlash() {
+    const s = scannerRef.current;
+    if (!s) return;
     try {
-      await t.applyConstraints({ advanced: [{ torch: next } as MediaTrackConstraintSet] });
-      setTorch(next ? "on" : "off");
+      await s.toggleFlash();
+      setFlash(s.isFlashOn() ? "on" : "off");
     } catch {
       /* the device said no; the button stays as it was */
     }
@@ -78,12 +85,19 @@ export function QrScanner({ onScan, onClose, title = "امسح بطاقة الو
         {error ? (
           <p className="text-sm text-destructive">{error}</p>
         ) : (
-          <video ref={videoRef} className="aspect-square w-full rounded-lg bg-black object-cover" />
+          <div className="relative">
+            <video ref={videoRef} className="aspect-square w-full rounded-lg bg-black object-cover" />
+            {read && (
+              <div className="absolute inset-x-2 bottom-2 rounded-xl bg-primary px-3 py-2 text-center text-3xl font-black text-primary-foreground shadow-station" dir="ltr">
+                {read}
+              </div>
+            )}
+          </div>
         )}
         <div className="flex gap-2">
-          {torch !== "none" && (
-            <button onClick={() => void toggleTorch()} className={`min-h-11 flex-1 rounded-lg border px-4 font-bold ${torch === "on" ? "border-primary bg-primary/10 text-primary" : "border-border"}`}>
-              🔦 {torch === "on" ? "أطفئ الإضاءة" : "إضاءة"}
+          {flash !== "none" && (
+            <button onClick={() => void toggleFlash()} className={`min-h-11 flex-1 rounded-lg border px-4 font-bold ${flash === "on" ? "border-primary bg-primary/10 text-primary" : "border-border"}`}>
+              🔦 {flash === "on" ? "أطفئ الإضاءة" : "إضاءة"}
             </button>
           )}
           <button onClick={onClose} className="min-h-11 flex-1 rounded-lg border border-border px-4 font-medium hover:bg-secondary">
