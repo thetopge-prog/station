@@ -30,10 +30,27 @@ import {
 export const dynamic = "force-dynamic";
 
 const GRAPH = "https://graph.facebook.com/v21.0";
-const TOKEN = () => process.env.WHATSAPP_TOKEN ?? "";
-const PHONE_ID = () => process.env.WHATSAPP_PHONE_NUMBER_ID ?? "";
-const APP_SECRET = () => process.env.WHATSAPP_APP_SECRET ?? "";
-const VERIFY = () => process.env.WHATSAPP_VERIFY_TOKEN ?? "";
+// trimmed: a value pasted into a dashboard field carries a trailing newline more
+// often than anyone admits, and an HMAC over the wrong secret fails silently
+const TOKEN = () => (process.env.WHATSAPP_TOKEN ?? "").trim();
+const PHONE_ID = () => (process.env.WHATSAPP_PHONE_NUMBER_ID ?? "").trim();
+const APP_SECRET = () => (process.env.WHATSAPP_APP_SECRET ?? "").trim();
+const VERIFY = () => (process.env.WHATSAPP_VERIFY_TOKEN ?? "").trim();
+
+/**
+ * كل ما يصل هذا العنوان يُسجَّل — قبل التحقّق من البصمة وبعده.
+ *
+ * بلا هذا، «البوت لا يعمل» سؤال بلا جواب: لا يُعرف أوصلت رسالة Meta أصلاً أم
+ * وصلت ورُفضت. يُقرأ من /setup ← سجلّ الويبهوك، أو من webhook_log مباشرة.
+ */
+async function note(status: number, body: string, why: string) {
+  try {
+    const svc = createSupabaseServiceClient();
+    await svc.rpc("log_webhook", { p_route: "/api/whatsapp/webhook", p_status: status, p_body: body.slice(0, 900), p_note: why });
+  } catch {
+    /* التشخيص لا يُفشل ما يشخّصه */
+  }
+}
 const SITE = () => (process.env.STATION_SITE_URL ?? "https://station-anbar.netlify.app").replace(/\/$/, "");
 
 // ── حالة المحادثة: نفس جدول بوت تليغرام، بمفتاح مسبوق بـ wa: فلا يتصادمان ──
@@ -196,20 +213,33 @@ function signed(raw: string, header: string | null): boolean {
 }
 
 export async function POST(req: Request) {
-  if (!APP_SECRET() || !TOKEN() || !PHONE_ID()) return new Response("not configured", { status: 503 });
+  if (!APP_SECRET() || !TOKEN() || !PHONE_ID()) {
+    await note(503, "", "المتغيّرات ناقصة على الخادم");
+    return new Response("not configured", { status: 503 });
+  }
   const raw = await req.text();
-  if (!signed(raw, req.headers.get("x-hub-signature-256"))) return new Response("bad signature", { status: 403 });
+  const sig = req.headers.get("x-hub-signature-256");
+  if (!signed(raw, sig)) {
+    await note(403, raw, sig ? "البصمة لا تطابق — راجع WHATSAPP_APP_SECRET" : "لم تصل بصمة من Meta");
+    return new Response("bad signature", { status: 403 });
+  }
 
+  let seen = 0;
   try {
     const body = JSON.parse(raw) as { entry?: { changes?: { value?: { messages?: WaMsg[] } }[] }[] };
     for (const entry of body.entry ?? []) {
       for (const change of entry.changes ?? []) {
         // statuses (تسليم/قراءة) تصل هنا أيضاً ولا تعنينا
-        for (const msg of change.value?.messages ?? []) await turn(msg);
+        for (const msg of change.value?.messages ?? []) {
+          seen++;
+          await turn(msg);
+        }
       }
     }
-  } catch {
-    /* لا نُعيد خطأً: Meta تعيد الإرسال، والإعادة تعني طلباً مكرّراً */
+    await note(200, raw, seen ? `${seen} رسالة عولجت` : "حدث بلا رسائل (حالة تسليم/قراءة)");
+  } catch (e) {
+    // لا نُعيد خطأً: Meta تعيد الإرسال، والإعادة تعني طلباً مكرّراً
+    await note(500, raw, e instanceof Error ? e.message.slice(0, 200) : "خطأ غير معروف");
   }
   return new Response("ok", { status: 200 });
 }
