@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { after } from "next/server";
 import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/types";
@@ -224,23 +225,34 @@ export async function POST(req: Request) {
     return new Response("bad signature", { status: 403 });
   }
 
-  let seen = 0;
-  try {
-    const body = JSON.parse(raw) as { entry?: { changes?: { value?: { messages?: WaMsg[] } }[] }[] };
-    for (const entry of body.entry ?? []) {
-      for (const change of entry.changes ?? []) {
-        // statuses (تسليم/قراءة) تصل هنا أيضاً ولا تعنينا
-        for (const msg of change.value?.messages ?? []) {
-          seen++;
-          await turn(msg);
+  // بصمة الوصول تُكتب قبل الردّ لا بعده: لو ماتت الدالة مع قطع Meta للاتصال،
+  // يبقى دليلٌ على أنّ الطلب وصل أصلاً — وهو أوّل ما نحتاج معرفته.
+  await note(202, "", "وصل حدث من Meta");
+
+  // نردّ فوراً ونعمل بعد الردّ.
+  //
+  // Meta تمهل الويبهوك ثوانيَ قليلة ثم تعتبر التسليم فاشلاً وتقطع الاتصال —
+  // وقطعُها قد يقتل الدالة قبل أن تكتب سطراً واحداً. ودورة واحدة هنا تقرأ
+  // المنيو كاملاً من قاعدة بيانات في سيدني، فالمهلة ليست فرضاً نظرياً.
+  // لذا: 200 الآن، والمعالجة في after — وهو ما توصي به Meta نفسها.
+  after(async () => {
+    let seen = 0;
+    try {
+      const body = JSON.parse(raw) as { entry?: { changes?: { value?: { messages?: WaMsg[] } }[] }[] };
+      for (const entry of body.entry ?? []) {
+        for (const change of entry.changes ?? []) {
+          // statuses (تسليم/قراءة) تصل هنا أيضاً ولا تعنينا
+          for (const msg of change.value?.messages ?? []) {
+            seen++;
+            await turn(msg);
+          }
         }
       }
+      // النجاح لا يحفظ الجسم: فيه رقم الزبون ونصّ رسالته، ولا يفيد التشخيص
+      await note(200, "", seen ? `${seen} رسالة عولجت` : "حدث بلا رسائل (حالة تسليم/قراءة)");
+    } catch (e) {
+      await note(500, raw, e instanceof Error ? e.message.slice(0, 200) : "خطأ غير معروف");
     }
-    // النجاح لا يحفظ الجسم: فيه رقم الزبون ونصّ رسالته، ولا يفيد التشخيص
-    await note(200, "", seen ? `${seen} رسالة عولجت` : "حدث بلا رسائل (حالة تسليم/قراءة)");
-  } catch (e) {
-    // لا نُعيد خطأً: Meta تعيد الإرسال، والإعادة تعني طلباً مكرّراً
-    await note(500, raw, e instanceof Error ? e.message.slice(0, 200) : "خطأ غير معروف");
-  }
+  });
   return new Response("ok", { status: 200 });
 }
