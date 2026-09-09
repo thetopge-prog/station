@@ -12,6 +12,13 @@ alter table public.delivery_partners
   add constraint delivery_partners_settlement_check
   check (settlement in ('credit', 'cash_at_pickup', 'custom'));
 
+-- ── «تعذّر الحفظ» في شاشة الشركات منذ 0054 ─────────────────────────────────
+-- 0054 أضاف save_partner بثماني وسائط ولم يُسقط ذات الخمس، فصار للاسم
+-- تعريفان وPostgREST يرفض الاختيار بينهما: «Could not choose the best
+-- candidate function». كل حفظ وتعديل وتعطيل من الشاشة كان يفشل بهذه الرسالة
+-- المخفيّة خلف «حاول مجدداً». يبقى تعريف واحد.
+drop function if exists public.save_partner(uuid, text, text, boolean, text);
+
 -- زاد تحديداً، كما طُلب. بالاسم لأن المعرّف يختلف بين البيئات.
 update public.delivery_partners set settlement = 'custom', commission_pct = 0
  where lower(trim(name_ar)) in ('زاد', 'zad');

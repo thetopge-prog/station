@@ -151,8 +151,15 @@ export async function partnerLedger(partnerId: string, from?: string | null, to?
 export async function partnerOrderItems(orderId: string) {
   await requireAdmin();
   const supabase = await createSupabaseServerClient();
-  const { data } = await supabase.rpc("partner_order_items", { p_order: orderId });
-  return data ?? [];
+  const [{ data }, { data: o }] = await Promise.all([
+    supabase.rpc("partner_order_items", { p_order: orderId }),
+    supabase.from("orders").select("extra, extra_note").eq("id", orderId).maybeSingle(),
+  ]);
+  const lines = data ?? [];
+  // الصلصات تُسجَّل سطوراً بصفر والمبلغ في extra على الطلب — فكان الكشف يعرض
+  // أربعة أسطر بصفر ومجموعاً لا يطابقها. سطر واحد يقول أين ذهبت الألفان.
+  if (o?.extra) lines.push({ name_ar: `إضافات — ${o.extra_note ?? ""}`.trim(), flavor_ar: null, qty: 1, line_total: o.extra });
+  return lines;
 }
 
 /** Postgres speaks its own language; the shop floor does not. */
@@ -160,5 +167,6 @@ function friendly(message: string): string {
   if (/duplicate key|unique/i.test(message)) return "هذا الاسم مسجّل مسبقاً.";
   if (/admin only/i.test(message)) return "هذه العملية للمدير فقط.";
   if (/name required/i.test(message)) return "اكتب اسم الشركة.";
-  return "تعذّر الحفظ — حاول مجدداً.";
+  // النصّ الخام يبقى: «حاول مجدداً» أخفى تعارض تعريفين للدالة أسابيع
+  return `تعذّر الحفظ — ${message.slice(0, 160)}`;
 }
