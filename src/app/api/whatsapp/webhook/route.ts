@@ -236,7 +236,8 @@ export async function POST(req: Request) {
         }
       }
     }
-    await note(200, raw, seen ? `${seen} رسالة عولجت` : "حدث بلا رسائل (حالة تسليم/قراءة)");
+    // النجاح لا يحفظ الجسم: فيه رقم الزبون ونصّ رسالته، ولا يفيد التشخيص
+    await note(200, "", seen ? `${seen} رسالة عولجت` : "حدث بلا رسائل (حالة تسليم/قراءة)");
   } catch (e) {
     // لا نُعيد خطأً: Meta تعيد الإرسال، والإعادة تعني طلباً مكرّراً
     await note(500, raw, e instanceof Error ? e.message.slice(0, 200) : "خطأ غير معروف");
