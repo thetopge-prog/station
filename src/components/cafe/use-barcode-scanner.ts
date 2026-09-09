@@ -90,3 +90,24 @@ export function orderIdFromScan(raw: string): string | null {
   const tail = path.replace(/\/+$/, "").split("/").pop() ?? "";
   return UUID_RE.test(tail) ? tail.toLowerCase() : null;
 }
+
+/**
+ * The assembly ticket now encodes «908-73S» — the daily number and the pickup
+ * code — instead of a 36-character UUID: seven characters make a version-1
+ * QR whose modules are four times the size at the same print width, which is
+ * the difference between a tablet camera reading it first time and on the
+ * fourth. Both shapes are accepted; old tickets still scan.
+ */
+export type Scan = { kind: "uuid"; id: string } | { kind: "code"; seq: number; code: string };
+
+const CODE_RE = /^(\d{1,4})\s*-\s*([A-Za-z0-9]{2,4})$/;
+const latinDigits = (s: string) => s.replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
+
+export function parseScan(raw: string): Scan | null {
+  const id = orderIdFromScan(raw);
+  if (id) return { kind: "uuid", id };
+  const m = latinDigits(raw.trim()).match(CODE_RE);
+  if (!m) return null;
+  const seq = Number(m[1]);
+  return seq > 0 ? { kind: "code", seq, code: m[2].toUpperCase() } : null;
+}

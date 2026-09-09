@@ -254,10 +254,11 @@ export function routeOrder(input: RouteInput): Ticket[] {
       })),
       money: null,
       // The zero-touch trigger: the expediter scans this and the order jumps to
-      // «جاهز» with no screen contact at all. Raw order id, because a UUID is
-      // self-identifying — the scanner handler can tell a real scan from stray
-      // keyboard noise by shape alone, with no custom prefix to keep in sync.
-      qr: order.orderId,
+      // «جاهز» with no screen contact at all. «908-73S» — number and pickup
+      // code — not the UUID: seven characters make a version-1 QR with modules
+      // four times the size, which a tablet camera reads first time; and a
+      // person can read it too. The UUID stays the fallback when no code exists.
+      qr: order.pickupCode ? `${order.orderNumber}-${order.pickupCode}` : order.orderId,
       order: meta,
     });
   }

@@ -143,8 +143,10 @@ describe("print routing", () => {
     const exp = tickets.find((t) => t.kind === "expediter")!;
 
     expect(receipt.qr).toBe("https://station.iq/t/042-7391");
-    // the zero-touch trigger: scanning this is what flips the order to «جاهز»
-    expect(exp.qr).toBe(ORDER.orderId);
+    // the zero-touch trigger: scanning this is what flips the order to «جاهز».
+    // Number and pickup code, not the UUID: seven characters, a version-1 QR
+    // a tablet camera reads first time
+    expect(exp.qr).toBe("042-7391");
     // a kitchen slip has nothing to scan — the cook never changes order status
     expect(tickets.filter((t) => t.kind === "station").every((t) => t.qr === null)).toBe(true);
   });
@@ -153,7 +155,7 @@ describe("print routing", () => {
     // the receipt QR is optional (it needs a public URL); the expediter QR is
     // not, because the whole scan workflow depends on it
     const tickets = route([item("برجر كلاسيك", "cat-burger")]);
-    expect(tickets.find((t) => t.kind === "expediter")!.qr).toBe(ORDER.orderId);
+    expect(tickets.find((t) => t.kind === "expediter")!.qr).toBe("042-7391");
     expect(tickets.find((t) => t.kind === "receipt")!.qr).toBeNull();
   });
 

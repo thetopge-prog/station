@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { renderTicket } from "./escpos";
+import { renderTicket, renderTicketDoc } from "./escpos";
 import { routeOrder, type PrintOrder, type PrinterRow, type StationRow } from "./print-routing";
 import { shapeArabic } from "./arabic-shape";
 
@@ -156,6 +156,26 @@ describe("line note", () => {
       expect(note).toBeGreaterThan(burger);
       expect(zinger).toBeGreaterThan(note);
     }
+  });
+});
+
+describe("kitchen table columns", () => {
+  it("puts dough and note in the third column of the drawn row, with item and count in the first two", () => {
+    const tickets = routeOrder({
+      order: { orderId: "3f2b1c88-9a4d-4e11-b7c2-0d5e6f7a8b90", orderNumber: "908", pickupCode: "73S", channel: "cashier", tableNo: null, note: null, subtotal: 12000, discount: 0, extras: [], total: 12000, dateTime: "20/08 19:31", cashierName: "أحمد", expediterName: null },
+      items: [{ name_ar: "بيتزا سوبريم - وسط", flavor_ar: "سميك", qty: 2, unit_price: 6000, category_id: "cat-burger", note: "بدون زيتون" }],
+      printers: PRINTERS,
+      stations: STATIONS,
+      categoryStation: { "cat-burger": "st-burger" },
+    });
+    const exp = tickets.find((t) => t.kind === "expediter")!;
+    const doc = renderTicketDoc(exp);
+    const row = doc.lines.find((l) => l.l === "بيتزا سوبريم - وسط")!;
+    expect(row).toBeDefined();
+    expect(row.r).toBe("2");
+    expect(row.n).toBe("سميك · بدون زيتون");
+    // the short code the tablet camera reads first time
+    expect(doc.qr).toBe("908-73S");
   });
 });
 

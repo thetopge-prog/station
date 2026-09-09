@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Ban, Camera, Check, Hand, MessageCircle, PackageCheck, ScanLine, Timer } from "lucide-react";
-import { claimOrder, confirmAssembled, confirmAssembledMany, listPrepOrders, markItemUnavailable, markNotified, markOrderHanded, type PrepOrder } from "@/lib/cafe/prep-actions";
+import { claimOrder, confirmAssembled, confirmAssembledByCode, confirmAssembledMany, listPrepOrders, markItemUnavailable, markNotified, markOrderHanded, type PrepOrder } from "@/lib/cafe/prep-actions";
 import { sinceLabel } from "@/lib/cafe/time";
 import { curbsideReadyLink } from "@/lib/brand";
 import { useLiveOrders } from "./use-live-orders";
-import { orderIdFromScan, useBarcodeScanner } from "./use-barcode-scanner";
+import { parseScan, useBarcodeScanner } from "./use-barcode-scanner";
 import { QrScanner } from "./QrScanner";
 import { chimeNewOrder, chimeReady, unlockAudio } from "@/lib/cafe/chime";
 
@@ -111,6 +111,21 @@ export function ExpediterClient({ name }: { name: string }) {
 
   /** «تجهيز الكل» — the whole queue to «جاهز» in one statement */
   const [allBusy, setAllBusy] = useState(false);
+
+  /** «تسليم الكل» — every ready bag out the door; a dozen calls in parallel, no migration */
+  async function handAll(ids: string[]) {
+    if (!ids.length || allBusy) return;
+    if (!window.confirm(`تسليم ${ids.length} طلب دفعة واحدة؟`)) return;
+    setAllBusy(true);
+    try {
+      const results = await Promise.allSettled(ids.map((id) => markOrderHanded(id)));
+      const done = ids.filter((_, i) => results[i].status === "fulfilled" && (results[i] as PromiseFulfilledResult<{ ok: boolean }>).value.ok);
+      setRows((rs) => rs.filter((r) => !done.includes(r.id)));
+      setScan({ kind: done.length === ids.length ? "ok" : "err", text: `${done.length} من ${ids.length} سُلّم ✓` });
+    } finally {
+      setAllBusy(false);
+    }
+  }
   async function readyAll(ids: string[]) {
     if (!ids.length || allBusy) return;
     if (!window.confirm(`تجهيز ${ids.length} طلب دفعة واحدة؟`)) return;
@@ -155,23 +170,23 @@ export function ExpediterClient({ name }: { name: string }) {
    */
   const onScan = useCallback(
     async (raw: string) => {
-      const id = orderIdFromScan(raw);
-      if (!id) return setScan({ kind: "err", text: "رمز غير معروف" });
+      const scan = parseScan(raw);
+      if (!scan) return setScan({ kind: "err", text: "رمز غير معروف" });
 
       // A ticket printed a second ago may not be in the last poll yet. The
       // scan is sent anyway — the server knows the order — and the row is
       // painted «ready» here without waiting for a full refetch.
-      const target = rows.find((r) => r.id === id);
+      const target = scan.kind === "uuid" ? rows.find((r) => r.id === scan.id) : rows.find((r) => r.order_seq === scan.seq && (r.pickup_code ?? "").toUpperCase() === scan.code);
       if (target?.prep_status === "ready") {
         return setScan({ kind: "ok", text: `طلب ${String(target.order_seq).padStart(3, "0")} جاهز مسبقاً` });
       }
 
-      const res = await confirmAssembled(id);
+      const res = scan.kind === "uuid" ? await confirmAssembled(scan.id) : await confirmAssembledByCode(scan.seq, scan.code);
       if (!res.ok) {
         return setScan({ kind: "err", text: (res as { error?: string }).error ?? "تعذّر التأكيد" });
       }
-      const seq = target?.order_seq ?? ("orderSeq" in res ? res.orderSeq : null);
-      if (target) patchRow(id, { prep_status: "ready" });
+      const seq = target?.order_seq ?? (scan.kind === "code" ? scan.seq : "orderSeq" in res ? res.orderSeq : null);
+      if (target) patchRow(target.id, { prep_status: "ready" });
       else void refresh();
       chimeReady();
       setScan({ kind: "ok", text: `طلب ${seq != null ? String(seq).padStart(3, "0") : ""} → جاهز ✓` });
@@ -204,7 +219,17 @@ export function ExpediterClient({ name }: { name: string }) {
               className="flex min-h-11 items-center gap-1.5 rounded-full bg-primary px-4 text-xs font-black text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
             >
               <PackageCheck className="size-4" />
-              {allBusy ? "…" : `تجهيز كل الطلبات (${queue.length})`}
+              {allBusy ? "…" : `إتمام كل الطلبات (${queue.length})`}
+            </button>
+          )}
+          {ready.length > 1 && (
+            <button
+              onClick={() => void handAll(ready.map((o) => o.id))}
+              disabled={allBusy}
+              className="flex min-h-11 items-center gap-1.5 rounded-full border-2 border-primary px-4 text-xs font-black text-primary transition hover:bg-primary hover:text-primary-foreground disabled:opacity-50"
+            >
+              <Hand className="size-4" />
+              {allBusy ? "…" : `تسليم الكل (${ready.length})`}
             </button>
           )}
           {/* Same handler as the hardware scanner — one code path, so the two
@@ -271,6 +296,7 @@ export function ExpediterClient({ name }: { name: string }) {
 
       {camOpen && (
         <QrScanner
+          title="امسح تذكرة التجهيز"
           onScan={(text) => {
             setCamOpen(false);
             void onScan(text);
@@ -454,8 +480,9 @@ function OrderCard({
             className="flex min-h-16 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-xl font-black text-primary-foreground shadow-station transition hover:opacity-90 disabled:opacity-40 disabled:shadow-none"
           >
             <PackageCheck className="size-6" />
-            {busy ? "…" : allTicked ? "جاهز ✓" : `جاهز (تبقّى ${live.length - checked.size})`}
+            {busy ? "…" : "تم التحضير كامل ✓"}
           </button>
+          {!allTicked && <p className="text-center text-xs font-bold text-muted-foreground">لم يُعلَّم {live.length - checked.size} من الأصناف — التعليم للتدقيق لا شرط</p>}
         </div>
       )}
     </article>

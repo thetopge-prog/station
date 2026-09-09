@@ -247,6 +247,29 @@ export async function confirmAssembled(orderId: string) {
 }
 
 /**
+ * The ticket's short code «908-73S» → the order, then the same confirmation.
+ * Daily number + pickup code within the last day is as unique as the UUID was;
+ * the unique index on (business_day, order_seq) is what makes it so.
+ */
+export async function confirmAssembledByCode(seq: number, code: string) {
+  await requireRole("expediter", "cashier");
+  const svc = createSupabaseServiceClient();
+  const { data } = await svc
+    .from("orders")
+    .select("id")
+    .eq("order_seq", seq)
+    .ilike("pickup_code", code)
+    .neq("status", "cancelled")
+    .gte("created_at", new Date(Date.now() - 24 * 3_600_000).toISOString())
+    .order("created_at", { ascending: false })
+    .limit(1);
+  const id = data?.[0]?.id;
+  if (!id) return { ok: false as const, error: `لا طلب برقم ${String(seq).padStart(3, "0")}-${code} اليوم` };
+  const res = await confirmAssembled(id);
+  return res.ok ? { ...res, orderId: id } : res;
+}
+
+/**
  * «نفد» — the line the expediter cannot assemble.
  *
  * Three things at once, because any two without the third is worse than doing

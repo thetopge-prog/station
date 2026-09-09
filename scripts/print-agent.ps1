@@ -258,13 +258,26 @@ function Render-Doc([object]$Doc) {
     $text = [string]$ln.t
     if ($text -eq "") { $text = " " }
     $two = ($null -ne $ln.r) -and ("" -ne [string]$ln.r)
+    # three columns (kitchen table): count on the right, item in the middle,
+    # extras & notes on the left. `n` present means the table shape; an empty
+    # `n` still keeps the columns so the rows line up.
+    $three = $two -and ($null -ne $ln.n)
     # A rule is 48 of one character for a monospace face. Under Tahoma that is
     # wider than the paper and wraps into a second, shorter rule - visible on
     # the shop's first tickets. It is drawn as a line instead, never wrapped.
     $rule = $text -match '^([=\-_.~])\1{9,}$'
     $vw = 0
+    $nw = 0
     if ($rule) {
       $h = 14
+    } elseif ($three) {
+      # count: its own measured width at the right edge; notes: a third of the
+      # paper at the left edge, wrapping; item: whatever is left, wrapping
+      $vw = [int][Math]::Ceiling($pg.MeasureString([string]$ln.r, $font).Width) + 14
+      $nw = [int]($W * 0.34)
+      $hi = [int][Math]::Ceiling($pg.MeasureString([string]$ln.l, $font, [Math]::Max(40, $W - $vw - $nw)).Height)
+      $hn = if ("" -ne [string]$ln.n) { [int][Math]::Ceiling($pg.MeasureString([string]$ln.n, $font, $nw - 6).Height) } else { 0 }
+      $h = [Math]::Max($hi, $hn)
     } elseif ($two) {
       # value measured first; the label wraps inside the room the value leaves,
       # rather than being trimmed - on a kitchen ticket the trimmed part was
@@ -276,7 +289,7 @@ function Render-Doc([object]$Doc) {
       $sz = $pg.MeasureString($text, $font, $W)
       $h = [int][Math]::Ceiling($sz.Height)
     }
-    $items += [pscustomobject]@{ text = $text; l = [string]$ln.l; r = [string]$ln.r; two = $two; rule = $rule; vw = $vw; font = $font; h = $h; align = [string]$ln.align }
+    $items += [pscustomobject]@{ text = $text; l = [string]$ln.l; r = [string]$ln.r; n = [string]$ln.n; two = $two; three = $three; rule = $rule; vw = $vw; nw = $nw; font = $font; h = $h; align = [string]$ln.align }
     $total += $h
   }
   $pg.Dispose(); $probe.Dispose()
@@ -307,6 +320,12 @@ function Render-Doc([object]$Doc) {
       if ($it.text.StartsWith("=")) { $g.DrawLine($pen, 8, $y + 5, $W - 8, $y + 5); $g.DrawLine($pen, 8, $y + 9, $W - 8, $y + 9) }
       else { $pen.DashStyle = [System.Drawing.Drawing2D.DashStyle]::Dot; $g.DrawLine($pen, 8, $y + 7, $W - 8, $y + 7) }
       $pen.Dispose()
+    } elseif ($it.three) {
+      # RTL: Near = the right edge of each rect. count | item | notes, right to left
+      $fmt.Alignment = [System.Drawing.StringAlignment]::Near
+      $g.DrawString($it.r, $it.font, $black, (New-Object System.Drawing.RectangleF(($W - $it.vw), $y, $it.vw, $it.h)), $fmt)
+      $g.DrawString($it.l, $it.font, $black, (New-Object System.Drawing.RectangleF($it.nw, $y, ($W - $it.vw - $it.nw), $it.h)), $fmt)
+      if ("" -ne $it.n) { $g.DrawString($it.n, $it.font, $black, (New-Object System.Drawing.RectangleF(0, $y, ($it.nw - 6), $it.h)), $fmt) }
     } elseif ($it.two) {
       $fmt.Alignment = [System.Drawing.StringAlignment]::Near     # RTL: the right edge
       $g.DrawString($it.l, $it.font, $black, (New-Object System.Drawing.RectangleF($it.vw, $y, ($W - $it.vw), $it.h)), $fmt)
@@ -380,7 +399,7 @@ function Qr-Bytes([string]$Data) {
   $out = New-Object System.Collections.Generic.List[byte]
   $out.AddRange([byte[]](0x1b, 0x61, 0x01))                                  # centre
   $out.AddRange([byte[]](0x1d, 0x28, 0x6b, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00))  # model 2
-  $out.AddRange([byte[]](0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x43, 0x08))        # module size 8 - 28mm square, reads first time (was 6 / 21mm)
+  $out.AddRange([byte[]](0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x43, 0x0A))        # module size 10: «908-73S» is a 21x21 code, so 26mm with 1.3mm modules - a tablet camera reads it first time
   $out.AddRange([byte[]](0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x45, 0x31))        # ECC L
   $out.AddRange([byte[]](0x1d, 0x28, 0x6b, [byte]($len -band 0xFF), [byte](($len -shr 8) -band 0xFF), 0x31, 0x50, 0x30))
   $out.AddRange($d)

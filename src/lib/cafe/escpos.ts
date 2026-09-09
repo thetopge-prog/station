@@ -148,6 +148,12 @@ export type DocLine = {
    */
   l?: string;
   r?: string;
+  /**
+   * Third column (kitchen table: qty | item | extras & notes). `l` stays the
+   * item and `r` the count, so an agent that predates this still prints the
+   * two columns it knows and ignores `n`.
+   */
+  n?: string;
 };
 export type TicketDoc = { lines: DocLine[]; qr: string | null; kick: boolean };
 
@@ -209,6 +215,17 @@ class Slip {
     const padded = pairLine(start, end, this.cols);
     this.doc.push({ t: padded, l: start, r: end, align: this.align, bold: this.isBold, w: this.w, h: this.h });
     return this.text(padded).raw(0x0a);
+  }
+  /**
+   * The kitchen table row: count | item | extras & notes. On the bytes path
+   * (no agent) the notes follow on their own line, as before.
+   */
+  row(item: string, qty: string, notes: string) {
+    const padded = pairLine(item, qty, this.cols);
+    this.doc.push({ t: padded, l: item, r: qty, n: notes, align: this.align, bold: this.isBold, w: this.w, h: this.h });
+    this.text(padded).raw(0x0a);
+    if (notes) this.text(`    ← ${notes}`).raw(0x0a);
+    return this;
   }
   done(): Uint8Array {
     return new Uint8Array(this.bytes);
@@ -354,17 +371,18 @@ function buildTicket(s: Slip, ticket: Ticket, opts: RenderOptions): void {
   // that is how the cook reads the old system's ticket and asked for it back.
   // Money is absent by construction (see routeOrder invariant 2).
   if (ticket.kind !== "receipt") {
-    s.right().bold(true).pair("الصنف", "العدد").bold(false);
+    s.right().bold(true).row("الصنف", "العدد", "الإضافات / الملاحظات").bold(false);
     s.rule();
   }
   for (const l of ticket.lines) {
-    const name = l.flavor ? `${l.name} (${l.flavor})` : l.name;
     if (l.amount == null) {
-      s.size(1, 2).bold(true).pair(name, String(l.qty)).bold(false).size(1, 1);
-      // the line's own note, under the line it belongs to — the cook reads
-      // «بدون بصل» against THIS burger, not against the order
-      if (l.note) s.size(1, 2).bold(true).line(`    ← ${l.note}`).bold(false).size(1, 1);
+      // the kitchen table: count on the right, item in the middle, and the
+      // dough / sauce / «بدون بصل» in their own column — the cook reads the
+      // row across, not the slip down
+      const notes = [l.flavor, l.note].filter(Boolean).join(" · ");
+      s.size(1, 2).bold(true).row(l.name, String(l.qty), notes).bold(false).size(1, 1);
     } else {
+      const name = l.flavor ? `${l.name} (${l.flavor})` : l.name;
       s.pair(`${name} ×${l.qty}`, formatIqd(l.amount));
       if (l.note) s.line(`    ← ${l.note}`);
     }
@@ -430,7 +448,7 @@ function channelLabel(channel: string): string {
 // module 8, not 6: a 36-char UUID at 6 dots is a 21 mm square, which a
 // hand scanner under a heat lamp reads on the second or third try. 8 dots is
 // 28 mm, still well inside 80 mm paper. Mirrored in print-agent.ps1 (Qr-Bytes).
-export function qrCode(data: string, moduleSize = 8): number[] {
+export function qrCode(data: string, moduleSize = 10): number[] {
   const payload = [...new TextEncoder().encode(data)];
   const len = payload.length + 3; // pk + the two function bytes
   const pL = len & 0xff;
