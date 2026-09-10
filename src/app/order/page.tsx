@@ -1,5 +1,6 @@
 import { getPublicMenu } from "@/lib/cafe/menu-data";
 import { OrderLandingClient, type Shot } from "@/components/cafe/OrderLandingClient";
+import { imgSrcs } from "@/lib/cafe/menu-img";
 
 /**
  * /order — شاشة اختيار طريقة الاستلام.
@@ -9,13 +10,6 @@ import { OrderLandingClient, type Shot } from "@/components/cafe/OrderLandingCli
  * الطريقة المطلوبة، فلا منطق جديد هنا ولا حالة.
  */
 export const dynamic = "force-dynamic";
-
-/** رابط التخزين المطلق ← مسار من أصلنا، كما تفعل شاشات المنيو. */
-function toLocal(url: string): { sm: string; full: string } {
-  const m = url.match(/\/storage\/v1\/object\/public\/menu\/(.+)$/);
-  const full = m ? `/img/${m[1]}` : url;
-  return { sm: full.replace(/\.webp(\?|$)/, "-sm.webp$1"), full };
-}
 
 export default async function OrderPage() {
   let shots: Shot[] = [];
@@ -27,7 +21,7 @@ export default async function OrderPage() {
     const deepest = Math.max(0, ...byCat.map((c) => c.length));
     const woven = [];
     for (let i = 0; i < deepest; i++) for (const cat of byCat) if (cat[i]) woven.push(cat[i]);
-    shots = woven.slice(0, 14).map((i) => toLocal(i.image_url as string));
+    shots = woven.slice(0, 14).map((i) => imgSrcs(i.image_url)).filter((s): s is Shot => !!s);
   } catch {
     // بلا صور: الشريطان يختفيان والأزرار تبقى — وهي المقصودة
   }

@@ -15,6 +15,8 @@ type Action =
   | { type: "add"; line: Omit<CartLine, "qty"> }
   | { type: "inc"; key: string }
   | { type: "dec"; key: string }
+  /** سلة مُستعادة من الهاتف — تحلّ محلّ الحالية كلّها */
+  | { type: "hydrate"; lines: CartLine[] }
   | { type: "clear" };
 
 function reducer(state: Cart, action: Action): Cart {
@@ -37,6 +39,8 @@ function reducer(state: Cart, action: Action): Cart {
       }
       return { ...state, [action.key]: { ...l, qty: l.qty - 1 } };
     }
+    case "hydrate":
+      return Object.fromEntries(action.lines.map((l) => [l.key, l]));
     case "clear":
       return {};
   }
