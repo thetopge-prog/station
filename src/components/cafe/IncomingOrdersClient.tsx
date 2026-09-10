@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BellRing } from "lucide-react";
 import { formatIqdLabel } from "@/lib/cafe/money";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { latestExternalAlerts, markAlertHandled, type ExternalAlert } from "@/lib/cafe/external-actions";
 import { sinceLabel } from "@/lib/cafe/time";
 import { agentAlive, kickDrawer, printJobs } from "@/lib/cafe/print-client";
@@ -60,7 +61,7 @@ export function IncomingOrdersClient() {
     let live = true;
     const tick = () => void latestExternalAlerts().then((a) => { if (live) setAlerts(a); }).catch(() => {});
     const kick = setTimeout(tick, 0);
-    const iv = setInterval(tick, 5000);
+    const iv = setInterval(tick, 30_000);
     return () => { live = false; clearTimeout(kick); clearInterval(iv); };
   }, []);
   async function dismissAlert(id: string) {
@@ -132,8 +133,22 @@ export function IncomingOrdersClient() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- polling an external system; state is set after an await
     refreshPending();
-    const t = setInterval(refreshPending, 5000);
-    return () => clearInterval(t);
+    // خمس ثوانٍ كانت ١٧٬٢٨٠ استدعاءً يومياً. الطلب الجديد يصل عبر الزمن الحيّ
+    // خلال ثانية؛ الاستطلاع لمن انقطع عنه الاشتراك.
+    const t = setInterval(refreshPending, 20_000);
+    let channel: ReturnType<ReturnType<typeof createSupabaseBrowserClient>["channel"]> | null = null;
+    try {
+      channel = createSupabaseBrowserClient()
+        .channel("incoming-orders")
+        .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => void refreshPending())
+        .subscribe();
+    } catch {
+      /* بلا إعداد: الاستطلاع يحمل الشاشة */
+    }
+    return () => {
+      clearInterval(t);
+      if (channel) void createSupabaseBrowserClient().removeChannel(channel);
+    };
   }, [refreshPending]);
 
   async function accept(id: string, method: "cash" | "card" | "partner", partnerId: string | null = null, o?: PendingOrder) {

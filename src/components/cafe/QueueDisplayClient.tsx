@@ -33,7 +33,9 @@ import { fitColumn, pageOf, type QueueTier } from "@/lib/cafe/queue-display";
  * carries no monetary column at all. That is deliberate; see 0028.
  */
 
-const POLL_MS = 5000;
+// الاشتراك الحيّ يحرّك الشاشة خلال ثانية؛ هذا احتياط حين ينقطع.
+// كان ٥ ثوانٍ = ١٧٬٢٨٠ استدعاءً يومياً من شاشة معلّقة لا يلمسها أحد.
+const POLL_MS = 30_000;
 /**
  * كم تبقى الصفحة قبل أن تتبدّل.
  *

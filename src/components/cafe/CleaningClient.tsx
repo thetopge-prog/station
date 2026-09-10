@@ -40,7 +40,7 @@ export function CleaningClient() {
 
   useEffect(() => {
     const kick = setTimeout(() => void refresh(), 0);
-    const poll = setInterval(() => void refresh(), 10_000);
+    const poll = setInterval(() => void refresh(), 60_000);
     return () => {
       clearTimeout(kick);
       clearInterval(poll);

@@ -67,7 +67,10 @@ export function proxy(request: NextRequest) {
     // …but not the diagnostic page, which somebody is standing there reading
     if (pathname.startsWith("/tv/") && !pathname.endsWith("/check")) {
       const res = NextResponse.next();
-      res.headers.set("Refresh", "10");
+      // كان ١٠: ٨٬٦٤٠ إعادة تحميل يومياً، كلٌّ منها استدعاء دالة. التحديث
+      // الحقيقي يأتي من الاشتراك الحيّ داخل الصفحة؛ هذه للحظة يجمّد فيها
+      // التلفزيونُ جافاسكربت، وستّون ثانية تكفي لالتقاطها.
+      res.headers.set("Refresh", "60");
       return res;
     }
 

@@ -142,7 +142,7 @@ export function StaffShell({
       }
     }
     tick();
-    const t = setInterval(tick, 15000);
+    const t = setInterval(tick, 45_000);
     return () => {
       stopped = true;
       clearInterval(t);

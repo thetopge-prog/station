@@ -56,7 +56,10 @@ export function PrintSpooler() {
     };
 
     const kick = setTimeout(() => void check().then(tick), 1500);
-    const poll = setInterval(() => void tick(), 3000);
+    // كل نبضة استدعاء دالة على الخادم، وهذا المكوّن مركّب في كل شاشة موظّف:
+    // ثلاث ثوانٍ = ٢٨٬٨٠٠ استدعاء يومياً لكل شاشة مفتوحة، وهي ما أوقف الموقع.
+    // الاشتراك الحيّ (soon) يلتقط الطلب خلال ثانية، فهذا احتياط لا أكثر.
+    const poll = setInterval(() => void tick(), 30_000);
     const recheck = setInterval(() => void check(), 60_000);
 
     let channel: ReturnType<ReturnType<typeof createSupabaseBrowserClient>["channel"]> | null = null;
