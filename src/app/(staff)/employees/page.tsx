@@ -1,6 +1,8 @@
 import { requireStaff } from "@/lib/cafe/auth";
 import { listEmployees, type EmployeeRow } from "@/lib/cafe/employee-actions";
 import { listAccounts, type AccountRow } from "@/lib/cafe/account-actions";
+import { getShiftWindows } from "@/lib/cafe/shift-window";
+import { DEFAULT_WINDOWS, type ShiftWindows } from "@/lib/cafe/work-shift";
 import { EmployeesClient } from "@/components/cafe/EmployeesClient";
 import { AccountsClient } from "@/components/cafe/AccountsClient";
 
@@ -13,14 +15,15 @@ export default async function EmployeesPage() {
   if (!me.isAdmin && !me.isDeveloper) throw new Error("هذه الصفحة للمدير أو المطوّر.");
   let employees: EmployeeRow[] = [];
   let accounts: AccountRow[] = [];
+  let windows: ShiftWindows = DEFAULT_WINDOWS;
   try {
-    [employees, accounts] = await Promise.all([listEmployees(), listAccounts()]);
+    [employees, accounts, windows] = await Promise.all([listEmployees(), listAccounts(), getShiftWindows()]);
   } catch {
     // demo mode / non-admin — empty state
   }
   return (
     <div className="space-y-10">
-      <EmployeesClient employees={employees} />
+      <EmployeesClient employees={employees} windows={windows} />
       {/* Logins live next to the people they belong to: hiring someone and
           giving them a way in is one errand, not two pages. */}
       <AccountsClient accounts={accounts} />

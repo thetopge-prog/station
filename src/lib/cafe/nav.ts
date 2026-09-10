@@ -1,4 +1,4 @@
-import { Armchair, Bike, Boxes, CalendarClock, Calculator, ChefHat, ClipboardCheck, ClipboardList, CreditCard, HandCoins, HelpCircle, LayoutDashboard, MonitorPlay, PackageCheck, Percent, Printer, QrCode, Sparkles, UtensilsCrossed, Users, Wallet, Wrench, type LucideIcon, History } from "lucide-react";
+import { Armchair, Bike, Boxes, CalendarClock, Calculator, ChefHat, ClipboardCheck, ClipboardList, CreditCard, HandCoins, HelpCircle, LayoutDashboard, MonitorPlay, PackageCheck, Percent, Printer, QrCode, Sparkles, Truck, UtensilsCrossed, Users, Wallet, Wrench, type LucideIcon, History } from "lucide-react";
 import { canAccess, type StaffRole } from "./roles";
 
 /**
@@ -51,6 +51,7 @@ export const NAV: NavItem[] = [
   { href: "/employees", label: "الموظفون", short: "الموظفون", allow: [], group: "الإعدادات", icon: Users },
   { href: "/attendance", label: "الدخول والانصراف", short: "الحضور", allow: [], group: "الإعدادات", icon: CalendarClock },
   { href: "/partners", label: "شركات التوصيل", short: "الشركات", allow: [], group: "الإعدادات", icon: Bike },
+  { href: "/suppliers", label: "شركات المشتريات", short: "المشتريات", allow: [], group: "الإعدادات", icon: Truck },
   { href: "/printers", label: "الطابعات", short: "الطابعات", allow: [], group: "الإعدادات", icon: Printer },
   { href: "/qr", label: "رموز QR", short: "QR", allow: [], group: "الإعدادات", icon: QrCode },
   { href: "/setup", label: "التركيب", short: "التركيب", allow: [], group: "الإعدادات", icon: Wrench },

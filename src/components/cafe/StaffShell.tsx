@@ -57,12 +57,17 @@ function chime() {
   }
 }
 
+/** تذكير أول عند نصف ساعة، وثانٍ أحمر عند عشر دقائق. */
+const WARN_MINUTES = 30;
+const URGENT_MINUTES = 10;
+
 export function StaffShell({
   roles,
   name,
   pushKey = null,
   isDeveloper = false,
   shift = null,
+  shiftEndsAt = null,
   children,
 }: {
   roles: StaffRole[];
@@ -72,10 +77,21 @@ export function StaffShell({
   isDeveloper?: boolean;
   /** the drawer, resolved server-side — null for roles that do not hold one */
   shift?: ShiftLine | null;
+  /** لحظة انتهاء دوام هذا الموظّف — للتذكير قبلها */
+  shiftEndsAt?: string | null;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  // دقائق حتى نهاية الدوام، تُعاد كل دقيقة. الحساب من لحظة مطلقة أرسلها
+  // الخادم، فلا استدعاء ولا استهلاك دوال — ودرسُ الاستطلاعات ما زال قريباً.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!shiftEndsAt) return;
+    const t = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, [shiftEndsAt]);
+  const minsLeft = shiftEndsAt ? Math.round((Date.parse(shiftEndsAt) - now) / 60_000) : null;
   const { setTheme } = useCafeUI();
   const { primary, groups } = navFor(roles, isDeveloper);
   const till = useTillLock();
@@ -259,6 +275,22 @@ export function StaffShell({
                 كان الشريط يعرض المبلغ ومعه عدّاد دقائق بلغ «٢١١٧ د» — رقمان
                 لا يُتّخذ بهما قرار عند الكاونتر، والاسم مكرّر إلى جوارهما.
                 والمفتوحة لا تحتاج إعلاناً: غياب التحذير هو الخبر. */}
+            {/* تذكيران قبل النهاية: نصف ساعة للتحضير، وعشر دقائق للإقفال والجرد.
+                عند حدّ الوردية لا بعد المهلة — المهلة كي لا يتوقّف البيع أثناء
+                التسليم، لا كي يصل التذكير متأخّراً ساعة. */}
+            {minsLeft !== null && minsLeft > 0 && minsLeft <= WARN_MINUTES && (
+              <Link
+                href="/daily"
+                className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-black ${
+                  minsLeft <= URGENT_MINUTES
+                    ? "bg-destructive/15 text-destructive"
+                    : "bg-amber-500/20 text-amber-800 dark:text-amber-200"
+                }`}
+              >
+                ⏳ دوامك ينتهي بعد {minsLeft} دقيقة
+                {minsLeft <= URGENT_MINUTES ? " — أنهِ الوردية والجرد" : ""}
+              </Link>
+            )}
             {shift && !shift.open && (
               <Link
                 href="/cashier"

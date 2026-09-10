@@ -13,6 +13,8 @@ export type ExpenseRow = {
   amount: number;
   category: string | null;
   note: string | null;
+  /** اسم شركة المشتريات إن نُسب إليها — «—» حين لا شركة، وهو مقبول */
+  supplier: string | null;
 };
 
 /** Any staff member records expenses (the cashier pays for ice, milk, …).
@@ -48,7 +50,7 @@ export async function addStaffAdvance(input: { employeeId: string; amount: numbe
   return { ok: true as const };
 }
 
-export async function addExpense(input: { amount: number; category?: string; note?: string; businessDay?: string | null }) {
+export async function addExpense(input: { amount: number; category?: string; note?: string; businessDay?: string | null; supplierId?: string | null }) {
   const staff = await requireStaff();
   const amount = Math.max(0, Math.round(input.amount));
   if (amount <= 0) return { ok: false as const, error: "أدخل مبلغاً صحيحاً." };
@@ -73,6 +75,7 @@ export async function addExpense(input: { amount: number; category?: string; not
     note: input.note?.trim() || null,
     business_day: day,
     created_by: staff.employeeId,
+    supplier_id: input.supplierId || null,
   });
   if (error) return { ok: false as const, error: error.message };
   revalidatePath("/expenses");
@@ -86,12 +89,29 @@ export async function listExpenses(limit = 60): Promise<ExpenseRow[]> {
   const svc = createSupabaseServiceClient();
   let q = svc
     .from("expenses")
-    .select("id, business_day, amount, category, note")
+    .select("id, business_day, amount, category, note, supplier_id")
     .order("created_at", { ascending: false })
     .limit(limit);
   if (!staff.isAdmin) q = q.eq("business_day", businessDay());
   const { data } = await q;
-  return (data ?? []) as ExpenseRow[];
+  const rows = data ?? [];
+
+  // الاسم باستعلام ثانٍ وخريطة — نفس نمط listSessions: الأنواع مكتوبة بيد،
+  // فلا تعرف المفتاح الأجنبي ولا يستعمل أحد التضمين.
+  const ids = [...new Set(rows.map((r) => r.supplier_id).filter((x): x is string => !!x))];
+  const nameOf = new Map<string, string>();
+  if (ids.length) {
+    const { data: sup } = await svc.from("suppliers").select("id, name_ar").in("id", ids);
+    for (const x of sup ?? []) nameOf.set(x.id, x.name_ar);
+  }
+  return rows.map((r) => ({
+    id: r.id,
+    business_day: r.business_day,
+    amount: r.amount,
+    category: r.category,
+    note: r.note,
+    supplier: (r.supplier_id && nameOf.get(r.supplier_id)) || null,
+  }));
 }
 
 // ── daily register closure (إغلاق الصندوق) ──────────────────────────────────
@@ -229,5 +249,63 @@ export async function deleteManualSale(businessDay: string) {
   if (error) return { ok: false as const, error: error.message };
   revalidatePath("/expenses");
   revalidatePath("/dashboard");
+  return { ok: true as const };
+}
+
+/**
+ * شركات المشتريات — بيبسي، طاحونة السنابل، علوة السدة.
+ *
+ * تُصرف لها مبالغ يومياً أو أسبوعياً، وكان المصروف يحمل تصنيفاً نصّياً حرّاً
+ * فقط، فلا يُعرف كم صُرف لشركة بعينها ولا رقم مندوبها حين يتأخّر.
+ *
+ * لا ذمم ولا تسويات: المصروف هو الدفعة نفسها. و«كم دفعنا لبيبسي هذا الشهر»
+ * تجميعٌ على supplier_id، موجود بمجرد وجود العمود.
+ */
+export type Supplier = {
+  id: string;
+  name_ar: string;
+  phone1: string | null;
+  phone2: string | null;
+  is_active: boolean;
+};
+
+/** القائمة التي يختار منها الكاشير. النشطة فقط — والمعطَّلة تبقى في المصروفات القديمة. */
+export async function listSuppliers(activeOnly = true): Promise<Supplier[]> {
+  await requireStaff();
+  const svc = createSupabaseServiceClient();
+  let q = svc.from("suppliers").select("id, name_ar, phone1, phone2, is_active").order("sort").order("name_ar");
+  if (activeOnly) q = q.eq("is_active", true);
+  const { data } = await q;
+  return (data ?? []) as Supplier[];
+}
+
+export async function saveSupplier(input: {
+  id?: string | null;
+  name: string;
+  phone1?: string | null;
+  phone2?: string | null;
+  active?: boolean;
+  note?: string | null;
+}) {
+  await requireAdmin();
+  const name = input.name.trim();
+  if (!name) return { ok: false as const, error: "اكتب اسم الشركة." };
+  const svc = createSupabaseServiceClient();
+  const { error } = await svc.rpc("save_supplier", {
+    p_id: input.id ?? null,
+    p_name: name,
+    p_phone1: input.phone1?.trim() || null,
+    p_phone2: input.phone2?.trim() || null,
+    p_active: input.active ?? true,
+    p_note: input.note?.trim() || null,
+  });
+  if (error) {
+    return {
+      ok: false as const,
+      error: /duplicate key|unique/i.test(error.message) ? "هذا الاسم مسجّل مسبقاً." : error.message,
+    };
+  }
+  revalidatePath("/suppliers");
+  revalidatePath("/expenses");
   return { ok: true as const };
 }

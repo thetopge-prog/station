@@ -3,18 +3,34 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { BadgeDollarSign, Pencil, X } from "lucide-react";
-import { payWage, toggleEmployee, upsertEmployee, type EmployeeRow } from "@/lib/cafe/employee-actions";
+import { payWage, saveShiftHours, toggleEmployee, upsertEmployee, type EmployeeRow } from "@/lib/cafe/employee-actions";
+import { SHIFT_AR, shiftHours, type ShiftPeriod, type ShiftWindows } from "@/lib/cafe/work-shift";
 import { WAGE_PERIOD_AR, type WagePeriod } from "@/lib/cafe/wages";
 import { formatIqdLabel } from "@/lib/cafe/money";
 
 const PERIODS: WagePeriod[] = ["daily", "weekly", "monthly"];
+const SHIFTS: ShiftPeriod[] = ["morning", "evening"];
 
-export function EmployeesClient({ employees }: { employees: EmployeeRow[] }) {
+/** دقيقة من منتصف الليل ← HH:MM لخانة الوقت، ولو جاوزت اليوم. */
+const toTime = (m: number) =>
+  `${String(Math.floor((m % 1440) / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+
+export function EmployeesClient({ employees, windows }: { employees: EmployeeRow[]; windows: ShiftWindows }) {
   const router = useRouter();
   const [editing, setEditing] = useState<EmployeeRow | null>(null);
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [period, setPeriod] = useState<WagePeriod>("daily");
+  const [shift, setShift] = useState<ShiftPeriod | "">("");
+  // أوقات الورديتين — أربع خانات وقت للمدير
+  const [hours, setHours] = useState({
+    morningStart: toTime(windows.morning[0]),
+    morningEnd: toTime(windows.morning[1]),
+    eveningStart: toTime(windows.evening[0]),
+    eveningEnd: toTime(windows.evening[1]),
+  });
+  const [hoursBusy, setHoursBusy] = useState(false);
+  const [hoursMsg, setHoursMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -23,6 +39,7 @@ export function EmployeesClient({ employees }: { employees: EmployeeRow[] }) {
     setName(e.name_ar);
     setAmount(String(e.wage_amount || ""));
     setPeriod(e.wage_period ?? "daily");
+    setShift(e.shift_period ?? "");
     setMsg(null);
   }
   function resetForm() {
@@ -30,6 +47,7 @@ export function EmployeesClient({ employees }: { employees: EmployeeRow[] }) {
     setName("");
     setAmount("");
     setPeriod("daily");
+    setShift("");
   }
 
   async function save(e: React.FormEvent) {
@@ -41,6 +59,7 @@ export function EmployeesClient({ employees }: { employees: EmployeeRow[] }) {
       name_ar: name,
       wage_amount: Number(amount) || 0,
       wage_period: period,
+      shiftPeriod: shift === "" ? null : shift,
     });
     setBusy(false);
     if (!res.ok) {
@@ -68,12 +87,62 @@ export function EmployeesClient({ employees }: { employees: EmployeeRow[] }) {
     router.refresh();
   }
 
+  async function saveHours() {
+    setHoursBusy(true);
+    setHoursMsg(null);
+    const res = await saveShiftHours(hours);
+    setHoursBusy(false);
+    setHoursMsg(res.ok ? "حُفظت أوقات الدوام ✅" : res.error);
+    if (res.ok) router.refresh();
+  }
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">الموظفون</h1>
 
+      {/* أوقات الدوام — كانت في الشيفرة فصارت هنا، لأن المحل يغيّرها بقرار */}
+      <div className="rounded-2xl border border-border bg-card p-4">
+        <h2 className="mb-3 font-black">🕒 أوقات الدوام</h2>
+        <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+          {SHIFTS.map((p) => (
+            <div key={p} className="flex items-end gap-2">
+              <span className="pb-2 text-sm font-bold text-muted-foreground">{SHIFT_AR[p]}</span>
+              <label className="text-xs">
+                <span className="text-muted-foreground">من</span>
+                <input
+                  type="time"
+                  value={p === "morning" ? hours.morningStart : hours.eveningStart}
+                  onChange={(ev) => setHours((h) => ({ ...h, [p === "morning" ? "morningStart" : "eveningStart"]: ev.target.value }))}
+                  className="mt-1 block rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
+                />
+              </label>
+              <label className="text-xs">
+                <span className="text-muted-foreground">إلى</span>
+                <input
+                  type="time"
+                  value={p === "morning" ? hours.morningEnd : hours.eveningEnd}
+                  onChange={(ev) => setHours((h) => ({ ...h, [p === "morning" ? "morningEnd" : "eveningEnd"]: ev.target.value }))}
+                  className="mt-1 block rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
+                />
+              </label>
+            </div>
+          ))}
+          <button
+            onClick={() => void saveHours()}
+            disabled={hoursBusy}
+            className="self-end rounded-lg bg-primary px-5 py-2 font-bold text-primary-foreground disabled:opacity-50"
+          >
+            {hoursBusy ? "…" : "حفظ الأوقات"}
+          </button>
+        </div>
+        <p className="mt-2 text-xs font-bold text-muted-foreground">
+          المسائية تعبر منتصف الليل، فنهايتها ٠٣:٠٠ تعني فجر اليوم التالي. التغيير يسري على كل جهاز خلال دقيقة. ومهلة ساعة قبل الوردية وبعدها تبقى دائماً كي لا يتوقّف البيع عند التسليم.
+        </p>
+        {hoursMsg && <p className="mt-1 text-sm font-bold text-muted-foreground">{hoursMsg}</p>}
+      </div>
+
       {/* add / edit */}
-      <form onSubmit={save} className="grid gap-3 rounded-2xl border border-border bg-card p-4 sm:grid-cols-[1fr_160px_150px_auto_auto]">
+      <form onSubmit={save} className="grid gap-3 rounded-2xl border border-border bg-card p-4 sm:grid-cols-[1fr_140px_130px_150px_auto_auto]">
         <label className="space-y-1 text-sm">
           <span className="text-muted-foreground">{editing ? `تعديل: ${editing.name_ar}` : "اسم الموظف"}</span>
           <input
@@ -109,6 +178,22 @@ export function EmployeesClient({ employees }: { employees: EmployeeRow[] }) {
             ))}
           </select>
         </label>
+        <label className="space-y-1 text-sm">
+          <span className="text-muted-foreground">الوردية</span>
+          <select
+            value={shift}
+            onChange={(e) => setShift(e.target.value as ShiftPeriod | "")}
+            className="w-full rounded-lg border border-input bg-background px-3 py-2 outline-none focus:ring-2 focus:ring-ring"
+          >
+            {/* الفارغ أولاً: من لا وردية له لا يُمنع في أي ساعة */}
+            <option value="">بلا قيد وقت</option>
+            {SHIFTS.map((p) => (
+              <option key={p} value={p}>
+                {SHIFT_AR[p]} — {shiftHours(p, windows)}
+              </option>
+            ))}
+          </select>
+        </label>
         <button
           type="submit"
           disabled={busy}
@@ -133,6 +218,7 @@ export function EmployeesClient({ employees }: { employees: EmployeeRow[] }) {
               <th className="px-4 py-2.5 font-medium">الموظف</th>
               <th className="px-4 py-2.5 font-medium">الأجر</th>
               <th className="px-4 py-2.5 font-medium">الدورية</th>
+              <th className="px-4 py-2.5 font-medium">الوردية</th>
               <th className="px-4 py-2.5 font-medium">الحالة</th>
               <th className="px-4 py-2.5 font-medium"></th>
             </tr>
@@ -140,7 +226,7 @@ export function EmployeesClient({ employees }: { employees: EmployeeRow[] }) {
           <tbody>
             {employees.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-muted-foreground">
+                <td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">
                   لا يوجد موظفون بعد — أضف أول موظف من الأعلى.
                 </td>
               </tr>
@@ -153,6 +239,15 @@ export function EmployeesClient({ employees }: { employees: EmployeeRow[] }) {
                 </td>
                 <td className="px-4 py-2.5 font-semibold">{e.wage_amount ? formatIqdLabel(e.wage_amount) : "—"}</td>
                 <td className="px-4 py-2.5">{e.wage_period ? WAGE_PERIOD_AR[e.wage_period] : "—"}</td>
+                <td className="px-4 py-2.5">
+                  {e.shift_period ? (
+                    <span className="whitespace-nowrap">
+                      {SHIFT_AR[e.shift_period]} <span className="text-xs text-muted-foreground">{shiftHours(e.shift_period, windows)}</span>
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">بلا قيد</span>
+                  )}
+                </td>
                 <td className="px-4 py-2.5">
                   <button
                     onClick={() => onToggle(e)}

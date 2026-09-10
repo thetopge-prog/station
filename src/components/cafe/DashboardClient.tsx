@@ -13,7 +13,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { DaySummary, RecentOrder } from "@/lib/cafe/dashboard-actions";
+import type { DaySummary, RecentOrder, StartupShift } from "@/lib/cafe/dashboard-actions";
 import { formatIqd, formatIqdLabel } from "@/lib/cafe/money";
 import type { ShortageRow } from "@/lib/cafe/shortage";
 import { BreakEvenCard } from "./BreakEvenCard";
@@ -27,6 +27,7 @@ const CHANNEL_AR: Record<string, string> = {
   takeaway: "سفري",
   curbside: "من السيارة",
 };
+const PAY_AR: Record<string, string> = { cash: "نقدي", card: "كي كارد", partner: "شركة" };
 const STATUS_AR: Record<string, string> = { pending: "معلّق", paid: "مدفوع", cancelled: "ملغي", refunded: "مسترجع" };
 const STATUS_CLASS: Record<string, string> = {
   pending: "bg-accent text-accent-foreground",
@@ -48,6 +49,7 @@ export function DashboardClient({
   yesterday,
   yesterdaySummary = null,
   shortages = [],
+  startup,
 }: {
   days: number;
   summary: DaySummary[];
@@ -59,10 +61,14 @@ export function DashboardClient({
   outstandingDebts?: number;
   todayDate: string;
   yesterday: string;
+  /** «وردية الانطلاق» — مبيعات حساب الإدارة، مفروزة لا مطروحة */
+  startup?: StartupShift;
   yesterdaySummary?: DaySummary | null;
   shortages?: ShortageRow[];
 }) {
   const router = useRouter();
+  // جدولان في صفحة واحدة: حالة فتح مستقلة لكلٍّ، وإلا فتح صفٌّ صفَّ الآخر
+  const [startupOpen, setStartupOpen] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [resetting, setResetting] = useState(false);
   // «مبيعات يوم محدّد» — reconcile the drawer for a day that already rolled over.
@@ -300,6 +306,77 @@ export function DashboardClient({
               </div>
               <p className="text-xs text-muted-foreground">
                 أعلى سطر هو ما يجب شراؤه أولاً — «مبيعات ضائعة» هو المال الذي لم يدخل الصندوق لأن الصنف لم يكن موجوداً.
+              </p>
+            </section>
+          )}
+
+          {/* «وردية الانطلاق» — ما بِيع على حساب الإدارة.
+              مفروز للمساءلة لا للمحاسبة: هذه المبيعات داخلة في مجاميع اللوحة
+              وفي جرد اليوم، وطرحها منها يجعل الأرقام تتناقض. */}
+          {startup && startup.count > 0 && (
+            <section className="space-y-2">
+              <h2 className="text-sm font-semibold text-muted-foreground">وردية الانطلاق — ما بِيع على حساب الإدارة</h2>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <Kpi label="الطلبات" value={String(startup.count)} />
+                <Kpi label="المبيعات" value={formatIqdLabel(startup.sales)} highlight />
+                <Kpi label="الخصومات" value={formatIqdLabel(startup.discounts)} />
+                <Kpi label="متوسط الطلب" value={formatIqdLabel(Math.round(startup.sales / startup.count))} />
+              </div>
+              <div className="overflow-x-auto rounded-xl border border-border bg-card">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-right text-muted-foreground">
+                      <th className="px-4 py-2.5 font-medium">رقم</th>
+                      <th className="px-4 py-2.5 font-medium">الحساب</th>
+                      <th className="px-4 py-2.5 font-medium">القناة</th>
+                      <th className="px-4 py-2.5 font-medium">الدفع</th>
+                      <th className="px-4 py-2.5 font-medium">الخصم</th>
+                      <th className="px-4 py-2.5 font-medium">المبلغ</th>
+                      <th className="px-4 py-2.5 font-medium">الوقت</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {startup.orders.map((o) => (
+                      <Fragment key={o.id}>
+                        <tr
+                          onClick={() => setStartupOpen(startupOpen === o.id ? null : o.id)}
+                          className="cursor-pointer border-b border-border/60 last:border-0 hover:bg-secondary/40"
+                        >
+                          <td className="px-4 py-2.5 font-semibold">#{String(o.order_seq).padStart(3, "0")}</td>
+                          <td className="px-4 py-2.5">{o.cashier_name}</td>
+                          <td className="px-4 py-2.5">{CHANNEL_AR[o.channel] ?? o.channel}</td>
+                          <td className="px-4 py-2.5">{PAY_AR[o.payment_method ?? ""] ?? "—"}</td>
+                          <td className="px-4 py-2.5 tabular-nums">{o.discount ? formatIqdLabel(o.discount) : "—"}</td>
+                          <td className="px-4 py-2.5 font-semibold tabular-nums">{formatIqdLabel(o.total)}</td>
+                          <td className="px-4 py-2.5 text-muted-foreground">
+                            {new Date(o.paid_at ?? o.created_at).toLocaleString("ar-IQ", { dateStyle: "short", timeStyle: "short" })}
+                          </td>
+                        </tr>
+                        {startupOpen === o.id && (
+                          <tr className="bg-secondary/30">
+                            <td colSpan={7} className="px-6 py-2">
+                              <ul className="space-y-0.5 text-xs">
+                                {o.items.map((it, i) => (
+                                  <li key={i} className="flex justify-between gap-3">
+                                    <span>
+                                      {it.qty} × {it.name_ar}
+                                      {it.flavor_ar ? ` — ${it.flavor_ar}` : ""}
+                                    </span>
+                                    <span className="tabular-nums">{formatIqdLabel(it.line_total)}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-xs font-bold text-muted-foreground">
+                محسوبة ضمن مجاميع اللوحة وجرد اليوم — تُعرض هنا منفصلة لتُعرف، لا لتُطرح.
+                {startup.capped ? " (أول ٢٠٠ طلب في هذه المدة)" : ""}
               </p>
             </section>
           )}

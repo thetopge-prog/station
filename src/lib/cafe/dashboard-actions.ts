@@ -143,3 +143,105 @@ export async function getRecentOrders(limit = 15): Promise<RecentOrder[]> {
   }
   return orders.map((o) => ({ ...o, items: byOrder.get(o.id) ?? [] })) as RecentOrder[];
 }
+
+/**
+ * «وردية الانطلاق» — كل ما بِيع على حساب الإدارة.
+ *
+ * في أسابيع التشغيل الأولى كان الموظفون يبيعون على حساب المالك، فوقعت أخطاء
+ * لا تُنسب إلى أحد. ولا تقرير في النظام كلّه يجمع حسب من قبض: المجاميع باليوم
+ * أو بالجلسة أو بالشركة، فمبيعات الإدارة ذائبة فيها بلا تمييز.
+ *
+ * تُفرز لتُرى، ولا تُطرح من شيء: هي مبيعات حقيقية دخلت الدرج، وطرحها يجعل
+ * لوحة التحكم تخالف جرد اليوم وتقرير الوردية. الفرز للمساءلة لا للمحاسبة.
+ *
+ * بلا دالة SQL: cashier_id مختوم عند الدفع، ومفتاح الخدمة يقرأ الجدولين
+ * أصلاً — ودالةٌ جديدة تعني منحاً جديدة وفرصةً أخرى لترك تعريفين.
+ */
+export type StartupOrder = RecentOrder & {
+  paid_at: string | null;
+  payment_method: string | null;
+  cashier_name: string;
+  discount: number;
+  extra: number;
+  total: number;
+};
+export type StartupShift = {
+  orders: StartupOrder[];
+  count: number;
+  sales: number;
+  discounts: number;
+  /** بلغت الحدّ: القائمة مقصوصة والمجاميع كذلك */
+  capped: boolean;
+};
+
+const STARTUP_LIMIT = 200;
+
+export async function getStartupShift(from: string, to: string): Promise<StartupShift> {
+  await requireAdmin();
+  const empty: StartupShift = { orders: [], count: 0, sales: 0, discounts: 0, capped: false };
+  const svc = createSupabaseServiceClient();
+
+  // حسابات الإدارة: بالعمود القديم وبجدول الصلاحيات معاً — كما تفعل is_admin()
+  // في 0062 بالضبط، وإلا سقط حسابٌ رُبط بالطريقة الأخرى.
+  const { data: adminRole } = await svc.from("roles").select("id").eq("name_en", "admin").maybeSingle();
+  if (!adminRole) return empty;
+  const [{ data: byCol }, { data: byLink }] = await Promise.all([
+    svc.from("employees").select("id, name_ar").eq("role_id", adminRole.id),
+    svc.from("employee_roles").select("employee_id").eq("role_id", adminRole.id),
+  ]);
+  const ids = new Set<string>((byCol ?? []).map((e) => e.id));
+  for (const r of byLink ?? []) ids.add(r.employee_id);
+  if (!ids.size) return empty;
+
+  const { data: names } = await svc.from("employees").select("id, name_ar").in("id", [...ids]);
+  const nameOf = new Map((names ?? []).map((e) => [e.id, e.name_ar]));
+
+  const { data: orders } = await svc
+    .from("orders")
+    .select("id, order_seq, channel, status, subtotal, discount, extra, table_no, created_at, paid_at, payment_method, cashier_id")
+    .eq("status", "paid")
+    .gte("business_day", from)
+    .lte("business_day", to)
+    .in("cashier_id", [...ids])
+    .order("paid_at", { ascending: false })
+    .limit(STARTUP_LIMIT);
+  if (!orders?.length) return empty;
+
+  const oids = orders.map((o) => o.id);
+  const { data: items } = await svc
+    .from("order_items")
+    .select("order_id, name_ar, flavor_ar, qty, line_total")
+    .in("order_id", oids);
+  const byOrder = new Map<string, RecentOrderItem[]>();
+  for (const it of items ?? []) {
+    const arr = byOrder.get(it.order_id) ?? [];
+    arr.push({ name_ar: it.name_ar, flavor_ar: it.flavor_ar, qty: it.qty, line_total: it.line_total });
+    byOrder.set(it.order_id, arr);
+  }
+
+  const rows: StartupOrder[] = orders.map((o) => ({
+    id: o.id,
+    order_seq: o.order_seq,
+    channel: o.channel,
+    status: o.status,
+    subtotal: o.subtotal,
+    discount: o.discount ?? 0,
+    extra: o.extra ?? 0,
+    // نفس تعريف المبلغ في كل تقرير آخر، وإلا اختلف هذا الرقم بمقدار الخصومات
+    total: (o.subtotal ?? 0) - (o.discount ?? 0) + (o.extra ?? 0),
+    table_no: o.table_no,
+    created_at: o.created_at,
+    paid_at: o.paid_at,
+    payment_method: o.payment_method,
+    cashier_name: (o.cashier_id && nameOf.get(o.cashier_id)) || "—",
+    items: byOrder.get(o.id) ?? [],
+  }));
+
+  return {
+    orders: rows,
+    count: rows.length,
+    sales: rows.reduce((t, r) => t + r.total, 0),
+    discounts: rows.reduce((t, r) => t + r.discount, 0),
+    capped: rows.length === STARTUP_LIMIT,
+  };
+}

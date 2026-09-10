@@ -10,6 +10,7 @@ import {
   type ExpenseRow,
   type RegisterClosure,
   type MonthlyCost,
+  type Supplier,
   saveManualSale,
   deleteManualSale,
   type ManualSale,
@@ -27,6 +28,7 @@ export function ExpensesClient({
   monthlyCosts,
   isAdmin,
   manualSales = [],
+  suppliers = [],
 }: {
   expenses: ExpenseRow[];
   closures: { today: RegisterClosure | null; previous: RegisterClosure | null };
@@ -34,11 +36,14 @@ export function ExpensesClient({
   isAdmin: boolean;
   /** مبيعات الأيام التي سبقت الاعتماد — للإدارة وحدها */
   manualSales?: ManualSale[];
+  /** شركات المشتريات النشطة — يُنسب إليها المصروف اختيارياً */
+  suppliers?: Supplier[];
 }) {
   const router = useRouter();
   const [amount, setAmount] = useState(0);
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [note, setNote] = useState("");
+  const [supplierId, setSupplierId] = useState("");
   // فارغ = اليوم. يُملأ فقط لمصروف صُرف قبل الاعتماد.
   const [expenseDay, setExpenseDay] = useState("");
   const [busy, setBusy] = useState(false);
@@ -107,7 +112,7 @@ export function ExpensesClient({
     }
     setBusy(true);
     setMsg(null);
-    const res = await addExpense({ amount, category, note, businessDay: expenseDay || null });
+    const res = await addExpense({ amount, category, note, businessDay: expenseDay || null, supplierId: supplierId || null });
     setBusy(false);
     if (!res.ok) {
       setMsg(res.error);
@@ -115,6 +120,7 @@ export function ExpensesClient({
     }
     setAmount(0);
     setNote("");
+    setSupplierId("");
     setExpenseDay("");
     router.refresh();
   }
@@ -161,7 +167,7 @@ export function ExpensesClient({
         </div>
       )}
 
-      <form onSubmit={submit} className="grid gap-3 rounded-2xl border border-border bg-card p-4 sm:grid-cols-[160px_180px_1fr_auto]">
+      <form onSubmit={submit} className="grid gap-3 rounded-2xl border border-border bg-card p-4 sm:grid-cols-[160px_170px_170px_1fr_auto]">
         <label className="space-y-1 text-sm">
           <span className="text-muted-foreground">المبلغ (د.ع)</span>
           <PriceInput value={amount} onChange={setAmount} />
@@ -186,6 +192,22 @@ export function ExpensesClient({
             {CATEGORIES.map((c) => (
               <option key={c} value={c}>
                 {c}
+              </option>
+            ))}
+          </select>
+        </label>
+        {/* لمن دُفع المبلغ — فارغ مقبول، فليس كل مصروف لشركة */}
+        <label className="space-y-1 text-sm">
+          <span className="text-muted-foreground">الشركة (اختياري)</span>
+          <select
+            value={supplierId}
+            onChange={(e) => setSupplierId(e.target.value)}
+            className="w-full rounded-lg border border-input bg-background px-3 py-2 outline-none focus:ring-2 focus:ring-ring"
+          >
+            <option value="">— بلا شركة —</option>
+            {suppliers.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name_ar}
               </option>
             ))}
           </select>
@@ -315,6 +337,7 @@ export function ExpensesClient({
             <tr className="border-b border-border text-right text-muted-foreground">
               <th className="px-4 py-2.5 font-medium">اليوم</th>
               <th className="px-4 py-2.5 font-medium">التصنيف</th>
+              <th className="px-4 py-2.5 font-medium">الشركة</th>
               <th className="px-4 py-2.5 font-medium">المبلغ</th>
               <th className="px-4 py-2.5 font-medium">ملاحظة</th>
             </tr>
@@ -322,7 +345,7 @@ export function ExpensesClient({
           <tbody>
             {expenses.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-muted-foreground">
+                <td colSpan={5} className="px-4 py-6 text-center text-muted-foreground">
                   لا توجد مصروفات مسجّلة.
                 </td>
               </tr>
@@ -333,6 +356,7 @@ export function ExpensesClient({
                   {x.business_day}
                 </td>
                 <td className="px-4 py-2.5">{x.category ?? "—"}</td>
+                <td className="px-4 py-2.5 text-muted-foreground">{x.supplier ?? "—"}</td>
                 <td className="px-4 py-2.5 font-semibold">{formatIqdLabel(x.amount)}</td>
                 <td className="px-4 py-2.5 text-muted-foreground">
                   <span className="flex items-center justify-between gap-3">
