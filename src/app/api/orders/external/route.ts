@@ -77,6 +77,8 @@ export async function POST(req: Request) {
   let customerName: string | null = null;
   let partnerTotal: number | null = parsed.total;
   let refLong: string | null = null;
+  // الشاشة تقول كم صنفاً فيها؛ إن قرأنا أقلّ فالباقي تحت حافة الشاشة
+  let declared: number | null = null;
   if (isScreen) {
     const s = parseTotersScreen((body.lines as unknown[]).map((l) => String(l ?? "")));
     ref = s.ref ?? (body.ref ? String(body.ref) : null);
@@ -84,7 +86,10 @@ export async function POST(req: Request) {
     customerName = s.customerName;
     partnerTotal = s.total;
     refLong = s.refLong;
+    declared = s.declared;
   }
+  // طلب ناقص أسوأ من لا طلب: المطبخ يطبخ نصفه والزبون يشتكي. يُنبَّه ولا يُنشأ.
+  const short = declared != null && items.length < declared;
   const source = parsed.source;
 
   // ── التكرار: نفس المرجع خلال نصف ساعة ─────────────────────────────────
@@ -128,7 +133,7 @@ export async function POST(req: Request) {
     ]);
     const resolved = resolveLines(items, aliases ?? [], menu ?? []);
     unknown = resolved.unknown;
-    if (!unknown.length && resolved.lines.length) {
+    if (!unknown.length && resolved.lines.length && !short) {
       const src = source === "other" ? "web" : source;
       const noteText = [`${src === "toters" ? "توترز" : src === "talabaty" ? "طلباتي" : src} #${ref ?? "?"}`, refLong, partnerTotal ? `مبلغهم ${partnerTotal.toLocaleString("en-US")}` : null]
         .filter(Boolean)
@@ -170,7 +175,13 @@ export async function POST(req: Request) {
     ref,
     title: isScreen ? `شاشة${customerName ? ` · ${customerName}` : ""}` : (body.title ?? "").slice(0, 120) || null,
     body: isScreen
-      ? items.map((i) => `${i.qty} × ${i.name}${i.option ? ` / ${i.option}` : ""}`).join("\n").slice(0, 1000) || null
+      ? [
+          short ? `⚠ الشاشة تقول ${declared} أصناف وقُرئ ${items.length} — مرّر شاشة توترز لأسفل ثم افتح الطلب ثانيةً` : null,
+          ...items.map((i) => `${i.qty} × ${i.name}${i.option ? ` / ${i.option}` : ""}`),
+        ]
+          .filter(Boolean)
+          .join("\n")
+          .slice(0, 1000) || null
       : (body.text ?? "").slice(0, 1000) || null,
     order_id: orderId,
     unknown_items: unknown.length ? unknown : null,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { linesOf, parseExternalOrder, refOf, sourceOf, totalOf } from "./external-order";
+import { declaredCount, linesOf, parseExternalOrder, parseTotersScreen, refOf, sourceOf, totalOf } from "./external-order";
 
 /**
  * إشعار «طلب جديد» من تطبيق شركة توصيل. الشكل الحقيقي لإشعار توترز لم يُرَ
@@ -60,5 +60,26 @@ describe("parseExternalOrder", () => {
     const p = parseExternalOrder({ pkg: "com.toters.totersmerchant", title: "Toters", text: "لديك طلب جديد" });
     expect(p.lines).toEqual([]);
     expect(p.ref).toBeNull();
+  });
+});
+
+describe("قراءة ناقصة: الشاشة تقول عنصران وتُرسل واحداً", () => {
+  // نصّ حقيقي من جهاز المطعم، طلب توترز #617: الصنف الثاني كان تحت حافة الشاشة
+  const lines = [
+    "التنقل إلى أعلى", "١", "تحضير", "الطلب #٦١٧", "٩٢٦١٧-٧٧٢٧٣", "عبدالله ر",
+    "هوية ٣٣٥١٠٦٩٢١٦٢", "تم", "اليوم في ١:٠٨ م", "عنصران", "الصلصات",
+    "١x", "صلصة جبنة", "١٬٠٠٠ د.ع. / عنصر", "١٬٠٠٠ د.ع.", "الطلب جاهز",
+  ];
+  it("تقرأ العدد المعلن فيُكشف النقص", () => {
+    const s = parseTotersScreen(lines);
+    expect(s.ref).toBe("617");
+    expect(s.items).toHaveLength(1);
+    expect(s.declared).toBe(2);
+  });
+  it("تعرف صيغ العدد الأخرى", () => {
+    expect(declaredCount(["عنصر"])).toBe(1);
+    expect(declaredCount(["٣ عناصر"])).toBe(3);
+    expect(declaredCount(["١٢ عنصراً"])).toBe(12);
+    expect(declaredCount(["لا شيء"])).toBeNull();
   });
 });

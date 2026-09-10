@@ -41,7 +41,25 @@ export function foldArabic(s: string): string {
 // الخيار بعد «/» هو ما يغيّر الصنف عندنا (٣ قطع ≠ ٨ قطع)، فيُحمل مع الاسم.
 
 export type ScreenItem = { name: string; qty: number; option: string | null };
-export type ParsedScreen = { ref: string | null; refLong: string | null; customerName: string | null; items: ScreenItem[]; total: number | null };
+export type ParsedScreen = { ref: string | null; refLong: string | null; customerName: string | null; items: ScreenItem[]; total: number | null; declared: number | null };
+
+/**
+ * كم صنفاً تقول الشاشة إنها تحمل: «عنصران»، «٣ عناصر»…
+ *
+ * خدمة إمكانية الوصول تقرأ ما هو معروض فقط، وأندرويد يعيد تدوير الصفوف خارج
+ * الرؤية. فطلب من صنفين تُقرأ منه واحدة إن كان الثاني تحت حافة الشاشة، ويُصنع
+ * طلب ناقص يطبخه المطبخ ناقصاً. هذا السطر هو الشاهد الوحيد على النقص.
+ */
+export function declaredCount(rawLines: string[]): number | null {
+  for (const raw of rawLines) {
+    const l = normDigits(String(raw ?? "")).replace(/\s+/g, " ").trim();
+    if (/^عنصر(?:ان|ين)$/.test(l)) return 2;
+    if (/^عنصر$/.test(l)) return 1;
+    const m = l.match(/^(\d{1,2})\s*(?:عناصر|عنصرًا|عنصراً|عنصرا|عنصر)$/);
+    if (m) return Number(m[1]);
+  }
+  return null;
+}
 
 const QTY_LINE = /^(?:(\d{1,2})\s*[x×]|[x×]\s*(\d{1,2}))$/i;
 const PRICE_LINE = /^([\d,.]+)\s*د\.?\s*ع\.?(?:\s*\/\s*(.+))?$/;
@@ -96,7 +114,7 @@ export function parseTotersScreen(rawLines: string[]): ParsedScreen {
     const n = Number((tm.match(/([\d,.]{3,})/)?.[1] ?? "").replace(/[,.]/g, ""));
     if (Number.isFinite(n) && n > 0) total = n;
   }
-  return { ref, refLong, customerName, items, total };
+  return { ref, refLong, customerName, items, total, declared: declaredCount(rawLines) };
 }
 
 export type AliasRow = { alias_key: string; item_id: string; variant_id: string | null; flavor: string | null };
