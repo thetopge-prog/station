@@ -235,6 +235,22 @@ body {
   50%      { box-shadow: 0 0 0 10px rgb(255 255 255 / 0.22); }
 }
 
+/* ── Order landing strips (أصناف تنساب خلف أزرار الطلب) ───────────
+   القائمة مكرّرة مرّتين والإزاحة ٥٠٪ بالضبط، فتعود إلى نقطة البداية دون قفزة.
+   وبطيء عن قصد: الصور خلفية تفتح الشهية، وأي سرعة تخطف العين
+   عن القرار الذي جاء الزبون ليتخذه. */
+@keyframes st-drift {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+@keyframes st-drift-rev {
+  0%   { transform: translateX(-50%); }
+  100% { transform: translateX(0); }
+}
+
+.st-drift { animation: st-drift 46s linear infinite; }
+.st-drift-rev { animation: st-drift-rev 58s linear infinite; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

@@ -23,11 +23,13 @@ import { AUTH_STORAGE_KEY, parseSessionCookie } from "@/lib/supabase/constants";
 // this prefix every request from them would be answered with a sign-in page.
 // /queue — the ceiling display. It carries its own STATION_DISPLAY_KEY instead
 // of a 7-day staff cookie, because nobody can reach it to sign in again.
+// /order — the customer's first screen: pick delivery, pickup or curbside.
+// Public like /menu; a link sent on WhatsApp must not land on a login page.
 // /api/whatsapp — Meta's webhook. It authenticates itself twice over (a verify
 // token on the GET handshake, an HMAC of the body on every POST) and cannot
 // follow a redirect to /sign-in: Meta reads the 307 as a failed delivery and
 // eventually unsubscribes the whole webhook.
-const PUBLIC_PREFIXES = ["/sign-in", "/menu", "/kiosk", "/card", "/api/orders", "/api/calls", "/api/delivery", "/api/whatsapp", "/privacy", "/queue", "/tv"];
+const PUBLIC_PREFIXES = ["/sign-in", "/menu", "/kiosk", "/card", "/api/orders", "/api/calls", "/api/delivery", "/api/whatsapp", "/privacy", "/order", "/queue", "/tv"];
 const LOGIN_PATHS = new Set(["/", "/sign-in"]);
 
 function isPublic(pathname: string): boolean {
