@@ -109,7 +109,11 @@ export function CashierClient({
   const [menu, setMenu] = useState(menuProp);
   const [activeCat, setActiveCat] = useState(menuProp[0]?.name_ar ?? "");
   const [cart, dispatch] = useReducer(cartReducer, {});
-  const [discount, setDiscount] = useState(0);
+  const [discountIqd, setDiscountIqd] = useState(0);
+  // الخصم بالنسبة: المحل يقول «خصم عشرين بالمئة» لا «خصم ٣٬٤٥٠». الدينار يبقى
+  // مصدر الحقيقة المُرسَل للخادم، والنسبة تُحسب عليه كلّما تغيّرت السلة.
+  const [discountPct, setDiscountPct] = useState(0);
+  const [discountMode, setDiscountMode] = useState<"iqd" | "pct">("iqd");
   const [customer, setCustomer] = useState<Card | null>(null);
   const [loyaltyMsg, setLoyaltyMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -230,6 +234,10 @@ export function CashierClient({
   const lines = Object.values(cart);
   const subtotal = useMemo(() => lines.reduce((s, l) => s + l.unitPrice * l.qty, 0), [lines]);
   const extraTotal = useMemo(() => extras.reduce((s, x) => s + x.price, 0), [extras]);
+  const discountBase = subtotal + extraTotal;
+  // محسوب لا محفوظ: النسبة تتبع السلة من تلقائها، فلا حالة تُنسى تحديثها
+  const discount =
+    discountMode === "pct" ? Math.min(discountBase, Math.round((discountBase * discountPct) / 100)) : discountIqd;
   const total = Math.max(0, subtotal - discount + extraTotal);
 
   function addExtra() {
@@ -304,7 +312,9 @@ export function CashierClient({
     }
     // ponytail: redeem deducts points immediately, before payment — a cancelled
     // checkout needs a manual adjust-back. Acceptable v1.
-    setDiscount((d) => d + res.discount);
+    setDiscountMode("iqd");
+    setDiscountPct(0);
+    setDiscountIqd((d) => d + res.discount);
     setCustomer({ ...customer, points: res.balance });
     setLoyaltyMsg(`تم استبدال مكافأة — خصم ${formatIqdLabel(res.discount)}`);
   }
@@ -370,7 +380,10 @@ export function CashierClient({
       setSuccess({ orderNumber: res.orderNumber, awarded: res.awarded });
       dispatch({ type: "clear" });
       setCustomer(null);
-      setDiscount(0);
+      setDiscountIqd(0);
+      // وإلا حملت النسبة نفسها إلى طلب الزبون التالي
+      setDiscountPct(0);
+      setDiscountMode("iqd");
       setExtras([]);
       setPayMethod("cash");
       setOrderType("delivery");
@@ -606,15 +619,51 @@ export function CashierClient({
           )}
           <div className="flex items-center justify-between gap-2">
             <span className="text-muted-foreground">الخصم</span>
-            <input
-              type="number"
-              min={0}
-              value={discount || ""}
-              onChange={(e) => setDiscount(Math.max(0, Math.round(Number(e.target.value) || 0)))}
-              className="w-28 rounded-lg border border-input bg-background px-2 py-1 text-left text-sm outline-none focus:ring-2 focus:ring-ring"
-              dir="ltr"
-            />
+            <div className="flex items-center gap-1">
+              {([["iqd", "د.ع"], ["pct", "٪"]] as const).map(([m, label]) => (
+                <button
+                  key={m}
+                  onClick={() => {
+                    setDiscountMode(m);
+                    setDiscountPct(0);
+                    setDiscountIqd(0);
+                  }}
+                  className={`min-h-8 rounded-lg px-2 text-sm font-bold transition ${
+                    discountMode === m ? "bg-primary text-primary-foreground" : "border border-input hover:bg-secondary"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+              {discountMode === "pct" ? (
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={discountPct || ""}
+                  onChange={(e) => setDiscountPct(Math.min(100, Math.max(0, Math.round(Number(e.target.value) || 0))))}
+                  className="w-20 rounded-lg border border-input bg-background px-2 py-1 text-left text-sm outline-none focus:ring-2 focus:ring-ring"
+                  dir="ltr"
+                />
+              ) : (
+                <input
+                  type="number"
+                  min={0}
+                  value={discountIqd || ""}
+                  onChange={(e) => setDiscountIqd(Math.max(0, Math.round(Number(e.target.value) || 0)))}
+                  className="w-28 rounded-lg border border-input bg-background px-2 py-1 text-left text-sm outline-none focus:ring-2 focus:ring-ring"
+                  dir="ltr"
+                />
+              )}
+            </div>
           </div>
+          {/* الرقم الذي سيُطبع على الفاتورة، كي لا تكون النسبة وعداً مبهماً */}
+          {discountMode === "pct" && discount > 0 && (
+            <div className="flex items-center justify-between text-xs font-bold text-muted-foreground">
+              <span>{discountPct}٪ من {formatIqdLabel(discountBase)}</span>
+              <span className="text-destructive">− {formatIqdLabel(discount)}</span>
+            </div>
+          )}
           <div className="flex items-center justify-between border-t border-border pt-2 text-base font-bold">
             <span>الإجمالي</span>
             <span>{formatIqdLabel(total)}</span>
