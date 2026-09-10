@@ -123,8 +123,10 @@ export function IncomingOrdersClient() {
         }
       }
       seenIds.current = new Set(orders.map((o) => o.id));
-    } catch {
-      /* ignore transient errors */
+      setQueueErr(null);
+    } catch (e) {
+      // «لا توجد طلبات معلّقة» كذبةٌ حين يكون السبب استعلاماً مرفوضاً
+      setQueueErr(e instanceof Error ? e.message : "تعذّر جلب الطلبات المعلّقة");
     }
   }, []);
   useEffect(() => {

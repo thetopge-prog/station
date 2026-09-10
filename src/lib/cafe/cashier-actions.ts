@@ -45,11 +45,14 @@ export type PendingOrder = {
 export async function listPendingOrders(): Promise<PendingOrder[]> {
   await requireStaff();
   const supabase = await createSupabaseServerClient();
-  const { data: orders } = await supabase
+  const { data: orders, error } = await supabase
     .from("orders")
     .select("id, order_seq, channel, subtotal, table_no, note, created_at, customer_name, customer_phone, address_note, order_source, partner_id, partner_ref, partner_total")
     .eq("status", "pending")
     .order("created_at", { ascending: true });
+  // كان الخطأ يُهمَل فتبدو الشاشة فارغة: عمود بلا منح جعل PostgREST يرفض
+  // الاستعلام كلّه، فبقيت طلبات توترز يومين بلا أن يراها أحد. يُرفع ليُقرأ.
+  if (error) throw new Error(`تعذّر جلب الطلبات المعلّقة: ${error.message}`);
   if (!orders?.length) return [];
 
   const ids = orders.map((o) => o.id);
