@@ -70,6 +70,20 @@ export type Database = {
         Update: Partial<{ reason: string | null }>;
         Relationships: [];
       };
+      // 0080 — حدّا الورديتين بالدقائق من منتصف ليل بغداد؛ ما جاوز ١٤٤٠ = الغد
+      shift_windows: {
+        Row: { period: "morning" | "evening"; start_min: number; end_min: number; updated_at: string };
+        Insert: { period: "morning" | "evening"; start_min: number; end_min: number };
+        Update: Partial<{ start_min: number; end_min: number; updated_at: string }>;
+        Relationships: [];
+      };
+      // 0081 — شركات المشتريات: بيبسي، طاحونة السنابل، علوة السدة
+      suppliers: {
+        Row: Timestamped & { name_ar: string; phone1: string | null; phone2: string | null; is_active: boolean; sort: number; note: string | null };
+        Insert: { id?: string; name_ar: string; phone1?: string | null; phone2?: string | null; is_active?: boolean; sort?: number; note?: string | null; created_at?: string };
+        Update: Partial<{ name_ar: string; phone1: string | null; phone2: string | null; is_active: boolean; sort: number; note: string | null }>;
+        Relationships: [];
+      };
       employees: {
         Row: Timestamped & {
           name_ar: string; role_id: string | null; auth_user_id: string | null; is_active: boolean;
@@ -403,9 +417,9 @@ export type Database = {
         Relationships: [];
       };
       expenses: {
-        Row: Timestamped & { session_id: string | null; business_day: string; amount: number; category: string | null; note: string | null; created_by: string | null; employee_id: string | null };
-        Insert: { id?: string; business_day?: string; amount: number; category?: string | null; note?: string | null; created_by?: string | null; created_at?: string; session_id?: string | null; employee_id?: string | null };
-        Update: Partial<{ business_day: string; amount: number; category: string | null; note: string | null; employee_id: string | null }>;
+        Row: Timestamped & { session_id: string | null; business_day: string; amount: number; category: string | null; note: string | null; created_by: string | null; employee_id: string | null; supplier_id: string | null };
+        Insert: { id?: string; business_day?: string; amount: number; category?: string | null; note?: string | null; created_by?: string | null; created_at?: string; session_id?: string | null; employee_id?: string | null; supplier_id?: string | null };
+        Update: Partial<{ business_day: string; amount: number; category: string | null; note: string | null; employee_id: string | null; supplier_id: string | null }>;
         Relationships: [];
       };
       loyalty_events: {
@@ -535,6 +549,12 @@ export type Database = {
       };
       ack_shortage: { Args: { p_order: string }; Returns: undefined };
       // 0045 — delivery aggregators billed postpaid
+      // 0080 — تعريف واحد لكل اسم؛ توقيعان يجعلان PostgREST يرفض الاختيار
+      save_shift_window: { Args: { p_period: "morning" | "evening"; p_start: number; p_end: number }; Returns: void };
+      save_supplier: {
+        Args: { p_id: string | null; p_name: string; p_phone1?: string | null; p_phone2?: string | null; p_active?: boolean; p_note?: string | null };
+        Returns: string;
+      };
       save_partner: {
         Args: {
           p_id: string | null; p_name: string; p_phone?: string | null; p_active?: boolean; p_note?: string | null;

@@ -153,7 +153,9 @@ export async function saveAccount(input: SaveAccountInput) {
     role_id: primaryId,
     station_id: stationId,
     is_active: true,
-    shift_period: input.shiftPeriod ?? null,
+    // الوردية تُدار من جدول الموظفين. وغير المُرسَلة لا تُكتب — وإلا مسح كلُّ
+    // تغييرٍ لكلمة المرور دوامَ صاحبها بصمت.
+    ...(input.shiftPeriod !== undefined ? { shift_period: input.shiftPeriod } : {}),
   };
   const { data: saved, error } = existing
     ? await svc.from("employees").update(row).eq("id", existing.id).select("id").maybeSingle()

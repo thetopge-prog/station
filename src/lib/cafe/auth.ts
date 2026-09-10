@@ -1,8 +1,10 @@
 import { cache } from "react";
+import { redirect } from "next/navigation";
 import { createHash } from "node:crypto";
 import { getServerUser, createSupabaseServiceClient, currentAccessToken } from "@/lib/supabase/server";
 import { canAccess, toRole, type StaffRole } from "./roles";
-import { inShift, shiftDeniedMessage, workDay, type ShiftPeriod } from "./work-shift";
+import { GRACE_MINUTES, inShift, shiftDeniedMessage, workDay, type ShiftPeriod } from "./work-shift";
+import { getShiftWindows } from "./shift-window";
 import { hubEnabled } from "@/lib/hub/store";
 import { cloudReachable } from "@/lib/hub/net";
 import { rememberSession, recallSession } from "@/lib/hub/session";
@@ -183,14 +185,18 @@ async function guardShift(staff: Staff): Promise<void> {
   if (staff.isAdmin || !staff.shiftPeriod) return;
 
   const svc = createSupabaseServiceClient();
-  if (!inShift(staff.shiftPeriod)) {
+  // الأوقات من الجدول (0080) بذاكرة دقيقة — لا من ثابت في الشيفرة
+  const windows = await getShiftWindows();
+  if (!inShift(staff.shiftPeriod, new Date(), GRACE_MINUTES, windows)) {
     const { data: pass } = await svc
       .from("shift_exceptions")
       .select("employee_id")
       .eq("employee_id", staff.employeeId)
       .eq("work_day", workDay())
       .maybeSingle();
-    if (!pass) throw new Error(shiftDeniedMessage(staff.shiftPeriod));
+    // redirect لا throw: الاستثناء من مكوّن خادم يصير «This page couldn't load»
+    // على شاشة اللمس، فلا الكاشير يفهم ولا أحد يعرف أهو منعٌ أم عطب.
+    if (!pass) redirect(`/off-shift?m=${encodeURIComponent(shiftDeniedMessage(staff.shiftPeriod, windows))}`);
   }
 
   // الحضور: يفتح سطراً إن لم يكن مفتوحاً، ولا يفعل شيئاً إن كان. تلقائي مع

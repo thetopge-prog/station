@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { inShift, shiftAt, shiftDeniedMessage, workDay } from "./work-shift";
+import { DEFAULT_WINDOWS, inShift, minutesToEnd, shiftAt, shiftDeniedMessage, workDay, type ShiftWindows } from "./work-shift";
 import { businessDay } from "./time";
 
 /** لحظة بتوقيت بغداد (UTC+3) — بغداد لا تطبّق التوقيت الصيفي. */
@@ -16,28 +16,28 @@ describe("inShift", () => {
     }
   });
 
-  it("holds the morning shift open 09:00–15:00", () => {
+  it("holds the morning shift open 09:00–18:00", () => {
     expect(inShift("morning", at("09:00"))).toBe(true);
     expect(inShift("morning", at("12:30"))).toBe(true);
-    expect(inShift("morning", at("15:00"))).toBe(true);
+    expect(inShift("morning", at("18:00"))).toBe(true);
   });
 
   it("keeps the morning cashier working through the handover", () => {
     // ٣:٠١ والمسائي لم يصل — هذا بالضبط ما تمنع المهلة حدوثه
-    expect(inShift("morning", at("15:30"))).toBe(true);
-    expect(inShift("morning", at("16:00"))).toBe(true);
+    expect(inShift("morning", at("18:30"))).toBe(true);
+    expect(inShift("morning", at("19:00"))).toBe(true);
     expect(inShift("morning", at("08:00"))).toBe(true);
   });
 
   it("shuts the morning shift outside its window plus grace", () => {
     expect(inShift("morning", at("07:00"))).toBe(false);
-    expect(inShift("morning", at("16:30"))).toBe(false);
+    expect(inShift("morning", at("19:30"))).toBe(false);
     expect(inShift("morning", at("21:00"))).toBe(false);
     expect(inShift("morning", at("01:00"))).toBe(false);
   });
 
   it("carries the evening shift ACROSS midnight — the whole difficulty", () => {
-    expect(inShift("evening", at("15:00"))).toBe(true);
+    expect(inShift("evening", at("18:00"))).toBe(true);
     expect(inShift("evening", at("23:59"))).toBe(true);
     expect(inShift("evening", at("00:30"))).toBe(true);
     expect(inShift("evening", at("02:59"))).toBe(true);
@@ -47,8 +47,8 @@ describe("inShift", () => {
   it("shuts the evening shift in the morning, not merely 'later'", () => {
     expect(inShift("evening", at("05:00"))).toBe(false);
     expect(inShift("evening", at("10:00"))).toBe(false);
-    expect(inShift("evening", at("13:30"))).toBe(false);
-    expect(inShift("evening", at("14:00"))).toBe(true); // المهلة تبدأ
+    expect(inShift("evening", at("16:30"))).toBe(false);
+    expect(inShift("evening", at("17:00"))).toBe(true); // المهلة تبدأ
   });
 
   it("never leaves an hour of the day with no one allowed", () => {
@@ -60,8 +60,8 @@ describe("inShift", () => {
   });
 
   it("respects a zero grace when asked, for reporting «worked outside shift»", () => {
-    expect(inShift("morning", at("15:30"), 0)).toBe(false);
-    expect(inShift("morning", at("15:30"))).toBe(true);
+    expect(inShift("morning", at("18:30"), 0)).toBe(false);
+    expect(inShift("morning", at("18:30"))).toBe(true);
   });
 });
 
@@ -80,7 +80,7 @@ describe("shiftAt", () => {
 describe("shiftDeniedMessage", () => {
   it("tells the person when to come back, not merely that they are refused", () => {
     expect(shiftDeniedMessage("morning")).toContain("09:00");
-    expect(shiftDeniedMessage("morning")).toContain("15:00");
+    expect(shiftDeniedMessage("morning")).toContain("18:00");
     expect(shiftDeniedMessage("evening")).toContain("03:00");
   });
 });
@@ -103,5 +103,22 @@ describe("workDay", () => {
     const oneAm = new Date(Date.UTC(2026, 8, 2, 22, 0)); // ٠١:٠٠ بغداد يوم ٣
     expect(businessDay(oneAm)).toBe("2026-09-03");
     expect(workDay(oneAm)).toBe("2026-09-02");
+  });
+});
+
+describe("النافذة تأتي من البيانات لا من ثابت", () => {
+  // دوامٌ عدّله المدير: ٨–٢ و٢–٢
+  const w: ShiftWindows = { morning: [8 * 60, 14 * 60], evening: [14 * 60, 26 * 60] };
+
+  it("يحترم ما كتبه المدير لا الافتراضي", () => {
+    expect(inShift("morning", at("17:00"), 0, w)).toBe(false); // داخل الافتراضي، خارج المعدَّل
+    expect(inShift("morning", at("17:00"), 0, DEFAULT_WINDOWS)).toBe(true);
+    expect(inShift("evening", at("01:00"), 0, w)).toBe(true);
+  });
+
+  it("يعدّ الدقائق حتى النهاية، ويعبر منتصف الليل", () => {
+    expect(minutesToEnd("evening", at("01:00"))).toBe(120); // تنتهي ٠٣:٠٠
+    expect(minutesToEnd("morning", at("17:40"))).toBe(20);
+    expect(minutesToEnd("evening", at("23:00"), w)).toBe(180); // تنتهي ٠٢:٠٠
   });
 });

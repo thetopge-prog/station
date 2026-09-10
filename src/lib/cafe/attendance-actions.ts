@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { forgetStaffCache, requireAdmin, requireStaff } from "./auth";
 import { inShift, workDay, type ShiftPeriod } from "./work-shift";
+import { getShiftWindows } from "./shift-window";
 
 /**
  * جدول الدخول والانصراف.
@@ -28,11 +29,10 @@ export type AttendanceRow = {
   outside: boolean;
 };
 
-const SHIFT_START: Record<ShiftPeriod, number> = { morning: 9 * 60, evening: 15 * 60 };
-
 export async function listAttendance(day = workDay()): Promise<AttendanceRow[]> {
   await requireAdmin();
   const svc = createSupabaseServiceClient();
+  const windows = await getShiftWindows();
 
   // يُقفل المنسيّ أولاً، وإلا ظهر من انصرف أمس وكأنه ما زال يعمل ثلاثين ساعة
   await svc.rpc("attendance_autoclose");
@@ -61,7 +61,9 @@ export async function listAttendance(day = workDay()): Promise<AttendanceRow[]> 
         hour12: false,
       }).format(from);
       const [h, m] = hhmm.split(":").map(Number);
-      late = h * 60 + m - SHIFT_START[r.shift];
+      late = h * 60 + m - windows[r.shift][0];
+      // مسائيٌّ بدأ ٠٠:٣٠ ليس مبكّراً سبع عشرة ساعة — هو متأخّر ست ساعات ونصف
+      if (late < -720) late += 1440;
     }
     return {
       ...r,
@@ -70,7 +72,7 @@ export async function listAttendance(day = workDay()): Promise<AttendanceRow[]> 
       late_minutes: late,
       // بلا مهلة هنا: هذا تقرير لا بوّابة. المهلة تمنع إيقاف البيع، ولا تُخفي
       // أن أحدهم عمل خارج وقته.
-      outside: r.shift ? !inShift(r.shift, from, 0) : false,
+      outside: r.shift ? !inShift(r.shift, from, 0, windows) : false,
     };
   });
 }
