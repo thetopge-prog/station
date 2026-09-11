@@ -23,6 +23,7 @@
 import type { Ticket } from "./print-routing";
 import { shapeArabic } from "./arabic-shape";
 import { formatIqd } from "./money";
+import { maskHolyNames } from "./holy-names";
 
 export type Codepage = "cp1256" | "utf8";
 
@@ -350,10 +351,12 @@ function buildTicket(s: Slip, ticket: Ticket, opts: RenderOptions): void {
   // where the driver sees it first, at double height, not in a footer.
   // «=» لا «*»: الوكيل يرسم كخطّ ما كان من = - _ . ~ فقط؛ ٤٨ نجمة تحت Tahoma
   // أعرض من الورقة فتلتفّ سطرين — وهذا ما ظهر على أول تذاكر التوصيل.
-  // اسم الزبون لا يُطبع على أي ورقة — قرار المالك؛ الهاتف والعنوان للسائق فقط
-  if (ticket.order.isDelivery || ticket.order.addressNote || ticket.order.customerPhone) {
+  // الاسم وحده يكفي لطباعته — والكلمة المقدّسة فيه لا تُكتب كاملة (holy-names.ts)
+  const customerName = maskHolyNames(ticket.order.customerName);
+  if (ticket.order.isDelivery || ticket.order.addressNote || ticket.order.customerPhone || customerName) {
     s.rule("=");
     s.center().bold(true).size(1, 2);
+    if (customerName) s.line(customerName);
     if (ticket.order.customerPhone) s.line(ticket.order.customerPhone);
     s.size(1, 1);
     if (ticket.order.addressNote) s.size(1, 2).line(ticket.order.addressNote).size(1, 1);
