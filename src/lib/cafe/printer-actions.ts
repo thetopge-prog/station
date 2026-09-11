@@ -275,8 +275,9 @@ export async function buildOrderJobs(
           shopNameAr: BRAND.nameAr,
           shopCityAr: BRAND.cityAr,
         }),
-        // المطبخ يسمع الطلب لا يراه: صفير مع كل تذكرة مطبخ/تجهيز، لا مع وصل الزبون
-        beep: t.kind !== "receipt",
+        // المطبخ يسمع الطلب لا يراه: صفير مع تذكرة المحطة وحدها — الوصل والتجهيز
+        // يخرجان على الكاونتر ولا حاجة لصفير بجانب الكاشير
+        beep: t.kind === "station",
       },
     };
   });
