@@ -30,8 +30,10 @@ import { PriceInput } from "./PriceInput";
  * who can see the target types the target, and the variance goes to zero
  * forever.
  */
-export function CashierSessionGate({ children }: { children: React.ReactNode }) {
+export function CashierSessionGate({ children, canBypass = false }: { children: React.ReactNode; canBypass?: boolean }) {
   const [session, setSession] = useState<OpenSession | null>(null);
+  // الإدارة تبيع بلا وردية حين يحمل الصندوقَ حسابٌ آخر — بيعها يُحسب في اليوم لا في تقرير Z
+  const [bypass, setBypass] = useState(false);
   const [handover, setHandover] = useState<PendingHandover | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -80,6 +82,20 @@ export function CashierSessionGate({ children }: { children: React.ReactNode }) 
     return <p className="rounded-2xl border-2 border-dashed border-border p-10 text-center font-bold text-muted-foreground">…</p>;
   }
 
+  if (bypass && !session) {
+    return (
+      <div className="space-y-4">
+        <p className="rounded-xl border-2 border-border bg-secondary px-3 py-2 text-sm font-black">الكاشير مفتوح بلا وردية — بيع الإدارة يُحسب في اليوم لا في تقرير الوردية.</p>
+        {children}
+      </div>
+    );
+  }
+  const bypassBtn = canBypass && (
+    <button onClick={() => setBypass(true)} disabled={busy} className="min-h-12 w-full rounded-2xl border-2 border-primary font-black text-primary">
+      دخول الإدارة بلا وردية
+    </button>
+  );
+
   // ── 1. an unaccepted drawer blocks everything ──────────────────────────
   if (handover) {
     return (
@@ -105,6 +121,7 @@ export function CashierSessionGate({ children }: { children: React.ReactNode }) 
         <button onClick={() => void start(handover.session_id, 0)} disabled={busy} className="min-h-12 w-full rounded-2xl border-2 border-border font-black">
           استلمتُ الدرج فارغاً
         </button>
+        {bypassBtn}
         {counted > 0 && counted !== handover.amount && (
           <p className="rounded-xl border-2 border-destructive bg-destructive/10 px-3 py-2 text-sm font-black text-destructive">
             فرق {formatIqd(Math.abs(counted - handover.amount))} د.ع {counted < handover.amount ? "نقصاً" : "زيادة"} — سيُسجَّل
@@ -131,6 +148,7 @@ export function CashierSessionGate({ children }: { children: React.ReactNode }) 
         <button onClick={() => void start(null, 0)} disabled={busy} className="min-h-12 w-full rounded-2xl border-2 border-border font-black">
           الدرج فارغ — ابدأ بصفر
         </button>
+        {bypassBtn}
         <p className="text-xs font-bold text-muted-foreground">
           كل بيع ومصروف ودين تسجّله من الآن يُنسَب إلى هذه الوردية وحدها.
         </p>

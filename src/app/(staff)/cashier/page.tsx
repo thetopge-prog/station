@@ -25,7 +25,7 @@ export default async function CashierPage() {
   // The gate owns whether the till may open at all: an unaccepted drawer or a
   // missing opening float replaces the POS entirely rather than warning beside it.
   return (
-    <CashierSessionGate>
+    <CashierSessionGate canBypass={staff.isAdmin}>
       <CashierClient menu={menu} tables={tables} partners={partners} cashierName={staff.name} expediterName={expediter} />
     </CashierSessionGate>
   );
