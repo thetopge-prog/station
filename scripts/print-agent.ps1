@@ -6,7 +6,7 @@
 #
 #   GET  /ping            -> 200, used by the POS to warn if the agent is down
 #   GET  /kick            -> cash-drawer pulse on the receipt printer
-#   POST /print           -> { host, port, share, copies, data(base64) }
+#   POST /print           -> { host, port, share, copies, doc{lines,qr,kick,beep} | data(base64) }
 #                            host  -> raw TCP ESC/POS  (network printer, :9100)
 #                            share -> copy to \\127.0.0.1\<share>  (USB printer)
 #
@@ -496,6 +496,10 @@ while ($listener.IsListening) {
         if ($job.doc) {
           $out = Render-Doc $job.doc
           if ($job.doc.qr) { $out.AddRange((Qr-Bytes ([string]$job.doc.qr))) }
+          # ESC B n t — the buzzer: n beeps of t x 100ms. Kitchen slips carry
+          # beep=true so the cook hears the order land; the customer receipt
+          # does not. A printer without a buzzer ignores the command.
+          if ($job.doc.beep) { $out.AddRange([byte[]](0x1b, 0x42, 0x03, 0x03)) }
           $out.AddRange([byte[]](0x1b, 0x64, 0x03))            # feed
           if ($job.doc.kick) { $out.AddRange([byte[]](0x1b, 0x70, 0x00, 0x19, 0xfa)) }
           $out.AddRange([byte[]](0x1d, 0x56, 0x42, 0x00))      # partial cut

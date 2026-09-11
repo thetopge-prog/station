@@ -155,7 +155,8 @@ export type DocLine = {
    */
   n?: string;
 };
-export type TicketDoc = { lines: DocLine[]; qr: string | null; kick: boolean };
+/** beep: the printer sounds its buzzer with this slip — kitchen tickets only, so a cook hears the order arrive */
+export type TicketDoc = { lines: DocLine[]; qr: string | null; kick: boolean; beep?: boolean };
 
 /** Small builder so the layout below reads like the slip it produces. */
 class Slip {

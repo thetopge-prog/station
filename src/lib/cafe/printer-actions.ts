@@ -268,12 +268,16 @@ export async function buildOrderJobs(
       // «سفري»: one receipt for the customer, one stapled to the bag
       copies: t.kind === "receipt" && order.channel === "takeaway" ? 2 : p.copies,
       // Content, not bytes. The agent draws it — see PrintJob.doc.
-      doc: renderTicketDoc(t, {
-        // the drawer hangs off the receipt printer, and only for cash
-        kickDrawer: kickDrawer && t.kind === "receipt",
-        shopNameAr: BRAND.nameAr,
-        shopCityAr: BRAND.cityAr,
-      }),
+      doc: {
+        ...renderTicketDoc(t, {
+          // the drawer hangs off the receipt printer, and only for cash
+          kickDrawer: kickDrawer && t.kind === "receipt",
+          shopNameAr: BRAND.nameAr,
+          shopCityAr: BRAND.cityAr,
+        }),
+        // المطبخ يسمع الطلب لا يراه: صفير مع كل تذكرة مطبخ/تجهيز، لا مع وصل الزبون
+        beep: t.kind !== "receipt",
+      },
     };
   });
 
