@@ -439,7 +439,7 @@ export function MenuClient({
         </div>
         {layout === "tiles" && (
           <div className="bg-primary px-4 py-1.5 text-center text-xs font-black text-primary-foreground">
-            {BRAND.addressAr} · {BRAND.phoneDisplay}
+            {BRAND.addressAr} · <bdi dir="ltr">{BRAND.phoneDisplay}</bdi>
           </div>
         )}
         {!tilesHome && (
@@ -592,7 +592,7 @@ export function MenuClient({
             ))
           )}
           <p className="mt-10 text-center text-xs font-bold text-muted-foreground">
-            {BRAND.addressAr} · {BRAND.phoneDisplay}
+            {BRAND.addressAr} · <bdi dir="ltr">{BRAND.phoneDisplay}</bdi>
           </p>
         </main>
       </div>
