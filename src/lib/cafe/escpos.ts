@@ -350,7 +350,9 @@ function buildTicket(s: Slip, ticket: Ticket, opts: RenderOptions): void {
   // where the driver sees it first, at double height, not in a footer.
   // «=» لا «*»: الوكيل يرسم كخطّ ما كان من = - _ . ~ فقط؛ ٤٨ نجمة تحت Tahoma
   // أعرض من الورقة فتلتفّ سطرين — وهذا ما ظهر على أول تذاكر التوصيل.
-  if (ticket.order.isDelivery || ticket.order.addressNote || ticket.order.customerPhone) {
+  // والاسم وحده يكفي: الكاشير يكتب «نيكست» في خانة الاسم ليعرف المجهّز لمن
+  // الكيس — وكانت الورقة تُسقطه ما لم يكن معه هاتف أو عنوان.
+  if (ticket.order.isDelivery || ticket.order.addressNote || ticket.order.customerPhone || ticket.order.customerName) {
     s.rule("=");
     s.center().bold(true).size(1, 2);
     if (ticket.order.customerName) s.line(ticket.order.customerName);
