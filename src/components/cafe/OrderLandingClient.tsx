@@ -76,10 +76,18 @@ export function OrderLandingClient({ shots }: { shots: Shot[] }) {
           </div>
         </div>
 
-        <Link href="/menu" className="flex items-center gap-1.5 text-sm font-bold text-muted-foreground underline underline-offset-4">
-          <UtensilsCrossed className="size-4" />
-          تصفّح المنيو فقط
-        </Link>
+        {/* مؤقّت حتى تختار الإدارة قالباً: الأربعة جنباً إلى جنب، ثم يعود رابط «تصفّح المنيو» واحداً */}
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <span className="flex items-center gap-1.5 text-sm font-bold text-muted-foreground">
+            <UtensilsCrossed className="size-4" />
+            المنيو
+          </span>
+          {(["/menunew", "/menunew/2", "/menunew/3", "/menunew/4"] as const).map((href, i) => (
+            <Link key={href} href={href} className="grid size-11 place-items-center rounded-full border-2 border-primary font-black text-primary transition active:scale-95">
+              {i + 1}
+            </Link>
+          ))}
+        </div>
       </section>
 
       <Strip items={bottom} reverse faded />
