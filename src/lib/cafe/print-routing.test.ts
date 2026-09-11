@@ -110,6 +110,14 @@ describe("print routing", () => {
     expect(pizza.lines).toHaveLength(1); // sauce is not cooked
     expect(exp.lines).toHaveLength(2); // but it IS in the bag
     expect(receipt.lines).toHaveLength(2);
+    // the bagger sees which line the kitchen hands over and which one is theirs
+    expect(exp.lines.map((l) => l.kitchen)).toEqual([true, false]);
+  });
+
+  it("does not mark a kitchen line when that station's printer is off", () => {
+    const half = PRINTERS.map((p) => (p.id === "p2" ? { ...p, is_active: false } : p));
+    const exp = route([item("بيتزا سوبريم", "cat-pizza")], half).find((t) => t.kind === "expediter")!;
+    expect(exp.lines[0].kitchen).toBe(false);
   });
 
   it("carries the pickup code and note onto every ticket", () => {

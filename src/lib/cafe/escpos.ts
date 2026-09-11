@@ -350,12 +350,10 @@ function buildTicket(s: Slip, ticket: Ticket, opts: RenderOptions): void {
   // where the driver sees it first, at double height, not in a footer.
   // «=» لا «*»: الوكيل يرسم كخطّ ما كان من = - _ . ~ فقط؛ ٤٨ نجمة تحت Tahoma
   // أعرض من الورقة فتلتفّ سطرين — وهذا ما ظهر على أول تذاكر التوصيل.
-  // والاسم وحده يكفي: الكاشير يكتب «نيكست» في خانة الاسم ليعرف المجهّز لمن
-  // الكيس — وكانت الورقة تُسقطه ما لم يكن معه هاتف أو عنوان.
-  if (ticket.order.isDelivery || ticket.order.addressNote || ticket.order.customerPhone || ticket.order.customerName) {
+  // اسم الزبون لا يُطبع على أي ورقة — قرار المالك؛ الهاتف والعنوان للسائق فقط
+  if (ticket.order.isDelivery || ticket.order.addressNote || ticket.order.customerPhone) {
     s.rule("=");
     s.center().bold(true).size(1, 2);
-    if (ticket.order.customerName) s.line(ticket.order.customerName);
     if (ticket.order.customerPhone) s.line(ticket.order.customerPhone);
     s.size(1, 1);
     if (ticket.order.addressNote) s.size(1, 2).line(ticket.order.addressNote).size(1, 1);
@@ -387,8 +385,9 @@ function buildTicket(s: Slip, ticket: Ticket, opts: RenderOptions): void {
       // the kitchen table: count on the right, item in the middle, and the
       // dough / sauce / «بدون بصل» in their own column — the cook reads the
       // row across, not the slip down
-      const notes = [l.flavor, l.note].filter(Boolean).join(" · ");
-      s.size(1, 2).bold(true).row(l.name, String(l.qty), notes).bold(false).size(1, 1);
+      // على تذكرة التجهيز: «X» أمام ما يطبخه المطبخ — المجهّز يستلمه لا يجهّزه
+      const notes = [l.flavor, l.note, l.kitchen ? "المطبخ" : null].filter(Boolean).join(" · ");
+      s.size(1, 2).bold(true).row(l.kitchen ? `X ${l.name}` : l.name, String(l.qty), notes).bold(false).size(1, 1);
     } else {
       const name = l.flavor ? `${l.name} (${l.flavor})` : l.name;
       s.pair(`${name} ×${l.qty}`, formatIqd(l.amount));

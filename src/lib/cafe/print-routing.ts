@@ -88,6 +88,8 @@ export type TicketLine = {
   /** line total in IQD — null on kitchen tickets, which carry no money */
   amount: number | null;
   note?: string | null;
+  /** expediter ticket only: this line went to a kitchen printer — the bagger does not prepare it */
+  kitchen?: boolean;
 };
 
 export type Ticket = {
@@ -214,10 +216,13 @@ export function routeOrder(input: RouteInput): Ticket[] {
     byStation.set(st, arr);
   }
 
+  // stations that actually got a slip — what the expediter must NOT prepare
+  const cooked = new Set<string>();
   for (const p of active) {
     if (p.kind !== "station" || !p.station_id) continue;
     const mine = byStation.get(p.station_id);
     if (!mine?.length) continue; // invariant 1
+    cooked.add(p.station_id);
     tickets.push({
       printerId: p.id,
       printerName: p.name_ar,
@@ -252,13 +257,18 @@ export function routeOrder(input: RouteInput): Ticket[] {
       headingAr: "تذكرة التجهيز",
       stationId: null,
       stationName: null,
-      lines: items.map((it) => ({
-        name: it.name_ar,
-        flavor: it.flavor_ar,
-        note: it.note ?? null,
-        qty: it.qty,
-        amount: null, // invariant 2
-      })),
+      lines: items.map((it) => {
+        const st = it.category_id ? categoryStation[it.category_id] ?? null : null;
+        return {
+          name: it.name_ar,
+          flavor: it.flavor_ar,
+          note: it.note ?? null,
+          qty: it.qty,
+          amount: null, // invariant 2
+          // the kitchen cooks it and hands it over; the bagger only packs it
+          kitchen: !!st && cooked.has(st),
+        };
+      }),
       money: null,
       // The zero-touch trigger: the expediter scans this and the order jumps to
       // «جاهز» with no screen contact at all. «908-73S» — number and pickup
