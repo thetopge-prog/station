@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Minus, Plus, ShoppingBag, X } from "lucide-react";
+import { Check, ChevronRight, Minus, Plus, ShoppingBag, X } from "lucide-react";
 import type { MenuCategoryView, MenuItemView } from "@/lib/cafe/menu-data";
 import { formatIqdLabel } from "@/lib/cafe/money";
 import { submitOrder, type OrderLineInput } from "@/lib/cafe/order-actions";
@@ -46,14 +46,32 @@ const NEXT_STEP: Record<FulfilmentMode, (table: string | null) => string> = {
 
 type Sheet = { item: MenuItemView; variantId: string | null; flavor: string | null };
 
+/**
+ * أربعة قوالب لعرض الإدارة، آلة واحدة: السلة والورقة والدفع مشتركة، ويختلف
+ * الرأس والأقسام وشكل الصنف فقط.
+ *   rows  — سطور بصورة جانبية (‎/menunew‎)
+ *   cards — بطاقات ثلاث بزرّ عريض وعمود أقسام (‎/menunew/2‎)
+ *   split — بطاقات أفقية في عمودين بزرّ حبّة (‎/menunew/3‎)
+ *   tiles — شبكة أقسام أولاً ثم صفحة القسم (‎/menunew/4‎)
+ */
+export type MenuLayout = "rows" | "cards" | "split" | "tiles";
+const LIST_CLASS: Record<MenuLayout, string> = {
+  rows: "divide-y divide-border",
+  cards: "grid grid-cols-2 gap-3 sm:grid-cols-3",
+  split: "grid gap-3 sm:grid-cols-2",
+  tiles: "grid gap-3 sm:grid-cols-2",
+};
+
 export function MenuClient({
   menu,
   table = null,
   channel = "qr",
   offers = {},
   initialMode = null,
+  layout = "rows",
 }: {
   menu: MenuCategoryView[];
+  layout?: MenuLayout;
   table?: string | null;
   channel?: "qr" | "kiosk";
   /** سعر العرض لكل صنف — يحلّ محلّ السعر الأساسي حيث وُجد */
@@ -67,6 +85,19 @@ export function MenuClient({
   const attention = useAttention();
 
   const [activeCat, setActiveCat] = useState(cats[0]?.name_ar ?? "");
+  // «tiles»: الصفحة الأولى شبكة أقسام؛ القسم المختار يفتح القائمة كاملة عنده
+  const [openCat, setOpenCat] = useState<string | null>(null);
+  const sideNav = layout !== "rows";
+  const tilesHome = layout === "tiles" && openCat === null;
+  const wrap = sideNav ? "max-w-6xl" : "max-w-2xl";
+  const catThumb = (c: MenuCategoryView) => imgSrcs(c.image_url ?? c.items.find((i) => i.image_url)?.image_url);
+  // شريط أعلى «tiles»: العروض إن وُجدت، وإلا أول صنف مصوَّر من ثلاثة أقسام
+  const promos = useMemo(() => {
+    const all = cats.flatMap((c) => c.items);
+    const on = all.filter((i) => offers[i.id] !== undefined);
+    if (on.length) return on.slice(0, 6);
+    return cats.map((c) => c.items.find((i) => i.image_url)).filter((i): i is MenuItemView => !!i).slice(0, 3);
+  }, [cats, offers]);
   const [sheet, setSheet] = useState<Sheet | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -127,7 +158,7 @@ export function MenuClient({
     );
     for (const el of Object.values(sectionRefs.current)) if (el) obs.observe(el);
     return () => obs.disconnect();
-  }, [cats]);
+  }, [cats, tilesHome]);
   useEffect(() => {
     pillRefs.current[activeCat]?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
   }, [activeCat]);
@@ -136,6 +167,15 @@ export function MenuClient({
     attention.visitCategory(c);
     sectionRefs.current[c]?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
+  function openTiles(c: string) {
+    setOpenCat(c);
+    setActiveCat(c);
+    attention.visitCategory(c);
+  }
+  // الأقسام تُركَّب بعد اختيار القسم — التمرير إليه بعد التركيب
+  useEffect(() => {
+    if (openCat) sectionRefs.current[openCat]?.scrollIntoView({ block: "start" });
+  }, [openCat]);
 
   // ── Escape يغلق الورقة والدرج ─────────────────────────────────────────────
   useEffect(() => {
@@ -189,6 +229,160 @@ export function MenuClient({
   })();
 
   // ── الإرسال ───────────────────────────────────────────────────────────────
+  // ── رسم الصنف بحسب القالب ────────────────────────────────────────────────
+  // «افتح» على الجسم، «أضف» على الزرّ — في القوالب الأربعة. الزرّ يوقف الفقاعة
+  // كي لا يفتح الورقة معه.
+  const openProps = (it: MenuItemView) => ({
+    role: "button" as const,
+    tabIndex: 0,
+    onClick: (e: React.MouseEvent<HTMLElement>) => openSheet(it, e.currentTarget),
+    onKeyDown: (e: React.KeyboardEvent<HTMLElement>) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        openSheet(it, e.currentTarget);
+      }
+    },
+  });
+  const photo = (it: MenuItemView, cat: string, box: string, icon: string) => {
+    const s = imgSrcs(it.image_url);
+    return (
+      <div className={`grid shrink-0 place-items-center overflow-hidden bg-secondary ${box}`}>
+        {s ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={s.sm} data-full={s.full} alt="" loading="lazy" onError={onImgError} className="size-full object-cover" />
+        ) : (
+          <MenuIcon name={it.name_ar} category={cat} animated={false} className={`${icon} text-primary`} />
+        )}
+      </div>
+    );
+  };
+  const priceLine = (it: MenuItemView, cls = "mt-1") => {
+    const price = priceOf(it);
+    const onOffer = price !== it.price;
+    return (
+      <p className={`flex flex-wrap items-center gap-2 font-extrabold tabular-nums text-primary ${cls}`}>
+        {price > 0 ? formatIqdLabel(price) : "مجاناً"}
+        {onOffer && (
+          <>
+            <s className="text-xs font-bold text-muted-foreground">{formatIqdLabel(it.price)}</s>
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-black text-primary">عرض</span>
+          </>
+        )}
+        {it.variants.length > 1 && !onOffer && <span className="text-xs font-bold text-muted-foreground">يبدأ من</span>}
+      </p>
+    );
+  };
+  /** «+» أو المِدرَج ‎− عدد +‎ — دائري (سطور/بلاطات)، عريض (بطاقات)، حبّة (منقسم) */
+  const addControl = (it: MenuItemView, style: "round" | "wide" | "pill") => {
+    const needsSheet = it.variants.length > 0 || it.flavors.length > 0;
+    const qty = qtyOf(it.id);
+    const plainKey = `${it.id}||`;
+    const stop = (e: React.MouseEvent) => e.stopPropagation();
+    if (!needsSheet && qty > 0) {
+      const btn = style === "pill" ? "size-9" : "size-11";
+      return (
+        <div onClick={stop} className={`flex shrink-0 items-center border-2 border-primary ${style === "wide" ? "w-full justify-between rounded-xl" : "rounded-full"}`}>
+          <button onClick={() => dispatch({ type: "dec", key: plainKey })} aria-label={`إنقاص ${it.name_ar}`} className={`grid ${btn} place-items-center text-primary`}>
+            <Minus className="size-4" />
+          </button>
+          <span className="w-6 text-center font-black tabular-nums">{qty}</span>
+          <button onClick={() => dispatch({ type: "inc", key: plainKey })} aria-label={`زيادة ${it.name_ar}`} className={`grid ${btn} place-items-center text-primary`}>
+            <Plus className="size-4" />
+          </button>
+        </div>
+      );
+    }
+    const onAdd = (e: React.MouseEvent<HTMLButtonElement>) => {
+      e.stopPropagation();
+      if (needsSheet) openSheet(it, e.currentTarget);
+      else addDirect(it);
+    };
+    const badge = qty > 0 && (
+      <span className="absolute -top-1.5 -left-1.5 grid size-5 place-items-center rounded-full bg-primary text-[11px] font-black text-primary-foreground">{qty}</span>
+    );
+    if (style === "wide")
+      return (
+        <button onClick={onAdd} aria-label={`أضف ${it.name_ar}`} className="relative min-h-11 w-full rounded-xl bg-primary font-black text-primary-foreground transition active:scale-[0.98]">
+          {needsSheet ? "اختر" : "أضف"}
+          {badge}
+        </button>
+      );
+    if (style === "pill")
+      return (
+        <button onClick={onAdd} aria-label={`أضف ${it.name_ar}`} className="relative flex min-h-9 shrink-0 items-center gap-1.5 rounded-full bg-primary px-3 text-sm font-black text-primary-foreground transition active:scale-95">
+          <ShoppingBag className="size-4" />
+          أضف
+          {badge}
+        </button>
+      );
+    return (
+      <button onClick={onAdd} aria-label={`أضف ${it.name_ar}`} className="relative grid size-11 shrink-0 place-items-center rounded-full border-2 border-primary text-primary transition active:scale-95">
+        <Plus className="size-5" />
+        {badge}
+      </button>
+    );
+  };
+  const renderItem = (it: MenuItemView, cat: string) => {
+    const desc = it.description && <p className="mt-0.5 line-clamp-2 text-xs font-bold text-muted-foreground">{it.description}</p>;
+    if (layout === "cards")
+      return (
+        <li key={it.id} ref={attention.track(it.id, cat)} className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-station)]">
+          <div {...openProps(it)} className="min-w-0 flex-1 outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            {photo(it, cat, "aspect-[4/3] w-full", "size-12")}
+            <div className="p-3">
+              <p className="line-clamp-1 font-black">{it.name_ar}</p>
+              <div className="min-h-10">{desc}</div>
+              {priceLine(it)}
+            </div>
+          </div>
+          <div className="px-3 pb-3">{addControl(it, "wide")}</div>
+        </li>
+      );
+    if (layout === "split")
+      return (
+        <li key={it.id} ref={attention.track(it.id, cat)} className="rounded-2xl border border-border bg-card p-3">
+          <div {...openProps(it)} className="flex items-start gap-3 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            {photo(it, cat, "size-[72px] rounded-xl", "size-7")}
+            <div className="min-w-0 flex-1">
+              <p className="line-clamp-1 text-sm font-black tracking-wide">{it.name_ar}</p>
+              {desc}
+              <div className="mt-2 flex items-center justify-between gap-2">
+                {priceLine(it, "")}
+                {addControl(it, "pill")}
+              </div>
+            </div>
+          </div>
+        </li>
+      );
+    if (layout === "tiles")
+      return (
+        <li key={it.id} ref={attention.track(it.id, cat)} className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3">
+          <div {...openProps(it)} className="flex min-w-0 flex-1 items-center gap-3 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <div className="min-w-0 flex-1">
+              <p className="line-clamp-1 font-black">{it.name_ar}</p>
+              {desc}
+              {priceLine(it)}
+            </div>
+            {photo(it, cat, "size-16 rounded-xl", "size-7")}
+          </div>
+          {addControl(it, "round")}
+        </li>
+      );
+    return (
+      <li key={it.id} ref={attention.track(it.id, cat)} className="flex items-center gap-3 py-3">
+        <div {...openProps(it)} className="flex min-w-0 flex-1 items-center gap-3 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          {photo(it, cat, "size-[88px] rounded-2xl", "size-8")}
+          <div className="min-w-0 flex-1">
+            <p className="line-clamp-2 font-black leading-snug">{it.name_ar}</p>
+            {it.description && <p className="mt-0.5 line-clamp-1 text-sm font-bold text-muted-foreground">{it.description}</p>}
+            {priceLine(it)}
+          </div>
+        </div>
+        {addControl(it, "round")}
+      </li>
+    );
+  };
+
   async function checkout() {
     if (!lines.length || busy) return;
     const gap = missingFields(mode, { name, phone, address });
@@ -233,7 +427,7 @@ export function MenuClient({
 
       {/* ── الرأس ──────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
-        <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-2.5">
+        <div className={`mx-auto flex ${wrap} items-center justify-between px-4 py-2.5`}>
           <div className="flex items-center gap-2">
             <StationSmiley className="size-9 text-primary" />
             <div className="leading-tight">
@@ -243,122 +437,165 @@ export function MenuClient({
           </div>
           {scanned && <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-black text-primary">🍽️ طاولة {table}</span>}
         </div>
-        <nav aria-label="الأقسام" className="mx-auto flex max-w-2xl gap-2 overflow-x-auto px-4 pb-2.5 [scrollbar-width:none]">
-          {cats.map((c) => {
-            const on = c.name_ar === activeCat;
-            return (
-              <button
-                key={c.name_ar}
-                ref={(el) => {
-                  pillRefs.current[c.name_ar] = el;
-                }}
-                onClick={() => goTo(c.name_ar)}
-                aria-current={on ? "true" : undefined}
-                className={`min-h-10 shrink-0 whitespace-nowrap rounded-full px-4 text-sm font-black transition ${
-                  on ? "bg-primary text-primary-foreground shadow-[var(--shadow-station)]" : "bg-secondary text-foreground"
-                }`}
-              >
-                {c.name_ar}
+        {layout === "tiles" && (
+          <div className="bg-primary px-4 py-1.5 text-center text-xs font-black text-primary-foreground">
+            {BRAND.addressAr} · {BRAND.phoneDisplay}
+          </div>
+        )}
+        {!tilesHome && (
+          <nav aria-label="الأقسام" className={`mx-auto flex ${wrap} gap-2 overflow-x-auto px-4 pb-2.5 pt-2 [scrollbar-width:none] ${sideNav ? "lg:hidden" : ""}`}>
+            {layout === "tiles" && (
+              <button onClick={() => setOpenCat(null)} className="flex min-h-10 shrink-0 items-center gap-1 whitespace-nowrap rounded-full border-2 border-primary px-3 text-sm font-black text-primary">
+                <ChevronRight className="size-4" />
+                القائمة الكاملة
               </button>
-            );
-          })}
-        </nav>
+            )}
+            {cats.map((c) => {
+              const on = c.name_ar === activeCat;
+              return (
+                <button
+                  key={c.name_ar}
+                  ref={(el) => {
+                    pillRefs.current[c.name_ar] = el;
+                  }}
+                  onClick={() => goTo(c.name_ar)}
+                  aria-current={on ? "true" : undefined}
+                  className={`min-h-10 shrink-0 whitespace-nowrap rounded-full px-4 text-sm font-black transition ${
+                    on ? "bg-primary text-primary-foreground shadow-[var(--shadow-station)]" : "bg-secondary text-foreground"
+                  }`}
+                >
+                  {c.name_ar}
+                </button>
+              );
+            })}
+          </nav>
+        )}
       </header>
 
-      {/* ── الأقسام ────────────────────────────────────────────────────── */}
-      <main className="mx-auto max-w-2xl px-4 pb-32">
-        {cats.map((cat) => (
-          <section
-            key={cat.name_ar}
-            data-cat={cat.name_ar}
-            ref={(el) => {
-              sectionRefs.current[cat.name_ar] = el;
-            }}
-            className="scroll-mt-28"
-          >
-            <h2 className="mb-1 mt-6 text-xl font-black">{cat.name_ar}</h2>
-            <ul className="divide-y divide-border">
-              {cat.items.map((it) => {
-                const s = imgSrcs(it.image_url);
-                const price = priceOf(it);
-                const onOffer = price !== it.price;
-                const needsSheet = it.variants.length > 0 || it.flavors.length > 0;
-                const qty = qtyOf(it.id);
-                const plainKey = `${it.id}||`;
+      <div className={`mx-auto ${wrap} px-4 pb-32 ${sideNav && !tilesHome ? "lg:grid lg:grid-cols-[220px_1fr] lg:gap-6" : ""}`}>
+        {/* ── العمود الجانبي (شاشات عريضة) ─────────────────────────────── */}
+        {sideNav && !tilesHome && (
+          <aside className="sticky top-20 hidden max-h-[calc(100dvh-6rem)] self-start overflow-y-auto pt-6 lg:block">
+            {layout === "tiles" && (
+              <button onClick={() => setOpenCat(null)} className="mb-3 flex items-center gap-1 text-sm font-black text-primary">
+                <ChevronRight className="size-4" />
+                القائمة الكاملة
+              </button>
+            )}
+            <ul className="space-y-1">
+              {cats.map((c) => {
+                const on = c.name_ar === activeCat;
+                const th = catThumb(c);
                 return (
-                  <li key={it.id} ref={attention.track(it.id, cat.name_ar)} className="flex items-center gap-3 py-3">
-                    {/* جسم السطر: يفتح الصنف للنظر */}
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      onClick={(e) => openSheet(it, e.currentTarget)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          openSheet(it, e.currentTarget);
-                        }
-                      }}
-                      className="flex min-w-0 flex-1 items-center gap-3 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  <li key={c.name_ar}>
+                    <button
+                      onClick={() => goTo(c.name_ar)}
+                      aria-current={on ? "true" : undefined}
+                      className={`flex min-h-11 w-full items-center gap-2.5 rounded-xl px-3 text-start text-sm font-black transition ${
+                        on ? "bg-primary text-primary-foreground" : "hover:bg-secondary"
+                      }`}
                     >
-                      <div className="grid size-[88px] shrink-0 place-items-center overflow-hidden rounded-2xl bg-secondary">
-                        {s ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={s.sm} data-full={s.full} alt="" loading="lazy" onError={onImgError} className="size-full object-cover" />
-                        ) : (
-                          <MenuIcon name={it.name_ar} category={cat.name_ar} animated={false} className="size-8 text-primary" />
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="line-clamp-2 font-black leading-snug">{it.name_ar}</p>
-                        {it.description && <p className="mt-0.5 line-clamp-1 text-sm font-bold text-muted-foreground">{it.description}</p>}
-                        <p className="mt-1 flex items-center gap-2 font-extrabold tabular-nums text-primary">
-                          {price > 0 ? formatIqdLabel(price) : "مجاناً"}
-                          {onOffer && (
-                            <>
-                              <s className="text-xs font-bold text-muted-foreground">{formatIqdLabel(it.price)}</s>
-                              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-black text-primary">عرض</span>
-                            </>
+                      {layout === "cards" && <MenuIcon name={c.name_ar} category={c.name_ar} animated={false} className="size-5 shrink-0" />}
+                      {layout === "tiles" && (
+                        <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-full bg-secondary">
+                          {th ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={th.sm} data-full={th.full} alt="" loading="lazy" onError={onImgError} className="size-full object-cover" />
+                          ) : (
+                            <MenuIcon name={c.name_ar} category={c.name_ar} animated={false} className="size-5 text-primary" />
                           )}
-                          {it.variants.length > 1 && !onOffer && <span className="text-xs font-bold text-muted-foreground">يبدأ من</span>}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* الطرف الأيسر: أضف، أو غيّر العدد */}
-                    {!needsSheet && qty > 0 ? (
-                      <div className="flex shrink-0 items-center rounded-full border-2 border-primary">
-                        <button onClick={() => dispatch({ type: "dec", key: plainKey })} aria-label={`إنقاص ${it.name_ar}`} className="grid size-11 place-items-center text-primary">
-                          <Minus className="size-4" />
-                        </button>
-                        <span className="w-6 text-center font-black tabular-nums">{qty}</span>
-                        <button onClick={() => dispatch({ type: "inc", key: plainKey })} aria-label={`زيادة ${it.name_ar}`} className="grid size-11 place-items-center text-primary">
-                          <Plus className="size-4" />
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={(e) => (needsSheet ? openSheet(it, e.currentTarget) : addDirect(it))}
-                        aria-label={`أضف ${it.name_ar}`}
-                        className="relative grid size-11 shrink-0 place-items-center rounded-full border-2 border-primary text-primary transition active:scale-95"
-                      >
-                        <Plus className="size-5" />
-                        {qty > 0 && (
-                          <span className="absolute -top-1.5 -left-1.5 grid size-5 place-items-center rounded-full bg-primary text-[11px] font-black text-primary-foreground">
-                            {qty}
-                          </span>
-                        )}
-                      </button>
-                    )}
+                        </span>
+                      )}
+                      <span className={layout === "split" ? "tracking-wide" : ""}>{c.name_ar}</span>
+                    </button>
                   </li>
                 );
               })}
             </ul>
-          </section>
-        ))}
-        <p className="mt-10 text-center text-xs font-bold text-muted-foreground">
-          {BRAND.addressAr} · {BRAND.phoneDisplay}
-        </p>
-      </main>
+          </aside>
+        )}
+
+        {/* ── الأقسام ──────────────────────────────────────────────────── */}
+        <main className="min-w-0">
+          {tilesHome ? (
+            <>
+              {promos.length > 0 && (
+                <>
+                  <h2 className="mb-2 mt-5 text-lg font-black">{Object.keys(offers).length ? "عروض اليوم" : "مختارات ستيشن"}</h2>
+                  <ul className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:none]">
+                    {promos.map((it) => {
+                      const s = imgSrcs(it.image_url);
+                      const price = priceOf(it);
+                      return (
+                        <li key={it.id} className="w-64 shrink-0">
+                          <button onClick={(e) => openSheet(it, e.currentTarget)} className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-2 text-start shadow-[var(--shadow-station)]">
+                            <span className="grid size-24 shrink-0 place-items-center overflow-hidden rounded-xl bg-secondary">
+                              {s ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={s.sm} data-full={s.full} alt="" loading="lazy" onError={onImgError} className="size-full object-cover" />
+                              ) : (
+                                <MenuIcon name={it.name_ar} animated={false} className="size-10 text-primary" />
+                              )}
+                            </span>
+                            <span className="min-w-0">
+                              <span className="line-clamp-1 font-black">{it.name_ar}</span>
+                              <span className="mt-0.5 line-clamp-2 text-xs font-bold text-muted-foreground">{it.description}</span>
+                              <span className="mt-1 block font-extrabold tabular-nums text-primary">
+                                {price !== it.price ? `كان ${formatIqdLabel(it.price)} — الآن ${formatIqdLabel(price)}` : formatIqdLabel(price)}
+                              </span>
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </>
+              )}
+              <h2 className="mb-2 mt-5 text-lg font-black">القائمة</h2>
+              <ul className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5">
+                {cats.map((c) => {
+                  const th = catThumb(c);
+                  return (
+                    <li key={c.name_ar}>
+                      <button onClick={() => openTiles(c.name_ar)} className="w-full rounded-2xl outline-none transition active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring">
+                        <span className="grid aspect-square w-full place-items-center overflow-hidden rounded-2xl border border-border bg-secondary">
+                          {th ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={th.sm} data-full={th.full} alt="" loading="lazy" onError={onImgError} className="size-full object-cover" />
+                          ) : (
+                            <MenuIcon name={c.name_ar} category={c.name_ar} animated={false} className="size-12 text-primary" />
+                          )}
+                        </span>
+                        <span className="mt-2 block text-center text-sm font-black">{c.name_ar}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          ) : (
+            cats.map((cat) => (
+              <section
+                key={cat.name_ar}
+                id={cat.name_ar}
+                data-cat={cat.name_ar}
+                ref={(el) => {
+                  sectionRefs.current[cat.name_ar] = el;
+                }}
+                className="scroll-mt-28"
+              >
+                <h2 className={layout === "split" ? "mb-2 mt-7 text-sm font-black tracking-widest text-muted-foreground" : "mb-1 mt-6 text-xl font-black"}>
+                  {cat.name_ar}
+                </h2>
+                <ul className={LIST_CLASS[layout]}>{cat.items.map((it) => renderItem(it, cat.name_ar))}</ul>
+              </section>
+            ))
+          )}
+          <p className="mt-10 text-center text-xs font-bold text-muted-foreground">
+            {BRAND.addressAr} · {BRAND.phoneDisplay}
+          </p>
+        </main>
+      </div>
 
       {/* ── شريط السلة ──────────────────────────────────────────────────── */}
       {count > 0 && !cartOpen && !confirmed && !sheet && (
