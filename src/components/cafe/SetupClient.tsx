@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Inbox, Monitor, Printer, Smartphone, Terminal } from "lucide-react";
+import { Inbox, Monitor, Printer, Server, Smartphone, Terminal } from "lucide-react";
 import { kickDrawer } from "@/lib/cafe/print-client";
 import { PrinterConnect, type ConnectRow } from "./PrinterConnect";
 import { CopyButton } from "./CopyButton";
@@ -33,12 +33,15 @@ export function SetupClient({
   printers,
   screens,
   installCommand,
+  hubCommand = null,
   webhookSecret = null,
   whatsapp,
 }: {
   printers: SetupPrinter[];
   screens: ScreenLink[];
   installCommand: string;
+  /** مُعِدّ الهَب — ستيشن داخل المحل بلا إنترنت */
+  hubCommand?: string | null;
   /** كلمة سرّ الأجهزة (هاتف المطعم، جهاز توترز) — تُعرض للمطوّر هنا لا في ملف */
   webhookSecret?: string | null;
   /** بوت واتساب: ما يُلصق في لوحة Meta */
@@ -121,6 +124,43 @@ export function SetupClient({
           <li>أول طلب حقيقي: افتحه في توترز كالعادة ← يظهر على «الطلبات الواردة» بزرّ «قبول — توترز». اسم لم يُعرف؟ يُربط مرّة من «شركات التوصيل».</li>
         </ol>
       </Section>
+
+      {/* الهَب: النسخة نفسها على جهاز في المحل — تعمل بلا إنترنت وترفع ما حُفظ حين يعود (docs/HUB.md) */}
+      {hubCommand && (
+        <Section icon={<Server className="size-5" />} title="٧ — الهَب: العمل بلا إنترنت">
+          <p className="mb-3 text-sm font-bold text-muted-foreground">
+            الموقع اليوم على نتلفاي: ينقطع الإنترنت فيتوقف الكاشير. الهَب هو ستيشن نفسه يعمل على جهاز داخل المحل (جهاز الكاشير يصلح)،
+            فتبقى الطلبات والطباعة وشاشات المطبخ والتجهيز والاستلام تعمل، وتُرفع الطلبات إلى السحابة تلقائياً حين يعود الخط.
+          </p>
+          <div className="flex items-start gap-2">
+            <code className="min-w-0 flex-1 overflow-x-auto rounded-xl bg-secondary p-3 text-left text-xs" dir="ltr">
+              {hubCommand}
+            </code>
+            <CopyButton value={hubCommand} />
+          </div>
+          <ol className="mt-3 list-inside list-decimal space-y-1.5 text-sm font-bold text-muted-foreground">
+            <li>على جهاز المحل: PowerShell كمسؤول ← الصق السطر أعلاه.</li>
+            <li>
+              أول مرة يفتح المفكّرة على <code dir="ltr">C:\station\.env.local</code> بأسماء المتغيّرات فقط — الصق قيمها من Netlify ← Site
+              configuration ← Environment variables (نفس قيم الموقع)، احفظ، ثم شغّل السطر مرة ثانية.
+            </li>
+            <li>يثبّت Node، ينزّل آخر نسخة، يبنيها، ويسجّلها خدمة «StationHub» تبدأ مع ويندوز على المنفذ 3000، ويطبع عنوان الجهاز.</li>
+            <li>
+              في الراوتر ثبّت IP للجهاز، ثم وجّه كل الشاشات (الكاشير، المطبخ، التجهيز، الاستلام، منيو QR) إلى{" "}
+              <code dir="ltr">http://&lt;IP&gt;:3000/…</code> بدل رابط نتلفاي. وكيل الطباعة (القسم ١) يبقى كما هو على الجهاز نفسه.
+            </li>
+            <li>عند انقطاع الخط يظهر في شريط الموظفين «يعمل بلا إنترنت»، وحين يعود «يرفع N» حتى يفرغ.</li>
+            <li>
+              <b>التحديث</b>: كل إصدار جديد على نتلفاي لا يصل الهَب وحده — شغّل السطر نفسه مرة أخرى على جهاز المحل (دقيقتان، والقاعدة
+              المحلية في <code dir="ltr">C:\station\data</code> تبقى).
+            </li>
+          </ol>
+          <p className="mt-3 text-xs font-bold text-muted-foreground">
+            ما يعمل بلا إنترنت الآن: طلبات الزبائن (QR/كشك/التوصيل)، شاشات المطبخ والتجهيز والاستلام، الطباعة، الدخول لمن دخل من قبل (١٦ ساعة). بيع
+            الكاشير نفسه ما زال يحتاج الخط — هذه المرحلة التالية.
+          </p>
+        </Section>
+      )}
 
       {/* بوت واتساب: نفس محرّك بوت تليغرام، ويُربط من لوحة Meta بهذين السطرين */}
       {whatsapp && (

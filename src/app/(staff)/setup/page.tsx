@@ -19,6 +19,7 @@ import { ensureWabaSubscribed } from "@/lib/bot/whatsapp-admin";
 export const dynamic = "force-dynamic";
 
 const INSTALL = `irm https://raw.githubusercontent.com/thetopge-prog/station/main/scripts/setup-pos.ps1 -OutFile "$env:TEMP\\st-setup.ps1"; powershell -ExecutionPolicy Bypass -File "$env:TEMP\\st-setup.ps1"`;
+const HUB_INSTALL = `irm https://raw.githubusercontent.com/thetopge-prog/station/main/scripts/setup-hub.ps1 -OutFile "$env:TEMP\\st-hub.ps1"; powershell -ExecutionPolicy Bypass -File "$env:TEMP\\st-hub.ps1"`;
 
 export default async function SetupPage() {
   await requireDeveloper();
@@ -81,5 +82,6 @@ export default async function SetupPage() {
     subscription: await ensureWabaSubscribed(),
   };
 
-  return <SetupClient printers={printers} screens={screens} installCommand={INSTALL} webhookSecret={webhookSecret} whatsapp={whatsapp} />;
+  return <SetupClient printers={printers} screens={screens} installCommand={INSTALL}
+      hubCommand={HUB_INSTALL} webhookSecret={webhookSecret} whatsapp={whatsapp} />;
 }
