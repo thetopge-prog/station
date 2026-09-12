@@ -92,7 +92,10 @@ export function proxy(request: NextRequest) {
     // token is still fresh.
     const expired = session?.expiresAt != null && session.expiresAt * 1000 < Date.now();
 
-    if (isAuthed && !expired && LOGIN_PATHS.has(pathname)) {
+    // …and never when the app itself sent them here: a cookie the server has
+    // already rejected must not be trusted to skip the login page.
+    const stale = request.nextUrl.searchParams.has("stale");
+    if (isAuthed && !expired && !stale && LOGIN_PATHS.has(pathname)) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
 

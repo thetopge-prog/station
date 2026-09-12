@@ -6,18 +6,42 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useCafeUI } from "@/components/CafeUIProvider";
 import { StationMark } from "@/components/cafe/Logo";
 
-export function SignInForm({ redirectTo }: { redirectTo: string }) {
+const STALE_KEY = "st-stale-bounces";
+
+export function SignInForm({ redirectTo, stale = false }: { redirectTo: string; stale?: boolean }) {
   const { t } = useCafeUI();
   const router = useRouter();
+  const [notice, setNotice] = useState<string | null>(null);
 
   // If the visitor landed here only because their access token expired, the
   // browser client can silently refresh it from the refresh token — then send
   // them straight back in instead of asking for the password again.
+  //
+  // `stale` means the server just rejected a cookie that still looked valid.
+  // One refresh attempt is allowed (a transient blip heals itself); if the
+  // server bounces us twice, or the refresh fails, the session is gone on the
+  // server side — drop it locally and say so, instead of looping forever.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const { data } = await createSupabaseBrowserClient().auth.getSession();
+        const supabase = createSupabaseBrowserClient();
+        if (stale) {
+          const n = Number(sessionStorage.getItem(STALE_KEY) ?? 0) + 1;
+          sessionStorage.setItem(STALE_KEY, String(n));
+          if (n <= 2) {
+            const { data } = await supabase.auth.refreshSession();
+            if (!cancelled && data.session) {
+              router.replace(redirectTo);
+              return;
+            }
+          }
+          await supabase.auth.signOut({ scope: "local" });
+          sessionStorage.removeItem(STALE_KEY);
+          if (!cancelled) setNotice("انتهت جلستك على هذا الجهاز — سجّل الدخول من جديد.");
+          return;
+        }
+        const { data } = await supabase.auth.getSession();
         if (!cancelled && data.session) router.replace(redirectTo);
       } catch {
         /* demo mode or no session — stay on the form */
@@ -26,7 +50,7 @@ export function SignInForm({ redirectTo }: { redirectTo: string }) {
     return () => {
       cancelled = true;
     };
-  }, [router, redirectTo]);
+  }, [router, redirectTo, stale]);
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -48,6 +72,7 @@ export function SignInForm({ redirectTo }: { redirectTo: string }) {
         setError(t("auth.error"));
         return;
       }
+      sessionStorage.removeItem(STALE_KEY);
       router.replace(redirectTo);
     } catch {
       setError(t("auth.error"));
@@ -94,6 +119,7 @@ export function SignInForm({ redirectTo }: { redirectTo: string }) {
         />
       </label>
 
+      {notice && <p className="rounded-lg bg-secondary px-3 py-2 text-sm font-bold">{notice}</p>}
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       <button

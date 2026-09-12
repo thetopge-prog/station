@@ -29,7 +29,11 @@ export default async function StaffLayout({ children }: { children: React.ReactN
     );
   }
   const staff = await getStaff();
-  if (!staff) redirect("/sign-in");
+  // ?stale: the cookie looks fresh but Supabase no longer knows the session
+  // (password reset, sign-out elsewhere). Without the flag the proxy sees the
+  // cookie and bounces /sign-in straight back here — the redirect loop the
+  // till showed as ERR_TOO_MANY_REDIRECTS.
+  if (!staff) redirect("/sign-in?stale=1");
   // The shift was visible on /cashier and nowhere else, so an owner on the
   // dashboard had no idea whether the till was even open — and a cashier who
   // wandered off the page lost sight of their own drawer. Resolved here, on a
