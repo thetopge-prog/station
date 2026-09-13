@@ -16,7 +16,6 @@ import { claimPrint } from "@/lib/cafe/print-spool-actions";
 import { redeemReward, type Card } from "@/lib/cafe/loyalty-actions";
 import { Receipt, type ReceiptData } from "./Receipt";
 import { MenuIcon } from "./MenuIcon";
-import { PriceInput } from "./PriceInput";
 import { CallBanner } from "./CallBanner";
 import { ShortageAlert } from "./ShortageAlert";
 import {
@@ -836,44 +835,44 @@ export function CashierClient({
           <p className="text-xs text-muted-foreground">{loyaltyMsg}</p>
         )}
 
-        {/* إضافات (surcharges for add-ons) */}
-        <div className="space-y-2 rounded-xl bg-secondary/60 p-3">
-          <p className="text-sm font-semibold">➕ إضافات على الطلب</p>
-          {extras.length > 0 && (
-            <ul className="space-y-1">
-              {extras.map((x, i) => (
-                <li
-                  key={i}
-                  className="flex items-center justify-between gap-2 text-sm"
-                >
-                  <span className="min-w-0 truncate">{x.name}</span>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-semibold text-primary">
-                      +{formatIqdLabel(x.price)}
-                    </span>
-                    <button
-                      onClick={() =>
-                        setExtras((xs) => xs.filter((_, j) => j !== i))
-                      }
-                      aria-label="حذف"
-                      className={`rounded-md border border-border hover:bg-background ${TAP}`}
-                    >
-                      <Trash2 className="mx-auto size-4" />
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <PriceInput value={extraPrice} onChange={setExtraPrice} />
+        {/* إضافات: سطر واحد. المبلغ يُكتب كما هو (٥٠٠، ١٠٠٠) — لا أزرار كسور
+            ولا مجموع جارٍ؛ كانت تأخذ ربع الشاشة لشيء يُستعمل مرّة في اليوم */}
+        <div className="flex flex-wrap items-center gap-1.5 rounded-xl bg-secondary/60 px-3 py-2">
+          <span className="text-sm font-semibold">➕ إضافة</span>
+          <input
+            inputMode="numeric"
+            dir="ltr"
+            value={extraPrice ? String(extraPrice) : ""}
+            onChange={(e) =>
+              setExtraPrice(
+                Number(
+                  e.target.value
+                    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+                    .replace(/[^\d]/g, ""),
+                ) || 0,
+              )
+            }
+            onKeyDown={(e) => e.key === "Enter" && addExtra()}
+            placeholder="المبلغ"
+            className="min-h-10 w-24 rounded-lg border border-input bg-background px-2 text-center text-sm outline-none focus:ring-2 focus:ring-ring"
+          />
+          <button
+            onClick={addExtra}
+            className="min-h-10 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground hover:opacity-90"
+          >
+            +
+          </button>
+          {extras.map((x, i) => (
             <button
-              onClick={addExtra}
-              className="min-h-11 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground hover:opacity-90"
+              key={i}
+              onClick={() => setExtras((xs) => xs.filter((_, j) => j !== i))}
+              title="حذف"
+              className="flex min-h-10 items-center gap-1 rounded-lg border border-border bg-background px-2 text-sm font-semibold text-primary hover:bg-secondary"
             >
-              +
+              +{formatIqdLabel(x.price)}
+              <Trash2 className="size-3.5" />
             </button>
-          </div>
+          ))}
         </div>
 
         {/* totals */}
