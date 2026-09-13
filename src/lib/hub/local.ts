@@ -69,10 +69,12 @@ export type LocalPay = {
   discount: number;
   extra: number;
   extraNote: string | null;
-  payMethod: "cash" | "card" | "partner";
+  payMethod: "cash" | "card" | "partner" | "debt";
   partnerId: string | null;
   partnerCashReceived: number | null;
   customerId: string | null;
+  /** «على حساب أحمد» — who pays later; a debt_entries row at sync time */
+  debtor?: { name: string; phone: string | null } | null;
   paidAt: string;
   /** from the cached prices — what the receipt showed, for the till's own screen */
   subtotal: number;

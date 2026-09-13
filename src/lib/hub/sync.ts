@@ -98,6 +98,14 @@ export async function drainHub(): Promise<{ orders: number; preps: number }> {
           }
           continue;
         }
+        // the debt ledger line the till would have written online — once
+        if (pay.payMethod === "debt" && pay.debtor?.name) {
+          const note = `طلب #${String(data?.[0]?.order_seq ?? o.seq).padStart(3, "0")} · ${o.id.slice(0, 8)}`;
+          const { data: dup } = await svc.from("debt_entries").select("id").eq("note", note).limit(1);
+          if (!dup?.length) {
+            await svc.from("debt_entries").insert({ customer_name: pay.debtor.name, phone: pay.debtor.phone, kind: "debit", amount: Number(net) || 0, note, session_id: session, created_by: o.meta.cashierId, business_day: o.day });
+          }
+        }
         // points as payOrder would have awarded, on the cloud's net figure
         const award = pay.customerId ? earnPoints(Number(net) || 0, loyaltyConfig().pointsPerIqd) : 0;
         if (award > 0) {

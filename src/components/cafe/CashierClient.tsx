@@ -122,6 +122,9 @@ export function CashierClient({
   const [success, setSuccess] = useState<{ orderNumber: string; awarded: number } | null>(null);
   // cash opens the drawer; Qi-card payments happen on the Qi device — no drawer.
   const [payMethod, setPayMethod] = useState<PayMethod>("cash");
+  // «على حساب أحمد» — من يدفع لاحقاً؛ يُسجَّل في الديون باسمه
+  const [debtorName, setDebtorName] = useState("");
+  const [debtorPhone, setDebtorPhone] = useState("");
   const [partnerId, setPartnerId] = useState<string>("");
   // شركة «مخصّص» (زاد): ما دفعه المندوب الآن — فارغ يعني كامل المبلغ
   const [partnerCash, setPartnerCash] = useState<string>("");
@@ -339,7 +342,7 @@ export function CashierClient({
       const payload = lines.map((l) => ({ item_id: l.itemId, variant_id: l.variantId, flavor: l.flavor, qty: l.qty, note: l.note }));
       const cust = orderType === "delivery" ? { phone: custPhone.trim() || null, address: custAddress.trim() || null, customerName: custName.trim() || null } : { phone: null, address: null, customerName: null };
       const channel = orderType === "takeaway" ? ("takeaway" as const) : ("cashier" as const);
-      const res = await cashierCheckout({ lines: payload, discount, extra: extraTotal, extraNote, payMethod, partnerId: payMethod === "partner" ? partnerId : null, partnerCashReceived: payMethod === "partner" && partnerCash.trim() !== "" ? Number(partnerCash) : null, customerId: customer?.id ?? null, table, note: orderNote.trim() || null, channel, ...cust });
+      const res = await cashierCheckout({ lines: payload, discount, extra: extraTotal, extraNote, payMethod, partnerId: payMethod === "partner" ? partnerId : null, partnerCashReceived: payMethod === "partner" && partnerCash.trim() !== "" ? Number(partnerCash) : null, debtorName: payMethod === "debt" ? debtorName : null, debtorPhone: payMethod === "debt" ? debtorPhone : null, customerId: customer?.id ?? null, table, note: orderNote.trim() || null, channel, ...cust });
       if (!res.ok) {
         setErr(res.error);
         return;
@@ -389,6 +392,8 @@ export function CashierClient({
       setDiscountMode("iqd");
       setExtras([]);
       setPayMethod("cash");
+      setDebtorName("");
+      setDebtorPhone("");
       setOrderType("delivery");
       setTableNo("");
       setOrderNote("");
@@ -404,6 +409,61 @@ export function CashierClient({
       setBusy(false);
     }
   }
+
+  // شعارات الشركات: تحت «توصيل» مباشرة حين يكون الطلب توصيلاً، وإلا تحت طرق الدفع
+  const partnerBlock = (
+    <>
+      {payMethod === "partner" && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-2 dark:border-amber-700 dark:bg-amber-950/40">
+          {/* شعارات لا قائمة منسدلة: ثلاث شركات، وإصبع على شاشة لمس */}
+          <div className="grid grid-cols-3 gap-1.5">
+            {partners.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => setPartnerId(p.id)}
+                className={`flex min-h-16 flex-col items-center justify-center gap-1 rounded-lg border-2 bg-background px-2 py-1.5 text-xs font-bold transition ${
+                  partnerId === p.id ? "border-primary ring-2 ring-primary/30" : "border-border hover:bg-secondary"
+                }`}
+              >
+                <PartnerLogo name={p.name_ar} className="h-7" />
+                <span>
+                  {p.name_ar}
+                  {p.settlement === "cash_at_pickup" ? ` · نقد −${p.commission_pct}٪` : p.settlement === "custom" ? " · مخصّص" : ""}
+                </span>
+              </button>
+            ))}
+          </div>
+          {/* said plainly, because the cashier is the one who gets blamed if
+              the drawer does not match at handover */}
+          {partners.find((p) => p.id === partnerId)?.settlement === "custom" ? (
+            <label className="mt-1.5 block">
+              {/* الافتراضي = الإجمالي ناقص أجرة الشركة (نحن ندفعها في مناطق التوصيل
+                  المجاني). الزبون دفع الأجرة للمندوب؟ يكتب الكاشير الإجمالي كاملاً. */}
+              <span className="mb-1 block text-xs font-bold text-amber-800 dark:text-amber-300">
+                {(() => {
+                  const fee = partners.find((p) => p.id === partnerId)?.delivery_fee ?? 0;
+                  const def = Math.max(0, total - fee);
+                  return `دفع المندوب الآن (فارغ = ${formatIqdLabel(def)}${fee ? ` بعد أجرة توصيل ${formatIqdLabel(fee)}` : ""})`;
+                })()}
+              </span>
+              <input
+                value={partnerCash}
+                onChange={(e) => setPartnerCash(e.target.value.replace(/[^\d]/g, ""))}
+                inputMode="numeric"
+                dir="ltr"
+                placeholder={String(Math.max(0, total - (partners.find((p) => p.id === partnerId)?.delivery_fee ?? 0)))}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-lg font-black tabular-nums"
+              />
+            </label>
+          ) : (
+            <p className="mt-1.5 text-xs font-bold text-amber-800 dark:text-amber-300">
+              بالآجل — لا يدخل صندوق الكاشير ولا يُحتسب عليك في نهاية الوردية.
+            </p>
+          )}
+        </div>
+      )}
+    </>
+  );
 
   return (
     // minmax(0,1fr) + min-w-0: without them the scrollable pills row's intrinsic
@@ -692,13 +752,18 @@ export function CashierClient({
             onClick={() => {
               setOrderType("delivery");
               setTableNo("");
+              // توصيل = شركة في الغالب: الشعارات تُفتح فوراً هنا لا تحت العنوان
+              if (partners.length) setPayMethod("partner");
             }}
             className={`min-h-12 rounded-lg px-2 text-sm font-semibold transition ${orderType === "delivery" ? "bg-primary text-primary-foreground" : "hover:bg-background"}`}
           >
             🛵 توصيل
           </button>
           <button
-            onClick={() => setOrderType("dinein")}
+            onClick={() => {
+              setOrderType("dinein");
+              if (payMethod === "partner") setPayMethod("cash");
+            }}
             className={`min-h-12 rounded-lg px-2 text-sm font-semibold transition ${orderType === "dinein" ? "bg-primary text-primary-foreground" : "hover:bg-background"}`}
           >
             🏠 داخل المطعم
@@ -707,12 +772,14 @@ export function CashierClient({
             onClick={() => {
               setOrderType("takeaway");
               setTableNo("");
+              if (payMethod === "partner") setPayMethod("cash");
             }}
             className={`min-h-12 rounded-lg px-2 text-sm font-semibold transition ${orderType === "takeaway" ? "bg-primary text-primary-foreground" : "hover:bg-background"}`}
           >
             🛍️ سفري
           </button>
         </div>
+        {orderType === "delivery" && partnerBlock}
         {orderType === "delivery" && (
           <div className="grid gap-1.5">
             <div className="grid grid-cols-2 gap-1.5">
@@ -766,7 +833,7 @@ export function CashierClient({
           </div>
         )}
 
-        <div className={`grid gap-1.5 rounded-xl bg-secondary/60 p-1.5 ${partners.length ? "grid-cols-3" : "grid-cols-2"}`}>
+        <div className={`grid gap-1.5 rounded-xl bg-secondary/60 p-1.5 ${partners.length ? "grid-cols-4" : "grid-cols-3"}`}>
           <button
             onClick={() => setPayMethod("cash")}
             className={`min-h-12 rounded-lg px-3 text-sm font-semibold transition ${payMethod === "cash" ? "bg-primary text-primary-foreground" : "hover:bg-background"}`}
@@ -788,61 +855,46 @@ export function CashierClient({
               🛵 شركة
             </button>
           )}
+          <button
+            onClick={() => setPayMethod("debt")}
+            className={`min-h-12 rounded-lg px-3 text-sm font-semibold transition ${payMethod === "debt" ? "bg-primary text-primary-foreground" : "hover:bg-background"}`}
+          >
+            📒 دين
+          </button>
         </div>
 
-        {payMethod === "partner" && (
-          <div className="rounded-xl border border-amber-300 bg-amber-50 p-2 dark:border-amber-700 dark:bg-amber-950/40">
-            {/* شعارات لا قائمة منسدلة: ثلاث شركات، وإصبع على شاشة لمس */}
-            <div className="grid grid-cols-3 gap-1.5">
-              {partners.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => setPartnerId(p.id)}
-                  className={`flex min-h-16 flex-col items-center justify-center gap-1 rounded-lg border-2 bg-background px-2 py-1.5 text-xs font-bold transition ${
-                    partnerId === p.id ? "border-primary ring-2 ring-primary/30" : "border-border hover:bg-secondary"
-                  }`}
-                >
-                  <PartnerLogo name={p.name_ar} className="h-7" />
-                  <span>
-                    {p.name_ar}
-                    {p.settlement === "cash_at_pickup" ? ` · نقد −${p.commission_pct}٪` : p.settlement === "custom" ? " · مخصّص" : ""}
-                  </span>
-                </button>
-              ))}
+        {payMethod === "debt" && (
+          <div className="grid gap-1.5 rounded-xl border border-amber-300 bg-amber-50 p-2 dark:border-amber-700 dark:bg-amber-950/40">
+            <div className="grid grid-cols-2 gap-1.5">
+              <input
+                value={debtorName}
+                onChange={(e) => setDebtorName(e.target.value)}
+                placeholder="👤 على حساب من؟"
+                maxLength={120}
+                autoFocus
+                className="min-h-11 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+              />
+              <input
+                value={debtorPhone}
+                onChange={(e) => setDebtorPhone(e.target.value)}
+                placeholder="📞 هاتفه (اختياري)"
+                inputMode="tel"
+                dir="ltr"
+                maxLength={20}
+                className="min-h-11 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+              />
             </div>
-            {/* said plainly, because the cashier is the one who gets blamed if
-                the drawer does not match at handover */}
-            {partners.find((p) => p.id === partnerId)?.settlement === "custom" ? (
-              <label className="mt-1.5 block">
-                {/* الافتراضي = الإجمالي ناقص أجرة الشركة (نحن ندفعها في مناطق التوصيل
-                    المجاني). الزبون دفع الأجرة للمندوب؟ يكتب الكاشير الإجمالي كاملاً. */}
-                <span className="mb-1 block text-xs font-bold text-amber-800 dark:text-amber-300">
-                  {(() => {
-                    const fee = partners.find((p) => p.id === partnerId)?.delivery_fee ?? 0;
-                    const def = Math.max(0, total - fee);
-                    return `دفع المندوب الآن (فارغ = ${formatIqdLabel(def)}${fee ? ` بعد أجرة توصيل ${formatIqdLabel(fee)}` : ""})`;
-                  })()}
-                </span>
-                <input
-                  value={partnerCash}
-                  onChange={(e) => setPartnerCash(e.target.value.replace(/[^\d]/g, ""))}
-                  inputMode="numeric"
-                  dir="ltr"
-                  placeholder={String(Math.max(0, total - (partners.find((p) => p.id === partnerId)?.delivery_fee ?? 0)))}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-lg font-black tabular-nums"
-                />
-              </label>
-            ) : (
-              <p className="mt-1.5 text-xs font-bold text-amber-800 dark:text-amber-300">
-                بالآجل — لا يدخل صندوق الكاشير ولا يُحتسب عليك في نهاية الوردية.
-              </p>
-            )}
+            <p className="text-xs font-bold text-amber-800 dark:text-amber-300">
+              يُسجَّل في «الديون» باسمه بالمبلغ كاملاً ولا يدخل الصندوق. سداده من صفحة الديون.
+            </p>
           </div>
         )}
 
+        {orderType !== "delivery" && partnerBlock}
+
         <button
           onClick={checkout}
-          disabled={busy || lines.length === 0 || (payMethod === "partner" && !partnerId)}
+          disabled={busy || lines.length === 0 || (payMethod === "partner" && !partnerId) || (payMethod === "debt" && !debtorName.trim())}
           className="w-full rounded-xl bg-primary px-4 py-3 font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
         >
           {busy
@@ -851,7 +903,9 @@ export function CashierClient({
               ? "دفع نقدي وإصدار الطلب"
               : payMethod === "card"
                 ? "دفع كي كارد وإصدار الطلب"
-                : "تسجيل على الشركة وإصدار الطلب"}
+                : payMethod === "debt"
+                  ? "تسجيل ديناً وإصدار الطلب"
+                  : "تسجيل على الشركة وإصدار الطلب"}
         </button>
       </aside>
 

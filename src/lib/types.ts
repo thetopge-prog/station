@@ -377,7 +377,7 @@ export type Database = {
           order_source: "pos" | "web" | "whatsapp" | "telegram" | "toters" | "talabaty"; customer_name: string | null; notified_at: string | null;
           telegram_chat_id: string | null;  // 0066 — زبون البوت، ليُبلَّغ
           partner_cash_received: number | null; partner_commission: number | null;  // 0068 — نقد عند الاستلام
-          payment_method: "cash" | "card" | "partner" | null; session_id: string | null; partner_id: string | null; courier_requested_at: string | null; courier_ref: string | null;
+          payment_method: "cash" | "card" | "partner" | "debt" | null; session_id: string | null; partner_id: string | null; courier_requested_at: string | null; courier_ref: string | null;
           partner_ref: string | null; partner_total: number | null;  // 0073 — رقم الشركة ومبلغها، للمطابقة
           printed_at: string | null;  // 0074 — الطابعة تتبع الطلب
           whatsapp_wa_id: string | null;  // 0075 — زبون بوت واتساب، ليُبلَّغ
@@ -391,12 +391,12 @@ export type Database = {
           eta_minutes?: number | null; customer_phone?: string | null; address_note?: string | null;
           updated_at?: string; source?: "hub" | "cloud";
           order_source?: "pos" | "web" | "whatsapp" | "telegram" | "toters" | "talabaty"; customer_name?: string | null; notified_at?: string | null; telegram_chat_id?: string | null;
-          payment_method?: "cash" | "card" | "partner" | null; session_id?: string | null; partner_id?: string | null;
+          payment_method?: "cash" | "card" | "partner" | "debt" | null; session_id?: string | null; partner_id?: string | null;
         };
         Update: Partial<{
           status: OrderStatus; discount: number; extra: number; extra_note: string | null;
           customer_id: string | null; paid_at: string | null; shortage_ack_at: string | null;
-          prep_status: PrepStatus; expediter_id: string | null; eta_minutes: number | null; updated_at: string; payment_method: "cash" | "card" | "partner" | null; session_id: string | null; partner_id: string | null; courier_requested_at: string | null; courier_ref: string | null;
+          prep_status: PrepStatus; expediter_id: string | null; eta_minutes: number | null; updated_at: string; payment_method: "cash" | "card" | "partner" | "debt" | null; session_id: string | null; partner_id: string | null; courier_requested_at: string | null; courier_ref: string | null;
           order_source: "pos" | "web" | "whatsapp" | "telegram" | "toters" | "talabaty"; telegram_chat_id: string | null;
           partner_cash_received: number | null; partner_commission: number | null;
           partner_ref: string | null; partner_total: number | null; printed_at: string | null; whatsapp_wa_id: string | null;

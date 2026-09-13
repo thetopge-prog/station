@@ -27,7 +27,7 @@ const CHANNEL_AR: Record<string, string> = {
   takeaway: "سفري",
   curbside: "من السيارة",
 };
-const PAY_AR: Record<string, string> = { cash: "نقدي", card: "كي كارد", partner: "شركة" };
+const PAY_AR: Record<string, string> = { cash: "نقدي", card: "كي كارد", partner: "شركة", debt: "دين" };
 const STATUS_AR: Record<string, string> = { pending: "معلّق", paid: "مدفوع", cancelled: "ملغي", refunded: "مسترجع" };
 const STATUS_CLASS: Record<string, string> = {
   pending: "bg-accent text-accent-foreground",

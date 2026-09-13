@@ -18,7 +18,8 @@ import { cleanPhone } from "./phone";
 
 /** How the counter was settled. "partner" = billed to a delivery company and
  *  collected later, so it never reaches the drawer. */
-export type PayMethod = "cash" | "card" | "partner";
+/** debt: the food leaves, the money does not — a debt_entries line in the payer's name */
+export type PayMethod = "cash" | "card" | "partner" | "debt";
 
 export type PendingItem = { name_ar: string; flavor_ar: string | null; qty: number; unit_price: number; line_total: number };
 export type PendingOrder = {
@@ -237,6 +238,9 @@ export async function cashierCheckout(input: {
   payMethod?: PayMethod;
   /** required when payMethod is "partner": which company is being billed */
   partnerId?: string | null;
+  /** required when payMethod is "debt": who will pay, and how to reach them */
+  debtorName?: string | null;
+  debtorPhone?: string | null;
   /** شركة «مخصّص»: ما دفعه المندوب الآن؛ غير مُرسَل = كامل المبلغ */
   partnerCashReceived?: number | null;
   /** طلب على الهاتف: تُكتب على الإيصال وتذكرة المطبخ بحجم مضاعف (0043 يخزّنها) */
@@ -252,6 +256,10 @@ export async function cashierCheckout(input: {
   // nobody to invoice. Refuse it here rather than discover it at settlement.
   if (input.payMethod === "partner" && !input.partnerId) {
     return { ok: false, error: "اختر شركة التوصيل." };
+  }
+  const debtor = input.payMethod === "debt" ? input.debtorName?.trim() || null : null;
+  if (input.payMethod === "debt" && !debtor) {
+    return { ok: false, error: "اكتب اسم من سيدفع الدين." };
   }
 
   // On the shop hub with no line: take the sale locally, print it, replay it
@@ -270,6 +278,7 @@ export async function cashierCheckout(input: {
         partnerId: input.payMethod === "partner" ? (input.partnerId ?? null) : null,
         partnerCashReceived: input.partnerCashReceived ?? null,
         customerId: input.customerId ?? null,
+        debtor: debtor ? { name: debtor, phone: cleanPhone(input.debtorPhone) } : null,
       },
     );
   if (onHub && !(await cloudReachable())) return local();
@@ -308,13 +317,38 @@ export async function cashierCheckout(input: {
     input.partnerCashReceived ?? null,
   );
 
+  // «على حساب أحمد»: the ledger line the debts page would have taken by hand.
+  // The order is already paid=debt above, so the till's cash stays honest even
+  // if this insert fails — and the failure is said, not swallowed.
+  let debtErr: string | null = null;
+  if (debtor) {
+    const svc = createSupabaseServiceClient();
+    const { error: de } = await svc.from("debt_entries").insert({
+      customer_name: debtor,
+      phone: cleanPhone(input.debtorPhone),
+      kind: "debit",
+      amount: paid.total,
+      note: `طلب #${String(placed[0].order_seq).padStart(3, "0")}`,
+      session_id: await openSessionIdFor(staff.employeeId),
+      created_by: staff.employeeId,
+    });
+    if (de) debtErr = de.message;
+    revalidatePath("/debts");
+  }
+
   revalidatePath("/cashier");
   revalidatePath("/dashboard");
   return {
     ok: true,
     // The sale stands; the attribution may not. Surfaced rather than hidden,
     // because an unattributed sale becomes a shortage on somebody's shift.
-    warning: stampErr ? "الطلب مدفوع لكنه لم يُنسب للوردية — راجع المطوّر." : undefined,
+    warning: stampErr
+      ? "الطلب مدفوع لكنه لم يُنسب للوردية — راجع المطوّر."
+      : debtErr
+        ? `الطلب صدر لكن الدين لم يُسجَّل باسم ${debtor} — سجّله من صفحة الديون.`
+        : debtor
+          ? `سُجّل ديناً باسم ${debtor} — لا يدخل الصندوق.`
+          : undefined,
     orderId: placed[0].order_id,
     orderNumber: String(placed[0].order_seq).padStart(3, "0"),
     // the 3-character code the customer quotes at handover (0043)

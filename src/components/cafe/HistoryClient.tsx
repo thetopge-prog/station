@@ -19,7 +19,7 @@ import { PartnerLogo } from "./PartnerLogo";
 const CHANNEL_AR: Record<string, string> = { cashier: "كاشير", qr: "طاولة", kiosk: "كشك", delivery: "توصيل", pickup: "استلام", curbside: "من السيارة", takeaway: "سفري" };
 const SOURCE_AR: Record<string, string> = { telegram: "تليغرام", whatsapp: "واتساب", web: "الموقع", toters: "توترز", talabaty: "طلباتي" };
 const STATUS_AR: Record<string, string> = { pending: "معلّق", paid: "مدفوع", cancelled: "ملغي", refunded: "مسترجع" };
-const PAY_AR: Record<string, string> = { cash: "نقد", card: "بطاقة", partner: "شركة توصيل" };
+const PAY_AR: Record<string, string> = { cash: "نقد", card: "بطاقة", partner: "شركة توصيل", debt: "دين" };
 
 const time = (iso: string) => new Intl.DateTimeFormat("ar-IQ", { timeZone: "Asia/Baghdad", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
 
