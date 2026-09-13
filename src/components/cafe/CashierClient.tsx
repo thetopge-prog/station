@@ -145,6 +145,7 @@ export function CashierClient({
   const [extras, setExtras] = useState<{ name: string; price: number }[]>([]);
   const [extraPrice, setExtraPrice] = useState(0);
   const [printWarn, setPrintWarn] = useState<string | null>(null);
+  const [saleNote, setSaleNote] = useState<string | null>(null);
 
   // cash drawer: device setting managed on the /orders screen (same localStorage key).
   const drawerKickRef = useRef(false);
@@ -347,6 +348,8 @@ export function CashierClient({
       // the spooler on any other tab sees the row change. No agent (a phone) ⇒ no
       // claim, and the till prints it within a second.
       void agentAlive(500).then((ok) => ok && claimPrint(res.orderId).catch(() => {}));
+      // «حُفظ على هذا الجهاز» / «لم يُنسب للوردية» — the sale stands; the cashier must know which
+      setSaleNote(res.warning ?? null);
       setReceipt({
         orderId: res.orderId,
         // the QR encodes orders.id so the expediter can scan the slip — the
@@ -865,6 +868,7 @@ export function CashierClient({
             <p className="mt-1 text-muted-foreground">رقم الطلب</p>
             <p className="my-2 text-4xl font-extrabold text-primary">{success.orderNumber}</p>
             {success.awarded > 0 && <p className="text-sm text-muted-foreground">أُضيفت {success.awarded} نقطة ولاء.</p>}
+            {saleNote && <p className="mt-2 rounded-xl border-2 border-primary bg-primary/10 px-3 py-2 text-sm font-black text-primary">{saleNote}</p>}
             {printWarn && (
               <p className="mt-2 rounded-xl border-2 border-destructive bg-destructive/10 px-3 py-2 text-sm font-bold text-destructive">
                 {printWarn}

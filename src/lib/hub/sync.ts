@@ -10,6 +10,9 @@ import {
   unsyncedOrders,
 } from "./store";
 import type { PrepStatus } from "@/lib/types";
+import { openSessionIdFor } from "@/lib/cafe/session-of";
+import { loyaltyConfig } from "@/lib/cafe/config";
+import { earnPoints } from "@/lib/cafe/points";
 
 /**
  * Push what the shop did while it was alone.
@@ -66,6 +69,42 @@ export async function drainHub(): Promise<{ orders: number; preps: number }> {
           return { orders, preps };
         }
         continue;
+      }
+      // A counter sale carries its payment facts; the cloud prices the lines,
+      // then this stamps status/discount/method/partner/session on top. If it
+      // fails, the order stays unsynced and the next drain retries — the
+      // insert is idempotent (already=true), so nothing doubles.
+      const pay = o.meta.pay;
+      if (pay) {
+        const session = o.meta.cashierId ? await openSessionIdFor(o.meta.cashierId).catch(() => null) : null;
+        const { data: net, error: payErr } = await svc.rpc("sync_hub_payment", {
+          p_id: o.id,
+          p_paid_at: pay.paidAt,
+          p_discount: pay.discount,
+          p_extra: pay.extra,
+          p_extra_note: pay.extraNote,
+          p_method: pay.payMethod,
+          p_partner: pay.partnerId,
+          p_partner_cash: pay.partnerCashReceived,
+          p_customer: pay.customerId,
+          p_session: session,
+        });
+        if (payErr) {
+          console.error(`[hub] payment ${o.id} rejected:`, payErr.message);
+          await markOrderFailed(o.id, payErr.message);
+          if (isNetworkError(payErr)) {
+            markCloudDown();
+            return { orders, preps };
+          }
+          continue;
+        }
+        // points as payOrder would have awarded, on the cloud's net figure
+        const award = pay.customerId ? earnPoints(Number(net) || 0, loyaltyConfig().pointsPerIqd) : 0;
+        if (award > 0) {
+          const { error: le } = await svc.from("loyalty_events").insert({ customer_id: pay.customerId!, order_id: o.id, delta: award, reason: "earn_order" });
+          // 23505 = the partial unique index: already awarded on a previous pass
+          if (le && !/23505|duplicate/i.test(le.message)) console.error(`[hub] points ${o.id}:`, le.message);
+        }
       }
       await markOrderSynced(o.id, data?.[0]?.order_seq ?? o.seq);
       orders++;

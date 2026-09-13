@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cacheGet, cachePut, hubEnabled } from "@/lib/hub/store";
+import { cloudReachable } from "@/lib/hub/net";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { getStaff, requireRole, requireStaff } from "./auth";
 
@@ -44,18 +46,32 @@ export type PendingHandover = {
   closed_at: string;
 };
 
-/** The signed-in cashier's open session, if any. */
+/**
+ * The signed-in cashier's open session, if any.
+ *
+ * On the hub the last answer is remembered per cashier: with the line down the
+ * gate would otherwise show «بدء الوردية» to someone whose drawer is open, and
+ * opening it would fail too. A session opened online carries the till through
+ * the outage; its sales are attributed at sync time (sync.ts).
+ */
 export async function myOpenSession(): Promise<OpenSession | null> {
   const staff = await requireStaff();
+  const key = `session:${staff.employeeId}`;
+  if (hubEnabled() && !(await cloudReachable())) {
+    const cached = await cacheGet<OpenSession | null>(key);
+    return cached ?? null;
+  }
   const svc = createSupabaseServiceClient();
-  const { data } = await svc
+  const { data, error } = await svc
     .from("cashier_sessions")
     .select("id, cashier_id, opened_at, opening_float")
     .eq("cashier_id", staff.employeeId)
     .is("closed_at", null)
     .maybeSingle();
-  if (!data) return null;
-  return { ...data, cashier_name: staff.name };
+  if (error && hubEnabled()) return (await cacheGet<OpenSession | null>(key)) ?? null;
+  const out = data ? { ...data, cashier_name: staff.name } : null;
+  if (hubEnabled()) await cachePut(key, out);
+  return out;
 }
 
 /** A closed drawer nobody has accepted yet — the thing that blocks the till. */

@@ -6,6 +6,8 @@ import { requireAdmin, requireStaff } from "./auth";
 import { routeOrder, unroutedItems, type PrintItem, type PrinterRow, type StationRow } from "./print-routing";
 import { identifyDoc, renderTicketDoc, testSlipDoc, type TicketDoc } from "./escpos";
 import { BRAND } from "@/lib/brand";
+import { getLocalOrder, hubEnabled } from "@/lib/hub/store";
+import { readSnapshot } from "@/lib/hub/snapshot";
 
 /**
  * Printer configuration and the server half of printing.
@@ -159,6 +161,15 @@ export async function buildOrderJobs(
   { kickDrawer = false }: { kickDrawer?: boolean } = {},
 ): Promise<{ jobs: PrintJob[]; unrouted: string[] }> {
   await requireStaff();
+
+  // An order the hub took offline lives in its own store, not in the cloud —
+  // and it has to print NOW, while the line is down. Everything routeOrder
+  // needs was cached while online (snapshot.ts).
+  if (hubEnabled()) {
+    const local = await getLocalOrder(orderId);
+    if (local) return buildLocalJobs(local, kickDrawer);
+  }
+
   const svc = createSupabaseServiceClient();
 
   const { data: order } = await svc
@@ -222,10 +233,11 @@ export async function buildOrderJobs(
   }));
 
   const extras = order.extra > 0 ? [{ name: order.extra_note ?? "إضافات", price: order.extra }] : [];
+  const orderNumber = String(order.order_seq).padStart(3, "0");
   const tickets = routeOrder({
     order: {
       orderId: order.id,
-      orderNumber: String(order.order_seq).padStart(3, "0"),
+      orderNumber,
       pickupCode: order.pickup_code,
       channel: order.channel,
       tableNo: order.table_no,
@@ -234,13 +246,7 @@ export async function buildOrderJobs(
       discount: order.discount,
       extras,
       total: Math.max(0, order.subtotal - order.discount + order.extra),
-      dateTime: new Intl.DateTimeFormat("en-GB", {
-        timeZone: "Asia/Baghdad",
-        hour: "2-digit",
-        minute: "2-digit",
-        day: "2-digit",
-        month: "2-digit",
-      }).format(new Date(order.created_at)),
+      dateTime: baghdadStamp(order.created_at),
       cashierName,
       expediterName,
       customerPhone: order.customer_phone,
@@ -256,8 +262,22 @@ export async function buildOrderJobs(
     categoryStation,
   });
 
+  const jobs = toJobs(tickets, configs, order.channel, kickDrawer);
+
+  // surfaced in the UI so a category nobody routed (the original Fries gap)
+  // is noticed at the counter instead of in the kitchen
+  const unrouted = [...new Set(unroutedItems(items, categoryStation).map((i) => i.name_ar))];
+  return { jobs, unrouted };
+}
+
+function baghdadStamp(iso: string): string {
+  return new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Baghdad", hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" }).format(new Date(iso));
+}
+
+/** tickets → what the agent receives; one place, so the offline path prints the same paper */
+function toJobs(tickets: ReturnType<typeof routeOrder>, configs: Pick<PrinterConfig, "id" | "name_ar" | "host" | "port" | "share" | "copies">[], channel: string, kickDrawer: boolean): PrintJob[] {
   const byId = new Map(configs.map((p) => [p.id, p]));
-  const jobs: PrintJob[] = tickets.map((t) => {
+  return tickets.map((t) => {
     const p = byId.get(t.printerId)!;
     return {
       printerId: p.id,
@@ -266,7 +286,7 @@ export async function buildOrderJobs(
       port: p.port,
       share: p.share,
       // «سفري»: one receipt for the customer, one stapled to the bag
-      copies: t.kind === "receipt" && order.channel === "takeaway" ? 2 : p.copies,
+      copies: t.kind === "receipt" && channel === "takeaway" ? 2 : p.copies,
       // Content, not bytes. The agent draws it — see PrintJob.doc.
       doc: {
         ...renderTicketDoc(t, {
@@ -281,11 +301,63 @@ export async function buildOrderJobs(
       },
     };
   });
+}
 
-  // surfaced in the UI so a category nobody routed (the original Fries gap)
-  // is noticed at the counter instead of in the kitchen
-  const unrouted = [...new Set(unroutedItems(items, categoryStation).map((i) => i.name_ar))];
-  return { jobs, unrouted };
+/**
+ * The offline twin of buildOrderJobs: the record the hub saved, priced from the
+ * cached menu, routed with the cached printers. Station routing comes from the
+ * snapshot per item, so the item's station id doubles as its "category".
+ */
+async function buildLocalJobs(local: Awaited<ReturnType<typeof getLocalOrder>> & object, kickDrawer: boolean): Promise<{ jobs: PrintJob[]; unrouted: string[] }> {
+  const snap = await readSnapshot();
+  const d = local.display;
+  const pay = local.meta.pay;
+  const items: PrintItem[] = d.items.map((i) => ({
+    name_ar: i.name_ar,
+    flavor_ar: i.flavor_ar,
+    qty: i.qty,
+    unit_price: i.unit_price ?? 0,
+    category_id: i.station_id,
+    note: i.note ?? null,
+  }));
+  const categoryStation: Record<string, string | null> = {};
+  const stations: StationRow[] = [];
+  for (const i of d.items) {
+    if (!i.station_id) continue;
+    categoryStation[i.station_id] = i.station_id;
+    if (!stations.some((s) => s.id === i.station_id)) stations.push({ id: i.station_id, name_ar: i.station_name ?? "" });
+  }
+  const subtotal = pay?.subtotal ?? items.reduce((s, i) => s + i.unit_price * i.qty, 0);
+  const discount = pay?.discount ?? 0;
+  const extra = pay?.extra ?? 0;
+  const tickets = routeOrder({
+    order: {
+      orderId: d.id,
+      orderNumber: String(d.order_seq).padStart(3, "0"),
+      pickupCode: d.pickup_code,
+      channel: local.meta.channel,
+      tableNo: d.table_no,
+      note: d.note,
+      subtotal,
+      discount,
+      extras: extra > 0 ? [{ name: pay?.extraNote ?? "إضافات", price: extra }] : [],
+      total: Math.max(0, subtotal - discount + extra),
+      dateTime: baghdadStamp(d.created_at),
+      cashierName: d.cashier_name,
+      expediterName: d.expediter_name,
+      customerPhone: d.customer_phone,
+      addressNote: local.meta.address,
+      customerName: d.customer_name,
+      partnerName: null,
+      partnerRef: null,
+      partnerTotal: null,
+    },
+    items,
+    printers: snap.printers.map((p) => ({ id: p.id, name_ar: p.name_ar, kind: p.kind, station_id: p.station_id, is_active: p.is_active, copies: p.copies })),
+    stations,
+    categoryStation,
+  });
+  return { jobs: toJobs(tickets, snap.printers, d.channel, kickDrawer), unrouted: [] };
 }
 
 

@@ -30,6 +30,8 @@ export type PrepItem = {
   qty: number;
   /** «بدون بصل» — this line's note, shown under it */
   note?: string | null;
+  /** hub only: the cached menu price, for the receipt printed offline. The books recompute it. */
+  unit_price?: number;
   /** null when the item's category has no station (sauces, drinks) */
   station_id: string | null;
   station_name: string | null;

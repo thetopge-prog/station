@@ -10,8 +10,8 @@ const ROUTING: Routing = {
 };
 
 const PRICES: PriceBook = {
-  pizza1: { name_ar: "بيتزا سوبريم", flavors: [], variants: { v_large: { name_ar: "كبير" } } },
-  fries1: { name_ar: "الويدجز", flavors: [], variants: {} },
+  pizza1: { name_ar: "بيتزا سوبريم", price: 9000, flavors: [], variants: { v_large: { name_ar: "كبير", price: 12000 } } },
+  fries1: { name_ar: "الويدجز", price: 3000, flavors: [], variants: {} },
   sauce1: { name_ar: "رانش", flavors: [], variants: {} },
 };
 
@@ -99,7 +99,9 @@ describe("an order taken during an outage", () => {
   it("replays the raw lines, never a price it computed itself", () => {
     const rec = build({ channel: "qr", lines: [{ item_id: "pizza1", variant_id: "v_large", qty: 3 }] });
     expect(rec.lines).toEqual([{ item_id: "pizza1", variant_id: "v_large", qty: 3 }]);
-    expect(JSON.stringify(rec)).not.toMatch(/subtotal|unit_price|cost/);
+    // what is replayed carries no money; the display's unit_price is for the paper only
+    expect(JSON.stringify(rec.lines)).not.toMatch(/price|subtotal|cost/);
+    expect(JSON.stringify(rec)).not.toMatch(/cost/);
   });
 
   it("survives an item missing from the cache rather than dropping the line", () => {
@@ -118,6 +120,37 @@ describe("an order taken during an outage", () => {
       cashierId: null, expediterId: null, pickupCode: "AAA",
     });
     expect(late.day).toBe("2026-08-21");
+  });
+});
+
+describe("a counter sale taken during an outage", () => {
+  const sale = () =>
+    buildLocalOrder({
+      input: { channel: "cashier", lines: [{ item_id: "pizza1", variant_id: "v_large", qty: 1 }, { item_id: "fries1", qty: 2 }] },
+      id: "ord-2",
+      seq: 43,
+      now: NOW,
+      routing: ROUTING,
+      prices: PRICES,
+      staffNames: NAMES,
+      cashierId: "emp1",
+      expediterId: null,
+      pickupCode: "K7M",
+      pay: { discount: 1000, extra: 0, extraNote: null, payMethod: "cash", partnerId: null, partnerCashReceived: null, customerId: null },
+    });
+
+  it("prices the receipt from the cache — the size's own price, else the item's", () => {
+    const rec = sale();
+    expect(rec.display.items.map((i) => i.unit_price)).toEqual([12000, 3000]);
+    expect(rec.meta.pay?.subtotal).toBe(18000);
+    expect(rec.meta.pay?.discount).toBe(1000);
+    expect(rec.meta.pay?.paidAt).toBe(NOW.toISOString());
+  });
+
+  it("is already paid on the kitchen screens, and a plain order is not", () => {
+    expect(sale().display.status).toBe("paid");
+    expect(build({ channel: "qr", lines: [{ item_id: "fries1", qty: 1 }] }).display.status).toBe("pending");
+    expect(build({ channel: "qr", lines: [{ item_id: "fries1", qty: 1 }] }).meta.pay).toBeUndefined();
   });
 });
 

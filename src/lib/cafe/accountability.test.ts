@@ -170,10 +170,12 @@ describe("kitchen table columns", () => {
     });
     const exp = tickets.find((t) => t.kind === "expediter")!;
     const doc = renderTicketDoc(exp);
-    const row = doc.lines.find((l) => l.l === "بيتزا سوبريم - وسط")!;
+    // the burger station has a printer, so on the assembly ticket this line is
+    // the kitchen's: «X» before the name, «المطبخ» after the notes
+    const row = doc.lines.find((l) => l.l === "X بيتزا سوبريم - وسط")!;
     expect(row).toBeDefined();
     expect(row.r).toBe("2");
-    expect(row.n).toBe("سميك · بدون زيتون");
+    expect(row.n).toBe("سميك · بدون زيتون · المطبخ");
     // the short code the tablet camera reads first time
     expect(doc.qr).toBe("908-73S");
   });

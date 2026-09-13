@@ -6,6 +6,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/lib/types";
 import { requireStaff } from "./auth";
 import { openSessionIdFor } from "./session-of";
+import { hubEnabled } from "@/lib/hub/store";
+import { cloudReachable, isNetworkError, markCloudDown } from "@/lib/hub/net";
+import { placeLocalSale } from "@/lib/hub/place";
 import { notifyCustomerOrder } from "./customer-notify";
 import { loyaltyConfig } from "./config";
 import { earnPoints } from "./points";
@@ -251,6 +254,26 @@ export async function cashierCheckout(input: {
     return { ok: false, error: "اختر شركة التوصيل." };
   }
 
+  // On the shop hub with no line: take the sale locally, print it, replay it
+  // later. Checked before any Supabase call — a till that waits out DNS
+  // timeouts in front of a queue has already failed. Netlify never gets here.
+  const onHub = hubEnabled();
+  const local = () =>
+    placeLocalSale(
+      { channel: input.channel === "takeaway" ? "takeaway" : "cashier", lines: input.lines, table: input.table, note: input.note, phone: cleanPhone(input.phone), address: input.address, name: input.customerName },
+      staff.employeeId,
+      {
+        discount: Math.max(0, Math.round(input.discount ?? 0)),
+        extra: Math.max(0, Math.round(input.extra ?? 0)),
+        extraNote: input.extraNote?.trim() || null,
+        payMethod: input.payMethod ?? "cash",
+        partnerId: input.payMethod === "partner" ? (input.partnerId ?? null) : null,
+        partnerCashReceived: input.partnerCashReceived ?? null,
+        customerId: input.customerId ?? null,
+      },
+    );
+  if (onHub && !(await cloudReachable())) return local();
+
   const supabase = await createSupabaseServerClient();
   const { data: placed, error } = await supabase.rpc("place_order", {
     p_channel: input.channel === "takeaway" ? "takeaway" : "cashier",
@@ -263,7 +286,15 @@ export async function cashierCheckout(input: {
     p_address: input.address?.trim() || null,
     p_customer_name: input.customerName?.trim() || null,
   });
-  if (error || !placed?.[0]) return { ok: false, error: error?.message ?? "تعذّر إنشاء الطلب." };
+  if (error || !placed?.[0]) {
+    // the line died between the probe and this call: the order does not exist
+    // in the cloud, so taking it locally cannot double-book it
+    if (onHub && isNetworkError(error)) {
+      markCloudDown();
+      return local();
+    }
+    return { ok: false, error: error?.message ?? "تعذّر إنشاء الطلب." };
+  }
 
   const paid = await payOrder(supabase, placed[0].order_id, input.discount ?? 0, input.customerId ?? null, input.extra ?? 0, input.extraNote ?? null);
   if (!paid.ok) return paid;

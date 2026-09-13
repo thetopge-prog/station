@@ -52,9 +52,31 @@ export type Routing = Record<string, RoutingEntry>;
 /** id → arabic name, for the two names printed on every assembly ticket */
 export type NameMap = Record<string, string>;
 
-/** A snapshot of what a menu item is called and costs, taken while online. */
-export type PriceEntry = { name_ar: string; flavors: string[]; variants: Record<string, { name_ar: string }> };
+/**
+ * A snapshot of what a menu item is called and costs, taken while online.
+ *
+ * `price` is for the paper only: the receipt printed during an outage has to
+ * show a total. What reaches the books is still recomputed by sync_hub_order.
+ */
+export type PriceEntry = { name_ar: string; price?: number; flavors: string[]; variants: Record<string, { name_ar: string; price?: number }> };
 export type PriceBook = Record<string, PriceEntry>;
+
+/**
+ * A sale paid at the counter while the line was down — the facts, not the money.
+ * sync_hub_payment stamps them on the order after sync_hub_order has priced it.
+ */
+export type LocalPay = {
+  discount: number;
+  extra: number;
+  extraNote: string | null;
+  payMethod: "cash" | "card" | "partner";
+  partnerId: string | null;
+  partnerCashReceived: number | null;
+  customerId: string | null;
+  paidAt: string;
+  /** from the cached prices — what the receipt showed, for the till's own screen */
+  subtotal: number;
+};
 
 export type LocalOrderRecord = {
   id: string;
@@ -64,7 +86,7 @@ export type LocalOrderRecord = {
   /** exactly what sync_hub_order replays; prices are recomputed cloud-side */
   lines: OrderLineInput[];
   meta: {
-    channel: SubmitOrderInput["channel"];
+    channel: SubmitOrderInput["channel"] | "cashier" | "takeaway";
     table: string | null;
     note: string | null;
     phone: string | null;
@@ -73,6 +95,8 @@ export type LocalOrderRecord = {
     pickupCode: string | null;
     cashierId: string | null;
     expediterId: string | null;
+    /** present only for a counter sale — absent on QR/kiosk/delivery orders */
+    pay?: LocalPay;
   };
   /** the row the kitchen and expediter screens render, resolved from the cache */
   display: PrepOrder;
@@ -97,8 +121,9 @@ export function buildLocalOrder({
   cashierId,
   expediterId,
   pickupCode,
+  pay,
 }: {
-  input: SubmitOrderInput;
+  input: Omit<SubmitOrderInput, "channel"> & { channel: LocalOrderRecord["meta"]["channel"] };
   id: string;
   seq: number;
   now: Date;
@@ -108,6 +133,8 @@ export function buildLocalOrder({
   cashierId: string | null;
   expediterId: string | null;
   pickupCode: string;
+  /** a counter sale: paid now, on the cached prices, replayed as facts */
+  pay?: Omit<LocalPay, "paidAt" | "subtotal"> | null;
 }): LocalOrderRecord {
   const createdAt = now.toISOString();
   const items: PrepItem[] = input.lines.map((l, idx) => {
@@ -120,11 +147,14 @@ export function buildLocalOrder({
       name_ar: (p?.name_ar ?? "صنف") + (variant ? ` - ${variant.name_ar}` : ""),
       flavor_ar: l.flavor?.trim() || null,
       qty: Math.max(1, l.qty),
+      note: l.note ?? null,
+      unit_price: variant?.price ?? p?.price ?? 0,
       station_id: r?.station_id ?? null,
       station_name: r?.station_name ?? null,
       category_name: r?.category_name ?? null,
     };
   });
+  const subtotal = items.reduce((s, i) => s + (i.unit_price ?? 0) * i.qty, 0);
 
   return {
     id,
@@ -142,14 +172,15 @@ export function buildLocalOrder({
       pickupCode,
       cashierId,
       expediterId,
+      ...(pay ? { pay: { ...pay, paidAt: createdAt, subtotal } } : {}),
     },
     display: {
       id,
       order_seq: seq,
       pickup_code: pickupCode,
       prep_status: "new",
-      status: "pending",
-      channel: input.channel,
+      status: pay ? "paid" : "pending",
+      channel: input.channel as PrepOrder["channel"],
       table_no: input.table?.trim() || null,
       note: input.note?.trim() || null,
       eta_minutes: null,

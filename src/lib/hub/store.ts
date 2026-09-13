@@ -231,6 +231,13 @@ export async function markOrderFailed(id: string, error: string): Promise<void> 
   db.prepare("update local_orders set tries = tries + 1, last_error = ? where id = ?").run(error.slice(0, 300), id);
 }
 
+export async function getLocalOrder(id: string): Promise<StoredLocalOrder | null> {
+  const db = await open();
+  if (!db) return null;
+  const row = db.prepare("select * from local_orders where id = ?").get(id) as unknown as Row | undefined;
+  return row ? hydrate(row) : null;
+}
+
 export async function isLocalOrder(id: string): Promise<boolean> {
   const db = await open();
   if (!db) return false;

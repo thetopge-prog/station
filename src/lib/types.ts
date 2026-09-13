@@ -590,6 +590,13 @@ export type Database = {
         Returns: { order_id: string; order_seq: number; already: boolean }[];
       };
       sync_hub_prep: { Args: { p_id: string; p_status: PrepStatus; p_at: string }; Returns: boolean };
+      sync_hub_payment: {
+        Args: {
+          p_id: string; p_paid_at: string; p_discount?: number; p_extra?: number; p_extra_note?: string | null;
+          p_method?: string; p_partner?: string | null; p_partner_cash?: number | null; p_customer?: string | null; p_session?: string | null;
+        };
+        Returns: number;
+      };
       set_prep_status: { Args: { p_order: string; p_status: PrepStatus }; Returns: undefined };
       claim_expediter: { Args: { p_order: string }; Returns: undefined };
       mark_ready: { Args: { p_order: string }; Returns: undefined };
