@@ -123,8 +123,8 @@ export function CashierClient({
   // cash opens the drawer; Qi-card payments happen on the Qi device — no drawer.
   const [payMethod, setPayMethod] = useState<PayMethod>("cash");
   // «على حساب أحمد» — من يدفع لاحقاً؛ يُسجَّل في الديون باسمه
+  // فارغ = اسم الزبون المكتوب أعلاه؛ يُكتب فقط حين يدفع شخص غير الزبون
   const [debtorName, setDebtorName] = useState("");
-  const [debtorPhone, setDebtorPhone] = useState("");
   const [partnerId, setPartnerId] = useState<string>("");
   // شركة «مخصّص» (زاد): ما دفعه المندوب الآن — فارغ يعني كامل المبلغ
   const [partnerCash, setPartnerCash] = useState<string>("");
@@ -342,7 +342,7 @@ export function CashierClient({
       const payload = lines.map((l) => ({ item_id: l.itemId, variant_id: l.variantId, flavor: l.flavor, qty: l.qty, note: l.note }));
       const cust = orderType === "delivery" ? { phone: custPhone.trim() || null, address: custAddress.trim() || null, customerName: custName.trim() || null } : { phone: null, address: null, customerName: null };
       const channel = orderType === "takeaway" ? ("takeaway" as const) : ("cashier" as const);
-      const res = await cashierCheckout({ lines: payload, discount, extra: extraTotal, extraNote, payMethod, partnerId: payMethod === "partner" ? partnerId : null, partnerCashReceived: payMethod === "partner" && partnerCash.trim() !== "" ? Number(partnerCash) : null, debtorName: payMethod === "debt" ? debtorName : null, debtorPhone: payMethod === "debt" ? debtorPhone : null, customerId: customer?.id ?? null, table, note: orderNote.trim() || null, channel, ...cust });
+      const res = await cashierCheckout({ lines: payload, discount, extra: extraTotal, extraNote, payMethod, partnerId: payMethod === "partner" ? partnerId : null, partnerCashReceived: payMethod === "partner" && partnerCash.trim() !== "" ? Number(partnerCash) : null, debtorName: payMethod === "debt" ? debtorName.trim() || custName.trim() : null, debtorPhone: payMethod === "debt" ? custPhone : null, customerId: customer?.id ?? null, table, note: orderNote.trim() || null, channel, ...cust });
       if (!res.ok) {
         setErr(res.error);
         return;
@@ -393,7 +393,6 @@ export function CashierClient({
       setExtras([]);
       setPayMethod("cash");
       setDebtorName("");
-      setDebtorPhone("");
       setOrderType("delivery");
       setTableNo("");
       setOrderNote("");
@@ -865,28 +864,16 @@ export function CashierClient({
 
         {payMethod === "debt" && (
           <div className="grid gap-1.5 rounded-xl border border-amber-300 bg-amber-50 p-2 dark:border-amber-700 dark:bg-amber-950/40">
-            <div className="grid grid-cols-2 gap-1.5">
-              <input
-                value={debtorName}
-                onChange={(e) => setDebtorName(e.target.value)}
-                placeholder="👤 على حساب من؟"
-                maxLength={120}
-                autoFocus
-                className="min-h-11 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
-              />
-              <input
-                value={debtorPhone}
-                onChange={(e) => setDebtorPhone(e.target.value)}
-                placeholder="📞 هاتفه (اختياري)"
-                inputMode="tel"
-                dir="ltr"
-                maxLength={20}
-                className="min-h-11 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
-            <p className="text-xs font-bold text-amber-800 dark:text-amber-300">
-              يُسجَّل في «الديون» باسمه بالمبلغ كاملاً ولا يدخل الصندوق. سداده من صفحة الديون.
-            </p>
+            {/* حقل واحد، ويُترك فارغاً حين يدفع الزبون نفسه — اسمه مكتوب أعلاه */}
+            <input
+              value={debtorName}
+              onChange={(e) => setDebtorName(e.target.value)}
+              placeholder={custName.trim() ? `👤 على حساب ${custName.trim()} — أو اكتب اسماً آخر` : "👤 على حساب من؟"}
+              maxLength={120}
+              autoFocus={!custName.trim()}
+              className="min-h-11 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+            <p className="text-xs font-bold text-amber-800 dark:text-amber-300">لا يدخل الصندوق — يُسجَّل في «الديون» ويُسدَّد من هناك.</p>
           </div>
         )}
 
@@ -894,7 +881,7 @@ export function CashierClient({
 
         <button
           onClick={checkout}
-          disabled={busy || lines.length === 0 || (payMethod === "partner" && !partnerId) || (payMethod === "debt" && !debtorName.trim())}
+          disabled={busy || lines.length === 0 || (payMethod === "partner" && !partnerId) || (payMethod === "debt" && !debtorName.trim() && !custName.trim())}
           className="w-full rounded-xl bg-primary px-4 py-3 font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
         >
           {busy
