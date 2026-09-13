@@ -905,10 +905,10 @@ export function CashierClient({
                     setDiscountPct(0);
                     setDiscountIqd(0);
                   }}
-                  className={`min-h-8 rounded-lg px-2 text-sm font-bold transition ${
+                  className={`min-h-8 w-12 rounded-lg border text-sm font-bold transition ${
                     discountMode === m
-                      ? "bg-primary text-primary-foreground"
-                      : "border border-input hover:bg-secondary"
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-input hover:bg-secondary"
                   }`}
                 >
                   {label}
@@ -928,7 +928,7 @@ export function CashierClient({
                       ),
                     )
                   }
-                  className="w-20 rounded-lg border border-input bg-background px-2 py-1 text-left text-sm outline-none focus:ring-2 focus:ring-ring"
+                  className="w-24 rounded-lg border border-input bg-background px-2 py-1 text-left text-sm outline-none focus:ring-2 focus:ring-ring"
                   dir="ltr"
                 />
               ) : (
@@ -941,7 +941,7 @@ export function CashierClient({
                       Math.max(0, Math.round(Number(e.target.value) || 0)),
                     )
                   }
-                  className="w-28 rounded-lg border border-input bg-background px-2 py-1 text-left text-sm outline-none focus:ring-2 focus:ring-ring"
+                  className="w-24 rounded-lg border border-input bg-background px-2 py-1 text-left text-sm outline-none focus:ring-2 focus:ring-ring"
                   dir="ltr"
                 />
               )}
