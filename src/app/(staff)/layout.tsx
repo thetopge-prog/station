@@ -53,7 +53,9 @@ export default async function StaffLayout({ children }: { children: React.ReactN
     const period = staff.shiftPeriod ?? shiftAt(at, windows);
     if (period) {
       const left = minutesToEnd(period, at, windows);
-      if (left > 0) shiftEndsAt = new Date(at.getTime() + left * 60_000).toISOString();
+      // بعد النهاية أيضاً لمن له وردية: الشريط يعدّ الدوام الإضافي بدل أن يصمت.
+      // الحساب المشترك يأخذ وردية اللحظة ولا إضافي له
+      if (left > 0 || staff.shiftPeriod) shiftEndsAt = new Date(at.getTime() + left * 60_000).toISOString();
     }
   } catch {
     /* تذكيرٌ لا أكثر — غيابه لا يمنع أحداً من العمل */

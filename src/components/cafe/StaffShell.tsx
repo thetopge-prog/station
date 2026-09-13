@@ -278,6 +278,11 @@ export function StaffShell({
             {/* تذكيران قبل النهاية: نصف ساعة للتحضير، وعشر دقائق للإقفال والجرد.
                 عند حدّ الوردية لا بعد المهلة — المهلة كي لا يتوقّف البيع أثناء
                 التسليم، لا كي يصل التذكير متأخّراً ساعة. */}
+            {minsLeft !== null && minsLeft <= 0 && (
+              <p className="mx-auto max-w-2xl px-4 py-1.5 text-center text-xs font-black text-primary">
+                ⏱ دوام إضافي {-minsLeft} دقيقة — يُحسب لك
+              </p>
+            )}
             {minsLeft !== null && minsLeft > 0 && minsLeft <= WARN_MINUTES && (
               <Link
                 href="/daily"

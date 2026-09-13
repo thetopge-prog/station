@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { forgetStaffCache, requireAdmin, requireStaff } from "./auth";
-import { inShift, workDay, type ShiftPeriod } from "./work-shift";
+import { inShift, overtimeMinutes, workDay, type ShiftPeriod } from "./work-shift";
 import { getShiftWindows } from "./shift-window";
 
 /**
@@ -27,6 +27,8 @@ export type AttendanceRow = {
   late_minutes: number | null;
   /** عمل خارج نافذة ورديته بلا مهلة */
   outside: boolean;
+  /** دقائق الدوام الإضافي — ما وقع خارج نافذة الوردية. null لمن بلا وردية */
+  overtime_minutes: number | null;
 };
 
 export async function listAttendance(day = workDay()): Promise<AttendanceRow[]> {
@@ -44,7 +46,7 @@ export async function listAttendance(day = workDay()): Promise<AttendanceRow[]> 
     .order("started_at");
   if (error) throw new Error(`تعذّر جلب الحضور: ${error.message}`);
 
-  const rows = (data ?? []) as unknown as (Omit<AttendanceRow, "name_ar" | "minutes" | "late_minutes" | "outside"> & {
+  const rows = (data ?? []) as unknown as (Omit<AttendanceRow, "name_ar" | "minutes" | "late_minutes" | "outside" | "overtime_minutes"> & {
     employees: { name_ar: string } | null;
   })[];
 
@@ -73,6 +75,7 @@ export async function listAttendance(day = workDay()): Promise<AttendanceRow[]> 
       // بلا مهلة هنا: هذا تقرير لا بوّابة. المهلة تمنع إيقاف البيع، ولا تُخفي
       // أن أحدهم عمل خارج وقته.
       outside: r.shift ? !inShift(r.shift, from, 0, windows) : false,
+      overtime_minutes: r.shift ? overtimeMinutes(r.shift, from, to, windows) : null,
     };
   });
 }

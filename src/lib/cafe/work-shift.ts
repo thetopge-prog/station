@@ -98,6 +98,22 @@ export function minutesToEnd(period: ShiftPeriod, at: Date = new Date(), windows
   return end - t;
 }
 
+/**
+ * الدقائق التي عملها خارج نافذة ورديته — الدوام الإضافي.
+ *
+ * لا بوّابة تمنعه بعد اليوم؛ الوقت خارج النافذة يُحسب ويُعرض للمدير. يُقاس
+ * على دقائق بغداد منذ بداية اليوم، والوردية المسائية تمتدّ عبر منتصف الليل
+ * (نهايتها > ١٤٤٠) فتُعاد اللحظة إلى خطّها نفسه. المحاسبة على الدقيقة.
+ */
+export function overtimeMinutes(period: ShiftPeriod, from: Date, to: Date, windows: ShiftWindows = DEFAULT_WINDOWS): number {
+  const [start, end] = windows[period];
+  let a = baghdadMinutes(from);
+  if (end > 1440 && a < start) a += 1440;
+  const b = a + Math.max(0, Math.round((to.getTime() - from.getTime()) / 60000));
+  const inside = Math.max(0, Math.min(b, end) - Math.max(a, start));
+  return b - a - inside;
+}
+
 /** نصّ يقوله للموظف الممنوع — «متى أعود؟» هو السؤال الوحيد الذي يهمّه. */
 export function shiftDeniedMessage(period: ShiftPeriod, windows: ShiftWindows = DEFAULT_WINDOWS): string {
   const [start, end] = windows[period];

@@ -1,10 +1,8 @@
 import { cache } from "react";
-import { redirect } from "next/navigation";
 import { createHash } from "node:crypto";
 import { getServerUser, createSupabaseServiceClient, currentAccessToken } from "@/lib/supabase/server";
 import { canAccess, toRole, type StaffRole } from "./roles";
-import { GRACE_MINUTES, inShift, shiftDeniedMessage, workDay, type ShiftPeriod } from "./work-shift";
-import { getShiftWindows } from "./shift-window";
+import { type ShiftPeriod } from "./work-shift";
 import { hubEnabled } from "@/lib/hub/store";
 import { cloudReachable } from "@/lib/hub/net";
 import { rememberSession, recallSession } from "@/lib/hub/session";
@@ -175,30 +173,18 @@ export async function requireStaff(): Promise<Staff> {
 }
 
 /**
- * هل هذا الموظف داخل وقته؟ وإن كان، سجّل حضوره.
+ * سجّل حضور الموظف. لا منع.
  *
- * أربعة مخارج قبل المنع، لأن الخطأ هنا **يوقف البيع** لا يزعج مستخدماً:
- * المدير لا يُمنع · ومن بلا وردية لا يُمنع (وهو حال الحسابات المشتركة كلها) ·
- * ومهلة ساعة على الطرفين · واستثناء من الإدارة ليوم بعينه.
+ * كانت هذه بوّابة تُخرج الكاشير إلى /off-shift حين تنتهي نافذة ورديته. قال
+ * المالك: «لا تسجّل خروجاً إجبارياً بل احسب له دواماً إضافياً» — الإخراج وسط
+ * طلب مفتوح ووردية مالية مفتوحة يعطّل البيع، والوقت خارج النافذة يظهر في
+ * صفحة الحضور عموداً «إضافي» يقرؤه المدير ويحاسب عليه.
+ *
+ * المدير ومن بلا وردية (الحسابات المشتركة) لا حضور لهم هنا كما كان.
  */
 async function guardShift(staff: Staff): Promise<void> {
   if (staff.isAdmin || !staff.shiftPeriod) return;
-
   const svc = createSupabaseServiceClient();
-  // الأوقات من الجدول (0080) بذاكرة دقيقة — لا من ثابت في الشيفرة
-  const windows = await getShiftWindows();
-  if (!inShift(staff.shiftPeriod, new Date(), GRACE_MINUTES, windows)) {
-    const { data: pass } = await svc
-      .from("shift_exceptions")
-      .select("employee_id")
-      .eq("employee_id", staff.employeeId)
-      .eq("work_day", workDay())
-      .maybeSingle();
-    // redirect لا throw: الاستثناء من مكوّن خادم يصير «This page couldn't load»
-    // على شاشة اللمس، فلا الكاشير يفهم ولا أحد يعرف أهو منعٌ أم عطب.
-    if (!pass) redirect(`/off-shift?m=${encodeURIComponent(shiftDeniedMessage(staff.shiftPeriod, windows))}`);
-  }
-
   // الحضور: يفتح سطراً إن لم يكن مفتوحاً، ولا يفعل شيئاً إن كان. تلقائي مع
   // الدخول كما اختار صاحب المحل — والحسابات المشتركة لا تصل هنا أصلاً، فلا
   // يُسجَّل حضورٌ باسم «كاشير» بدل إنسان.

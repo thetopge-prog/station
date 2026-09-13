@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_WINDOWS, inShift, minutesToEnd, shiftAt, shiftDeniedMessage, workDay, type ShiftWindows } from "./work-shift";
+import { DEFAULT_WINDOWS, inShift, minutesToEnd, overtimeMinutes, shiftAt, shiftDeniedMessage, workDay, type ShiftWindows } from "./work-shift";
 import { businessDay } from "./time";
 
 /** لحظة بتوقيت بغداد (UTC+3) — بغداد لا تطبّق التوقيت الصيفي. */
@@ -74,6 +74,21 @@ describe("shiftAt", () => {
 
   it("returns null in the closed hours", () => {
     expect(shiftAt(at("05:00"))).toBeNull();
+  });
+});
+
+describe("overtimeMinutes — الدقائق خارج النافذة، لا منع", () => {
+  it("لا إضافي لمن عمل داخل نافذته", () => {
+    expect(overtimeMinutes("morning", at("10:00"), at("17:00"))).toBe(0);
+  });
+  it("يحسب ما بعد النهاية وما قبل البداية", () => {
+    expect(overtimeMinutes("morning", at("09:00"), at("19:30"))).toBe(90);
+    expect(overtimeMinutes("morning", at("08:20"), at("18:00"))).toBe(40);
+  });
+  it("المسائي عبر منتصف الليل: النهاية ٠٣:٠٠ و٠٣:٤٥ خمس وأربعون إضافية", () => {
+    const from = at("18:00");
+    const to = new Date(from.getTime() + (9 * 60 + 45) * 60_000);
+    expect(overtimeMinutes("evening", from, to)).toBe(45);
   });
 });
 

@@ -64,6 +64,7 @@ export function AttendanceClient({ rows, staff, day }: { rows: AttendanceRow[]; 
                   <th>انصرف</th>
                   <th>المدّة</th>
                   <th>التأخير</th>
+                  <th>إضافي</th>
                   <th />
                 </tr>
               </thead>
@@ -88,6 +89,9 @@ export function AttendanceClient({ rows, staff, day }: { rows: AttendanceRow[]; 
                         <span className="text-muted-foreground">في وقته</span>
                       )}
                       {r.outside && <span className="mr-1 text-[11px] font-black text-amber-700">خارج ورديته</span>}
+                    </td>
+                    <td className="tabular-nums">
+                      {r.overtime_minutes ? <span className="font-black text-primary">{sinceLabel(r.overtime_minutes)}</span> : "—"}
                     </td>
                     <td>
                       {!r.ended_at && (
