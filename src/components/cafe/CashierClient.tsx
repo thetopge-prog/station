@@ -7,7 +7,11 @@ import { formatIqdLabel } from "@/lib/cafe/money";
 import { cashierCheckout, type PayMethod } from "@/lib/cafe/cashier-actions";
 import type { Partner } from "@/lib/cafe/partner-actions";
 import { buildOrderJobs, buildReceiptJob } from "@/lib/cafe/printer-actions";
-import { agentAlive, printJobs, kickDrawer as kickDrawerAgent } from "@/lib/cafe/print-client";
+import {
+  agentAlive,
+  printJobs,
+  kickDrawer as kickDrawerAgent,
+} from "@/lib/cafe/print-client";
 import { claimPrint } from "@/lib/cafe/print-spool-actions";
 import { redeemReward, type Card } from "@/lib/cafe/loyalty-actions";
 import { Receipt, type ReceiptData } from "./Receipt";
@@ -15,7 +19,11 @@ import { MenuIcon } from "./MenuIcon";
 import { PriceInput } from "./PriceInput";
 import { CallBanner } from "./CallBanner";
 import { ShortageAlert } from "./ShortageAlert";
-import { customerForCall, rememberAddress, type LastLine } from "@/lib/cafe/call-actions";
+import {
+  customerForCall,
+  rememberAddress,
+  type LastLine,
+} from "@/lib/cafe/call-actions";
 import { cleanPhone, normalizeIraqiPhone } from "@/lib/cafe/phone";
 import { FridayPrayerNotice } from "./FridayPrayerNotice";
 import { PartnerLogo } from "./PartnerLogo";
@@ -43,7 +51,8 @@ type CartAction =
   | { type: "load"; lines: Line[] }
   | { type: "clear" };
 
-const lineKey = (l: Pick<Line, "itemId" | "variantId" | "flavor" | "note">) => `${l.itemId}|${l.variantId ?? ""}|${l.flavor ?? ""}|${l.note ?? ""}`;
+const lineKey = (l: Pick<Line, "itemId" | "variantId" | "flavor" | "note">) =>
+  `${l.itemId}|${l.variantId ?? ""}|${l.flavor ?? ""}|${l.note ?? ""}`;
 
 function cartReducer(state: Cart, action: CartAction): Cart {
   switch (action.type) {
@@ -51,12 +60,17 @@ function cartReducer(state: Cart, action: CartAction): Cart {
       const n = { ...state };
       delete n[action.key];
       const ex = n[action.line.key];
-      n[action.line.key] = ex ? { ...action.line, qty: ex.qty + action.line.qty } : action.line;
+      n[action.line.key] = ex
+        ? { ...action.line, qty: ex.qty + action.line.qty }
+        : action.line;
       return n;
     }
     case "add": {
       const ex = state[action.line.key];
-      return { ...state, [action.line.key]: { ...action.line, qty: (ex?.qty ?? 0) + 1 } };
+      return {
+        ...state,
+        [action.line.key]: { ...action.line, qty: (ex?.qty ?? 0) + 1 },
+      };
     }
     case "inc": {
       const l = state[action.key];
@@ -119,7 +133,10 @@ export function CashierClient({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
-  const [success, setSuccess] = useState<{ orderNumber: string; awarded: number } | null>(null);
+  const [success, setSuccess] = useState<{
+    orderNumber: string;
+    awarded: number;
+  } | null>(null);
   // cash opens the drawer; Qi-card payments happen on the Qi device — no drawer.
   const [payMethod, setPayMethod] = useState<PayMethod>("cash");
   // «على حساب أحمد» — من يدفع لاحقاً؛ يُسجَّل في الديون باسمه
@@ -132,11 +149,19 @@ export function CashierClient({
   // «توصيل» is the counter's word for everything that leaves: the phone order
   // being keyed in. It stays channel `cashier` — the delivery channel numbers
   // from 901 (0043) and the customer block prints on phone/address, not channel.
-  const [orderType, setOrderType] = useState<"delivery" | "dinein" | "takeaway">("delivery");
+  const [orderType, setOrderType] = useState<
+    "delivery" | "dinein" | "takeaway"
+  >("delivery");
   const [tableNo, setTableNo] = useState("");
   // the pencil on a cart line: name / price / qty / note. A new name or price
   // becomes a menu item (cloneMenuItem) so it can be ordered again tomorrow.
-  const [edit, setEdit] = useState<{ key: string; name: string; price: string; qty: string; note: string } | null>(null);
+  const [edit, setEdit] = useState<{
+    key: string;
+    name: string;
+    price: string;
+    qty: string;
+    note: string;
+  } | null>(null);
   const [editBusy, setEditBusy] = useState(false);
   const [editErr, setEditErr] = useState<string | null>(null);
   // الزبون على الهاتف: كان يُكتب في الملاحظة «المستودع { 07866866156 }» ويضيع
@@ -166,7 +191,9 @@ export function CashierClient({
     // guard against a double-open if the pay action ever fires twice in quick succession
     if (!drawerKickRef.current || kickBusyRef.current) return;
     kickBusyRef.current = true;
-    setTimeout(() => { kickBusyRef.current = false; }, 2500);
+    setTimeout(() => {
+      kickBusyRef.current = false;
+    }, 2500);
     void kickDrawerAgent();
   }
 
@@ -190,7 +217,9 @@ export function CashierClient({
           kickDrawer: drawerKickRef.current && payMethodRef.current === "cash",
         });
         if (cancelled) return;
-        const out = jobs.length ? await printJobs(jobs) : { sent: 0, queued: 0, agent: false, skipped: [], errors: [] };
+        const out = jobs.length
+          ? await printJobs(jobs)
+          : { sent: 0, queued: 0, agent: false, skipped: [], errors: [] };
         if (cancelled) return;
         // claimed at checkout when the agent answered; this is the belt to that brace
         if (out.sent > 0) void claimPrint(receipt.orderId!).catch(() => {});
@@ -199,14 +228,21 @@ export function CashierClient({
         // could NEVER see «تذكرة لم تُطبع» — the printer-down warning was dead
         // in exactly the shops most likely to need it.
         const warn = [
-          out.skipped.length ? `لم تُضبط طابعة: ${[...new Set(out.skipped)].join("، ")}` : "",
+          out.skipped.length
+            ? `لم تُضبط طابعة: ${[...new Set(out.skipped)].join("، ")}`
+            : "",
           // the agent's own words when it has them: «Offline», «PaperOut» — not a guess
-          out.queued > 0 ? `${out.queued} تذكرة لم تُطبع — ${out.errors[0] ?? "الطابعة غير متاحة."}` : "",
+          out.queued > 0
+            ? `${out.queued} تذكرة لم تُطبع — ${out.errors[0] ?? "الطابعة غير متاحة."}`
+            : "",
           unrouted.length ? `لا توجد محطة لـ: ${unrouted.join("، ")}` : "",
         ].filter(Boolean);
         if (warn.length) setPrintWarn(warn.join(" · "));
       } catch {
-        if (!cancelled) setPrintWarn("تعذّرت الطباعة — استعمل «طباعة المتصفح» أو أعد طباعة الإيصال.");
+        if (!cancelled)
+          setPrintWarn(
+            "تعذّرت الطباعة — استعمل «طباعة المتصفح» أو أعد طباعة الإيصال.",
+          );
       }
     }, 120);
     return () => {
@@ -229,19 +265,31 @@ export function CashierClient({
       }
       const out = await printJobs([job]);
       // out.sent يعني الآن «الوكيل قَبِلها» فعلاً، لا «غادرت المتصفح»
-      setReprint(out.sent > 0 ? `طُبعت ${copies} نسخة ✓` : out.errors[0] ?? "الطابعة لم تستجب — جرّب مرة أخرى.");
+      setReprint(
+        out.sent > 0
+          ? `طُبعت ${copies} نسخة ✓`
+          : (out.errors[0] ?? "الطابعة لم تستجب — جرّب مرة أخرى."),
+      );
     } catch {
       setReprint("تعذّرت الطباعة.");
     }
   }
 
   const lines = Object.values(cart);
-  const subtotal = useMemo(() => lines.reduce((s, l) => s + l.unitPrice * l.qty, 0), [lines]);
-  const extraTotal = useMemo(() => extras.reduce((s, x) => s + x.price, 0), [extras]);
+  const subtotal = useMemo(
+    () => lines.reduce((s, l) => s + l.unitPrice * l.qty, 0),
+    [lines],
+  );
+  const extraTotal = useMemo(
+    () => extras.reduce((s, x) => s + x.price, 0),
+    [extras],
+  );
   const discountBase = subtotal + extraTotal;
   // محسوب لا محفوظ: النسبة تتبع السلة من تلقائها، فلا حالة تُنسى تحديثها
   const discount =
-    discountMode === "pct" ? Math.min(discountBase, Math.round((discountBase * discountPct) / 100)) : discountIqd;
+    discountMode === "pct"
+      ? Math.min(discountBase, Math.round((discountBase * discountPct) / 100))
+      : discountIqd;
   const total = Math.max(0, subtotal - discount + extraTotal);
 
   function addExtra() {
@@ -267,19 +315,49 @@ export function CashierClient({
       setEditBusy(true);
       setEditErr(null);
       try {
-        const res = await cloneMenuItem({ fromItemId: cur.itemId, name_ar: name, price });
+        const res = await cloneMenuItem({
+          fromItemId: cur.itemId,
+          name_ar: name,
+          price,
+        });
         if (!res.ok) return setEditErr(res.error);
         const it = res.item;
         // the clone carries no size variant (place_order rejects a variant of another item)
-        line = { ...line, itemId: it.id, name: it.name_ar, unitPrice: it.price, variantId: null, flavor: cur.flavor && it.flavors.includes(cur.flavor) ? cur.flavor : null };
+        line = {
+          ...line,
+          itemId: it.id,
+          name: it.name_ar,
+          unitPrice: it.price,
+          variantId: null,
+          flavor:
+            cur.flavor && it.flavors.includes(cur.flavor) ? cur.flavor : null,
+        };
         setMenu((ms) =>
           ms.map((c) => {
             const src = c.items.find((i) => i.id === cur.itemId);
             if (!src) return c;
             const exists = c.items.some((i) => i.id === it.id);
             return exists
-              ? { ...c, items: c.items.map((i) => (i.id === it.id ? { ...i, price: it.price } : i)) }
-              : { ...c, items: [...c.items, { ...src, id: it.id, name_ar: it.name_ar, price: it.price, flavors: it.flavors, variants: [] }] };
+              ? {
+                  ...c,
+                  items: c.items.map((i) =>
+                    i.id === it.id ? { ...i, price: it.price } : i,
+                  ),
+                }
+              : {
+                  ...c,
+                  items: [
+                    ...c.items,
+                    {
+                      ...src,
+                      id: it.id,
+                      name_ar: it.name_ar,
+                      price: it.price,
+                      flavors: it.flavors,
+                      variants: [],
+                    },
+                  ],
+                };
           }),
         );
       } catch {
@@ -288,7 +366,11 @@ export function CashierClient({
         setEditBusy(false);
       }
     }
-    dispatch({ type: "replace", key: edit.key, line: { ...line, key: lineKey(line) } });
+    dispatch({
+      type: "replace",
+      key: edit.key,
+      line: { ...line, key: lineKey(line) },
+    });
     setEdit(null);
   }
 
@@ -338,11 +420,45 @@ export function CashierClient({
     // session, network drop) must never freeze the cashier on «جار التنفيذ».
     try {
       const table = orderType === "dinein" ? tableNo : null;
-      const extraNote = extras.map((x) => `${x.name} (${formatIqdLabel(x.price)})`).join("، ") || null;
-      const payload = lines.map((l) => ({ item_id: l.itemId, variant_id: l.variantId, flavor: l.flavor, qty: l.qty, note: l.note }));
-      const cust = orderType === "delivery" ? { phone: custPhone.trim() || null, address: custAddress.trim() || null, customerName: custName.trim() || null } : { phone: null, address: null, customerName: null };
-      const channel = orderType === "takeaway" ? ("takeaway" as const) : ("cashier" as const);
-      const res = await cashierCheckout({ lines: payload, discount, extra: extraTotal, extraNote, payMethod, partnerId: payMethod === "partner" ? partnerId : null, partnerCashReceived: payMethod === "partner" && partnerCash.trim() !== "" ? Number(partnerCash) : null, debtorName: payMethod === "debt" ? debtorName.trim() || custName.trim() : null, debtorPhone: payMethod === "debt" ? custPhone : null, customerId: customer?.id ?? null, table, note: orderNote.trim() || null, channel, ...cust });
+      const extraNote =
+        extras
+          .map((x) => `${x.name} (${formatIqdLabel(x.price)})`)
+          .join("، ") || null;
+      const payload = lines.map((l) => ({
+        item_id: l.itemId,
+        variant_id: l.variantId,
+        flavor: l.flavor,
+        qty: l.qty,
+        note: l.note,
+      }));
+      // الاسم في الأنواع الثلاثة، والهاتف للسفري والتوصيل، والعنوان للتوصيل وحده
+      const cust = {
+        customerName: custName.trim() || null,
+        phone: orderType === "dinein" ? null : custPhone.trim() || null,
+        address: orderType === "delivery" ? custAddress.trim() || null : null,
+      };
+      const channel =
+        orderType === "takeaway" ? ("takeaway" as const) : ("cashier" as const);
+      const res = await cashierCheckout({
+        lines: payload,
+        discount,
+        extra: extraTotal,
+        extraNote,
+        payMethod,
+        partnerId: payMethod === "partner" ? partnerId : null,
+        partnerCashReceived:
+          payMethod === "partner" && partnerCash.trim() !== ""
+            ? Number(partnerCash)
+            : null,
+        debtorName:
+          payMethod === "debt" ? debtorName.trim() || custName.trim() : null,
+        debtorPhone: payMethod === "debt" ? custPhone : null,
+        customerId: customer?.id ?? null,
+        table,
+        note: orderNote.trim() || null,
+        channel,
+        ...cust,
+      });
       if (!res.ok) {
         setErr(res.error);
         return;
@@ -350,7 +466,9 @@ export function CashierClient({
       // This till has a printer ⇒ this order is mine to print: claim it now, before
       // the spooler on any other tab sees the row change. No agent (a phone) ⇒ no
       // claim, and the till prints it within a second.
-      void agentAlive(500).then((ok) => ok && claimPrint(res.orderId).catch(() => {}));
+      void agentAlive(500).then(
+        (ok) => ok && claimPrint(res.orderId).catch(() => {}),
+      );
       // «حُفظ على هذا الجهاز» / «لم يُنسب للوردية» — the sale stands; the cashier must know which
       setSaleNote(res.warning ?? null);
       setReceipt({
@@ -368,7 +486,12 @@ export function CashierClient({
         customerName: cust.customerName,
         customerPhone: cust.phone,
         customerAddress: cust.address,
-        lines: lines.map((l) => ({ name: l.name, flavor: l.flavor, qty: l.qty, unitPrice: l.unitPrice })),
+        lines: lines.map((l) => ({
+          name: l.name,
+          flavor: l.flavor,
+          qty: l.qty,
+          unitPrice: l.unitPrice,
+        })),
         subtotal,
         discount,
         extras,
@@ -397,12 +520,17 @@ export function CashierClient({
       setTableNo("");
       setOrderNote("");
       // next call from this number fills itself in; failure here is not the sale's
-      if (cust.phone && cust.address) void rememberAddress(cust.phone, cust.address, cust.customerName).catch(() => {});
+      if (cust.phone && cust.address)
+        void rememberAddress(cust.phone, cust.address, cust.customerName).catch(
+          () => {},
+        );
       setCustName("");
       setCustPhone("");
       setCustAddress("");
     } catch {
-      setErr("تعذّر إتمام الطلب — تأكد من الاتصال بالإنترنت وأعد المحاولة. إن تكرّر، حدّث الصفحة (F5).");
+      setErr(
+        "تعذّر إتمام الطلب — تأكد من الاتصال بالإنترنت وأعد المحاولة. إن تكرّر، حدّث الصفحة (F5).",
+      );
     } finally {
       checkoutBusyRef.current = false;
       setBusy(false);
@@ -421,13 +549,19 @@ export function CashierClient({
                 key={p.id}
                 onClick={() => setPartnerId(p.id)}
                 className={`flex min-h-16 flex-col items-center justify-center gap-1 rounded-lg border-2 bg-background px-2 py-1.5 text-xs font-bold transition ${
-                  partnerId === p.id ? "border-primary ring-2 ring-primary/30" : "border-border hover:bg-secondary"
+                  partnerId === p.id
+                    ? "border-primary ring-2 ring-primary/30"
+                    : "border-border hover:bg-secondary"
                 }`}
               >
                 <PartnerLogo name={p.name_ar} className="h-7" />
                 <span>
                   {p.name_ar}
-                  {p.settlement === "cash_at_pickup" ? ` · نقد −${p.commission_pct}٪` : p.settlement === "custom" ? " · مخصّص" : ""}
+                  {p.settlement === "cash_at_pickup"
+                    ? ` · نقد −${p.commission_pct}٪`
+                    : p.settlement === "custom"
+                      ? " · مخصّص"
+                      : ""}
                 </span>
               </button>
             ))}
@@ -440,17 +574,27 @@ export function CashierClient({
                   المجاني). الزبون دفع الأجرة للمندوب؟ يكتب الكاشير الإجمالي كاملاً. */}
               <span className="mb-1 block text-xs font-bold text-amber-800 dark:text-amber-300">
                 {(() => {
-                  const fee = partners.find((p) => p.id === partnerId)?.delivery_fee ?? 0;
+                  const fee =
+                    partners.find((p) => p.id === partnerId)?.delivery_fee ?? 0;
                   const def = Math.max(0, total - fee);
                   return `دفع المندوب الآن (فارغ = ${formatIqdLabel(def)}${fee ? ` بعد أجرة توصيل ${formatIqdLabel(fee)}` : ""})`;
                 })()}
               </span>
               <input
                 value={partnerCash}
-                onChange={(e) => setPartnerCash(e.target.value.replace(/[^\d]/g, ""))}
+                onChange={(e) =>
+                  setPartnerCash(e.target.value.replace(/[^\d]/g, ""))
+                }
                 inputMode="numeric"
                 dir="ltr"
-                placeholder={String(Math.max(0, total - (partners.find((p) => p.id === partnerId)?.delivery_fee ?? 0)))}
+                placeholder={String(
+                  Math.max(
+                    0,
+                    total -
+                      (partners.find((p) => p.id === partnerId)?.delivery_fee ??
+                        0),
+                  ),
+                )}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-lg font-black tabular-nums"
               />
             </label>
@@ -479,7 +623,9 @@ export function CashierClient({
               key={c.name_ar}
               onClick={() => setActiveCat(c.name_ar)}
               className={`whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-semibold transition ${
-                c.name_ar === (cat?.name_ar ?? "") ? "bg-primary text-primary-foreground" : "border border-border hover:bg-secondary"
+                c.name_ar === (cat?.name_ar ?? "")
+                  ? "bg-primary text-primary-foreground"
+                  : "border border-border hover:bg-secondary"
               }`}
             >
               {c.name_ar}
@@ -488,7 +634,12 @@ export function CashierClient({
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
           {cat?.items.map((it) => (
-            <CashierItem key={it.id} item={it} category={cat?.name_ar} onAdd={(line) => dispatch({ type: "add", line })} />
+            <CashierItem
+              key={it.id}
+              item={it}
+              category={cat?.name_ar}
+              onAdd={(line) => dispatch({ type: "add", line })}
+            />
           ))}
         </div>
       </section>
@@ -504,29 +655,54 @@ export function CashierClient({
         ) : (
           <ul className="divide-y divide-border">
             {lines.map((l) => (
-              <li key={l.key} className="flex items-center justify-between gap-2 py-2">
+              <li
+                key={l.key}
+                className="flex items-center justify-between gap-2 py-2"
+              >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">{l.name}</p>
-                  {l.flavor && <p className="text-xs text-muted-foreground">{l.flavor}</p>}
-                  {l.note && <p className="text-xs font-bold text-primary">← {l.note}</p>}
-                  <p className="text-xs text-muted-foreground">{formatIqdLabel(l.unitPrice)}</p>
+                  {l.flavor && (
+                    <p className="text-xs text-muted-foreground">{l.flavor}</p>
+                  )}
+                  {l.note && (
+                    <p className="text-xs font-bold text-primary">← {l.note}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    {formatIqdLabel(l.unitPrice)}
+                  </p>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => {
                       setEditErr(null);
-                      setEdit({ key: l.key, name: l.name, price: String(l.unitPrice), qty: String(l.qty), note: l.note ?? "" });
+                      setEdit({
+                        key: l.key,
+                        name: l.name,
+                        price: String(l.unitPrice),
+                        qty: String(l.qty),
+                        note: l.note ?? "",
+                      });
                     }}
                     aria-label="تعديل"
                     className={`rounded-full border border-border hover:bg-secondary ${TAP}`}
                   >
                     <Pencil className="mx-auto size-4" />
                   </button>
-                  <button onClick={() => dispatch({ type: "dec", key: l.key })} aria-label="إنقاص" className={`rounded-full border border-border hover:bg-secondary ${TAP}`}>
+                  <button
+                    onClick={() => dispatch({ type: "dec", key: l.key })}
+                    aria-label="إنقاص"
+                    className={`rounded-full border border-border hover:bg-secondary ${TAP}`}
+                  >
                     <Minus className="mx-auto size-4" />
                   </button>
-                  <span className="w-5 text-center text-sm font-semibold">{l.qty}</span>
-                  <button onClick={() => dispatch({ type: "inc", key: l.key })} aria-label="زيادة" className={`rounded-full border border-border hover:bg-secondary ${TAP}`}>
+                  <span className="w-5 text-center text-sm font-semibold">
+                    {l.qty}
+                  </span>
+                  <button
+                    onClick={() => dispatch({ type: "inc", key: l.key })}
+                    aria-label="زيادة"
+                    className={`rounded-full border border-border hover:bg-secondary ${TAP}`}
+                  >
                     <Plus className="mx-auto size-4" />
                   </button>
                 </div>
@@ -574,12 +750,21 @@ export function CashierClient({
               className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
             />
             {editErr && <p className="text-sm text-destructive">{editErr}</p>}
-            <p className="text-xs text-muted-foreground">تغيير الاسم أو السعر يحفظ صنفاً في المنيو يُطلب لاحقاً.</p>
+            <p className="text-xs text-muted-foreground">
+              تغيير الاسم أو السعر يحفظ صنفاً في المنيو يُطلب لاحقاً.
+            </p>
             <div className="flex gap-1.5">
-              <button onClick={() => void saveEdit()} disabled={editBusy} className="min-h-11 flex-1 rounded-lg bg-primary font-bold text-primary-foreground disabled:opacity-50">
+              <button
+                onClick={() => void saveEdit()}
+                disabled={editBusy}
+                className="min-h-11 flex-1 rounded-lg bg-primary font-bold text-primary-foreground disabled:opacity-50"
+              >
                 {editBusy ? "جارٍ الحفظ…" : "حفظ"}
               </button>
-              <button onClick={() => setEdit(null)} className="min-h-11 rounded-lg border border-border px-4 font-bold hover:bg-secondary">
+              <button
+                onClick={() => setEdit(null)}
+                className="min-h-11 rounded-lg border border-border px-4 font-bold hover:bg-secondary"
+              >
                 إلغاء
               </button>
             </div>
@@ -589,7 +774,6 @@ export function CashierClient({
         {/* the only alert allowed to take the whole screen: a bag is being
             closed short and somebody has to ring the customer now */}
         <ShortageAlert />
-
 
         {/* who is calling — the loyalty box below is where that call lands */}
         <CallBanner
@@ -627,19 +811,30 @@ export function CashierClient({
           <div className="flex items-center justify-between gap-2 rounded-xl bg-secondary/60 p-3 text-sm">
             <div>
               <p className="font-medium">{customer.name_ar ?? "زبون"}</p>
-              <p className="text-xs text-muted-foreground">الرصيد: {customer.points} نقطة</p>
+              <p className="text-xs text-muted-foreground">
+                الرصيد: {customer.points} نقطة
+              </p>
             </div>
             <div className="flex gap-1.5">
-              <button onClick={redeem} className="min-h-11 rounded-lg bg-accent px-3 text-sm font-semibold text-accent-foreground">
+              <button
+                onClick={redeem}
+                className="min-h-11 rounded-lg bg-accent px-3 text-sm font-semibold text-accent-foreground"
+              >
                 استبدال مكافأة
               </button>
-              <button onClick={() => setCustomer(null)} aria-label="إزالة" className="min-h-11 rounded-lg border border-border px-3">
+              <button
+                onClick={() => setCustomer(null)}
+                aria-label="إزالة"
+                className="min-h-11 rounded-lg border border-border px-3"
+              >
                 <Trash2 className="mx-auto size-4" />
               </button>
             </div>
           </div>
         )}
-        {loyaltyMsg && <p className="text-xs text-muted-foreground">{loyaltyMsg}</p>}
+        {loyaltyMsg && (
+          <p className="text-xs text-muted-foreground">{loyaltyMsg}</p>
+        )}
 
         {/* إضافات (surcharges for add-ons) */}
         <div className="space-y-2 rounded-xl bg-secondary/60 p-3">
@@ -647,11 +842,22 @@ export function CashierClient({
           {extras.length > 0 && (
             <ul className="space-y-1">
               {extras.map((x, i) => (
-                <li key={i} className="flex items-center justify-between gap-2 text-sm">
+                <li
+                  key={i}
+                  className="flex items-center justify-between gap-2 text-sm"
+                >
                   <span className="min-w-0 truncate">{x.name}</span>
                   <div className="flex items-center gap-1.5">
-                    <span className="font-semibold text-primary">+{formatIqdLabel(x.price)}</span>
-                    <button onClick={() => setExtras((xs) => xs.filter((_, j) => j !== i))} aria-label="حذف" className={`rounded-md border border-border hover:bg-background ${TAP}`}>
+                    <span className="font-semibold text-primary">
+                      +{formatIqdLabel(x.price)}
+                    </span>
+                    <button
+                      onClick={() =>
+                        setExtras((xs) => xs.filter((_, j) => j !== i))
+                      }
+                      aria-label="حذف"
+                      className={`rounded-md border border-border hover:bg-background ${TAP}`}
+                    >
                       <Trash2 className="mx-auto size-4" />
                     </button>
                   </div>
@@ -661,7 +867,10 @@ export function CashierClient({
           )}
           <div className="flex flex-wrap items-center gap-1.5">
             <PriceInput value={extraPrice} onChange={setExtraPrice} />
-            <button onClick={addExtra} className="min-h-11 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground hover:opacity-90">
+            <button
+              onClick={addExtra}
+              className="min-h-11 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground hover:opacity-90"
+            >
               +
             </button>
           </div>
@@ -676,13 +885,20 @@ export function CashierClient({
           {extraTotal > 0 && (
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">الإضافات</span>
-              <span className="text-primary">+{formatIqdLabel(extraTotal)}</span>
+              <span className="text-primary">
+                +{formatIqdLabel(extraTotal)}
+              </span>
             </div>
           )}
           <div className="flex items-center justify-between gap-2">
             <span className="text-muted-foreground">الخصم</span>
             <div className="flex items-center gap-1">
-              {([["iqd", "د.ع"], ["pct", "٪"]] as const).map(([m, label]) => (
+              {(
+                [
+                  ["iqd", "د.ع"],
+                  ["pct", "٪"],
+                ] as const
+              ).map(([m, label]) => (
                 <button
                   key={m}
                   onClick={() => {
@@ -691,7 +907,9 @@ export function CashierClient({
                     setDiscountIqd(0);
                   }}
                   className={`min-h-8 rounded-lg px-2 text-sm font-bold transition ${
-                    discountMode === m ? "bg-primary text-primary-foreground" : "border border-input hover:bg-secondary"
+                    discountMode === m
+                      ? "bg-primary text-primary-foreground"
+                      : "border border-input hover:bg-secondary"
                   }`}
                 >
                   {label}
@@ -703,7 +921,14 @@ export function CashierClient({
                   min={0}
                   max={100}
                   value={discountPct || ""}
-                  onChange={(e) => setDiscountPct(Math.min(100, Math.max(0, Math.round(Number(e.target.value) || 0))))}
+                  onChange={(e) =>
+                    setDiscountPct(
+                      Math.min(
+                        100,
+                        Math.max(0, Math.round(Number(e.target.value) || 0)),
+                      ),
+                    )
+                  }
                   className="w-20 rounded-lg border border-input bg-background px-2 py-1 text-left text-sm outline-none focus:ring-2 focus:ring-ring"
                   dir="ltr"
                 />
@@ -712,7 +937,11 @@ export function CashierClient({
                   type="number"
                   min={0}
                   value={discountIqd || ""}
-                  onChange={(e) => setDiscountIqd(Math.max(0, Math.round(Number(e.target.value) || 0)))}
+                  onChange={(e) =>
+                    setDiscountIqd(
+                      Math.max(0, Math.round(Number(e.target.value) || 0)),
+                    )
+                  }
                   className="w-28 rounded-lg border border-input bg-background px-2 py-1 text-left text-sm outline-none focus:ring-2 focus:ring-ring"
                   dir="ltr"
                 />
@@ -722,8 +951,12 @@ export function CashierClient({
           {/* الرقم الذي سيُطبع على الفاتورة، كي لا تكون النسبة وعداً مبهماً */}
           {discountMode === "pct" && discount > 0 && (
             <div className="flex items-center justify-between text-xs font-bold text-muted-foreground">
-              <span>{discountPct}٪ من {formatIqdLabel(discountBase)}</span>
-              <span className="text-destructive">− {formatIqdLabel(discount)}</span>
+              <span>
+                {discountPct}٪ من {formatIqdLabel(discountBase)}
+              </span>
+              <span className="text-destructive">
+                − {formatIqdLabel(discount)}
+              </span>
             </div>
           )}
           <div className="flex items-center justify-between border-t border-border pt-2 text-base font-bold">
@@ -779,16 +1012,19 @@ export function CashierClient({
           </button>
         </div>
         {orderType === "delivery" && partnerBlock}
-        {orderType === "delivery" && (
-          <div className="grid gap-1.5">
-            <div className="grid grid-cols-2 gap-1.5">
-              <input
-                value={custName}
-                onChange={(e) => setCustName(e.target.value)}
-                placeholder="👤 اسم الزبون"
-                maxLength={120}
-                className="min-h-11 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
-              />
+        {/* داخل المطعم: الاسم يكفي للنداء · سفري: الاسم والهاتف · توصيل: والعنوان */}
+        <div className="grid gap-1.5">
+          <div
+            className={`grid gap-1.5 ${orderType === "dinein" ? "grid-cols-1" : "grid-cols-2"}`}
+          >
+            <input
+              value={custName}
+              onChange={(e) => setCustName(e.target.value)}
+              placeholder="👤 اسم الزبون"
+              maxLength={120}
+              className="min-h-11 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+            {orderType !== "dinein" && (
               <input
                 value={custPhone}
                 onChange={(e) => setCustPhone(e.target.value)}
@@ -806,7 +1042,9 @@ export function CashierClient({
                 maxLength={20}
                 className="min-h-11 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
               />
-            </div>
+            )}
+          </div>
+          {orderType === "delivery" && (
             <input
               value={custAddress}
               onChange={(e) => setCustAddress(e.target.value)}
@@ -814,8 +1052,8 @@ export function CashierClient({
               maxLength={300}
               className="min-h-11 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
             />
-          </div>
-        )}
+          )}
+        </div>
         {orderType === "dinein" && (
           <div className="flex flex-wrap gap-1.5">
             {tables.map((n) => (
@@ -823,7 +1061,9 @@ export function CashierClient({
                 key={n}
                 onClick={() => setTableNo(n)}
                 className={`${TAP} whitespace-nowrap rounded-lg border px-3 text-sm font-bold transition ${
-                  tableNo === n ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-secondary"
+                  tableNo === n
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border hover:bg-secondary"
                 }`}
               >
                 {n}
@@ -832,7 +1072,9 @@ export function CashierClient({
           </div>
         )}
 
-        <div className={`grid gap-1.5 rounded-xl bg-secondary/60 p-1.5 ${partners.length ? "grid-cols-4" : "grid-cols-3"}`}>
+        <div
+          className={`grid gap-1.5 rounded-xl bg-secondary/60 p-1.5 ${partners.length ? "grid-cols-4" : "grid-cols-3"}`}
+        >
           <button
             onClick={() => setPayMethod("cash")}
             className={`min-h-12 rounded-lg px-3 text-sm font-semibold transition ${payMethod === "cash" ? "bg-primary text-primary-foreground" : "hover:bg-background"}`}
@@ -868,12 +1110,18 @@ export function CashierClient({
             <input
               value={debtorName}
               onChange={(e) => setDebtorName(e.target.value)}
-              placeholder={custName.trim() ? `👤 على حساب ${custName.trim()} — أو اكتب اسماً آخر` : "👤 على حساب من؟"}
+              placeholder={
+                custName.trim()
+                  ? `👤 على حساب ${custName.trim()} — أو اكتب اسماً آخر`
+                  : "👤 على حساب من؟"
+              }
               maxLength={120}
               autoFocus={!custName.trim()}
               className="min-h-11 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
             />
-            <p className="text-xs font-bold text-amber-800 dark:text-amber-300">لا يدخل الصندوق — يُسجَّل في «الديون» ويُسدَّد من هناك.</p>
+            <p className="text-xs font-bold text-amber-800 dark:text-amber-300">
+              لا يدخل الصندوق — يُسجَّل في «الديون» ويُسدَّد من هناك.
+            </p>
           </div>
         )}
 
@@ -881,7 +1129,12 @@ export function CashierClient({
 
         <button
           onClick={checkout}
-          disabled={busy || lines.length === 0 || (payMethod === "partner" && !partnerId) || (payMethod === "debt" && !debtorName.trim() && !custName.trim())}
+          disabled={
+            busy ||
+            lines.length === 0 ||
+            (payMethod === "partner" && !partnerId) ||
+            (payMethod === "debt" && !debtorName.trim() && !custName.trim())
+          }
           className="w-full rounded-xl bg-primary px-4 py-3 font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
         >
           {busy
@@ -900,46 +1153,77 @@ export function CashierClient({
 
       {/* success */}
       {success && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6" onClick={() => setSuccess(null)}>
-          <div className="w-full max-w-sm rounded-2xl bg-card p-6 text-center" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6"
+          onClick={() => setSuccess(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-card p-6 text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary">
               <Check className="size-8" />
             </div>
             <h3 className="text-xl font-bold">تم الدفع</h3>
             <p className="mt-1 text-muted-foreground">رقم الطلب</p>
-            <p className="my-2 text-4xl font-extrabold text-primary">{success.orderNumber}</p>
-            {success.awarded > 0 && <p className="text-sm text-muted-foreground">أُضيفت {success.awarded} نقطة ولاء.</p>}
-            {saleNote && <p className="mt-2 rounded-xl border-2 border-primary bg-primary/10 px-3 py-2 text-sm font-black text-primary">{saleNote}</p>}
+            <p className="my-2 text-4xl font-extrabold text-primary">
+              {success.orderNumber}
+            </p>
+            {success.awarded > 0 && (
+              <p className="text-sm text-muted-foreground">
+                أُضيفت {success.awarded} نقطة ولاء.
+              </p>
+            )}
+            {saleNote && (
+              <p className="mt-2 rounded-xl border-2 border-primary bg-primary/10 px-3 py-2 text-sm font-black text-primary">
+                {saleNote}
+              </p>
+            )}
             {printWarn && (
               <p className="mt-2 rounded-xl border-2 border-destructive bg-destructive/10 px-3 py-2 text-sm font-bold text-destructive">
                 {printWarn}
               </p>
             )}
             <div className="mt-4 flex items-center justify-center gap-2">
-              <span className="text-sm font-semibold text-muted-foreground">نسخ الزبون</span>
+              <span className="text-sm font-semibold text-muted-foreground">
+                نسخ الزبون
+              </span>
               {[1, 2, 3].map((n) => (
                 <button
                   key={n}
                   onClick={() => setCopies(n)}
                   className={`touch-pos size-11 rounded-xl border text-lg font-black transition ${
-                    copies === n ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-secondary"
+                    copies === n
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border hover:bg-secondary"
                   }`}
                 >
                   {n}
                 </button>
               ))}
             </div>
-            {reprint && <p className="mt-2 text-sm font-bold text-primary">{reprint}</p>}
+            {reprint && (
+              <p className="mt-2 text-sm font-bold text-primary">{reprint}</p>
+            )}
             <div className="mt-4 grid grid-cols-2 gap-2">
-              <button onClick={printCustomerReceipt} className="touch-pos col-span-2 flex items-center justify-center gap-1.5 rounded-xl bg-primary px-4 py-3 font-bold text-primary-foreground hover:opacity-90">
+              <button
+                onClick={printCustomerReceipt}
+                className="touch-pos col-span-2 flex items-center justify-center gap-1.5 rounded-xl bg-primary px-4 py-3 font-bold text-primary-foreground hover:opacity-90"
+              >
                 <Printer className="size-4" />
                 طباعة إيصال الزبون
               </button>
-              <button onClick={() => window.print()} className="touch-pos flex items-center justify-center gap-1.5 rounded-xl border border-border px-4 py-2.5 font-semibold hover:bg-secondary">
+              <button
+                onClick={() => window.print()}
+                className="touch-pos flex items-center justify-center gap-1.5 rounded-xl border border-border px-4 py-2.5 font-semibold hover:bg-secondary"
+              >
                 <Printer className="size-4" />
                 طباعة المتصفح
               </button>
-              <button onClick={() => setSuccess(null)} className="rounded-xl border border-border px-4 py-2.5 font-semibold hover:bg-secondary">
+              <button
+                onClick={() => setSuccess(null)}
+                className="rounded-xl border border-border px-4 py-2.5 font-semibold hover:bg-secondary"
+              >
                 طلب جديد
               </button>
             </div>
@@ -956,7 +1240,10 @@ export function CashierClient({
       {receipt && (
         <>
           <Receipt data={receipt} />
-          <div style={{ pageBreakBefore: "always" }} className="hidden print:block" />
+          <div
+            style={{ pageBreakBefore: "always" }}
+            className="hidden print:block"
+          />
           <Receipt data={{ ...receipt, kind: "assembly" }} />
         </>
       )}
@@ -964,12 +1251,24 @@ export function CashierClient({
   );
 }
 
-function CashierItem({ item, category, onAdd }: { item: MenuItemView; category?: string; onAdd: (line: Omit<Line, "qty">) => void }) {
-  const [variantId, setVariantId] = useState<string | null>(item.variants[0]?.id ?? null);
+function CashierItem({
+  item,
+  category,
+  onAdd,
+}: {
+  item: MenuItemView;
+  category?: string;
+  onAdd: (line: Omit<Line, "qty">) => void;
+}) {
+  const [variantId, setVariantId] = useState<string | null>(
+    item.variants[0]?.id ?? null,
+  );
   const [flavor, setFlavor] = useState<string | null>(item.flavors[0] ?? null);
   const variant = item.variants.find((v) => v.id === variantId) ?? null;
   const unitPrice = variant?.price ?? item.price;
-  const displayName = variant ? `${item.name_ar} - ${variant.name_ar}` : item.name_ar;
+  const displayName = variant
+    ? `${item.name_ar} - ${variant.name_ar}`
+    : item.name_ar;
 
   // The cashier taps fast and the cart is off to the side; without a mark on
   // the button itself there is nothing to say the tap landed — so the same item
@@ -998,10 +1297,16 @@ function CashierItem({ item, category, onAdd }: { item: MenuItemView; category?:
     <div className="flex flex-col rounded-xl border border-border bg-card p-3">
       <button onClick={add} className="text-right">
         <div className="flex items-center gap-2">
-          <MenuIcon name={item.name_ar} category={category} className="size-8 shrink-0 text-primary" />
+          <MenuIcon
+            name={item.name_ar}
+            category={category}
+            className="size-8 shrink-0 text-primary"
+          />
           <p className="font-semibold leading-tight">{item.name_ar}</p>
         </div>
-        <p className="mt-0.5 text-sm font-bold text-primary">{formatIqdLabel(unitPrice)}</p>
+        <p className="mt-0.5 text-sm font-bold text-primary">
+          {formatIqdLabel(unitPrice)}
+        </p>
       </button>
       {item.variants.length > 0 && (
         <div className="mt-1.5 flex flex-wrap gap-1">
@@ -1010,7 +1315,9 @@ function CashierItem({ item, category, onAdd }: { item: MenuItemView; category?:
               key={v.id}
               onClick={() => setVariantId(v.id)}
               className={`min-h-11 rounded-full border px-3.5 text-sm font-semibold transition ${
-                v.id === variantId ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-secondary"
+                v.id === variantId
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border hover:bg-secondary"
               }`}
             >
               {v.name_ar}
@@ -1025,7 +1332,9 @@ function CashierItem({ item, category, onAdd }: { item: MenuItemView; category?:
               key={f}
               onClick={() => setFlavor(f)}
               className={`min-h-11 rounded-full border px-3.5 text-sm font-semibold transition ${
-                f === flavor ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-secondary"
+                f === flavor
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border hover:bg-secondary"
               }`}
             >
               {f}
