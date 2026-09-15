@@ -1,23 +1,20 @@
 import { getPublicMenu } from "@/lib/cafe/menu-data";
 import { getActiveItemOffers } from "@/lib/cafe/offer-actions";
-import { TabletMenuClient } from "@/components/cafe/TabletMenuClient";
+import { MenuClient } from "@/components/cafe/MenuClient";
 import { toFulfilmentMode } from "@/lib/cafe/fulfilment";
 
 export const dynamic = "force-dynamic";
 
-/** المنيو الأساسي للزبون — النظام اللوحي (أقسام يمين + شبكة صور + سلة وطلب).
- *  كل روابط/بطاقات الطاولات تفتح هنا: /menu?t=رقم-الطاولة.
- *  و ?mode=delivery|pickup|curbside|dinein يفتح المنيو على طريقة استلام محددة —
- *  وهو ما تستعمله روابط /delivery و /pickup و /car المرسلة عبر واتساب. */
-export default async function MenuPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ t?: string; mode?: string }>;
-}) {
+/**
+ * منيو الزبون — القالب الذي اعتمدته الإدارة: شريط العروض ثم شبكة الأقسام
+ * بالصور، والنقر على قسم يفتح قائمته.
+ *
+ * ‎/menu?t=رقم‎ من بطاقة الطاولة يثبّت «داخل المطعم»، و‎?mode=delivery|pickup|curbside‎
+ * من روابط ‎/delivery‎ و‎/pickup‎ و‎/car‎ (شاشة ‎/order‎ وواتساب) يفتحه على طريقة
+ * الاستلام وما تطلبه: العنوان للتوصيل، وصف السيارة لمن ينتظر فيها.
+ */
+export default async function MenuPage({ searchParams }: { searchParams: Promise<{ t?: string; mode?: string }> }) {
   const sp = await searchParams;
-  const mode = toFulfilmentMode(sp.mode);
   const [menu, offers] = await Promise.all([getPublicMenu(), getActiveItemOffers().catch(() => ({}))]);
-  return (
-    <TabletMenuClient menu={menu} table={sp.t ?? null} channel="qr" offers={offers} initialMode={mode} />
-  );
+  return <MenuClient menu={menu} table={sp.t ?? null} channel="qr" offers={offers} initialMode={toFulfilmentMode(sp.mode)} layout="tiles" />;
 }
