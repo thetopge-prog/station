@@ -112,33 +112,26 @@ async function resolveStaff(): Promise<Staff | null> {
   }
 
   const svc = createSupabaseServiceClient();
-  const { data: emp } = await svc
+  /*
+   * سؤال واحد لا ثلاثة: الموظف ودوره الأساسي (العمود القديم، احتياطاً) وأدواره
+   * من جدول الربط (0062) في استعلام واحد مضمَّن. القاعدة على بعد ~300 مللي ثانية،
+   * وكل سؤال متتابع هو ثلث ثانية يقفها الكاشير أمام الزبون.
+   */
+  const { data: raw } = await svc
     .from("employees")
-    .select("id, name_ar, role_id, station_id, is_developer, shift_period")
+    .select("id, name_ar, role_id, station_id, is_developer, shift_period, roles(name_en), employee_roles(roles(name_en))")
     .eq("auth_user_id", user.id)
     .eq("is_active", true)
     .maybeSingle();
+  const emp = raw as unknown as {
+    id: string; name_ar: string; role_id: string | null; station_id: string | null; is_developer: boolean | null; shift_period: string | null;
+    roles: { name_en: string } | null;
+    employee_roles: { roles: { name_en: string } | null }[] | null;
+  } | null;
   if (!emp) return null;
 
-  /*
-   * كل الصلاحيات من جدول الربط، والعمود القديم احتياطاً.
-   *
-   * الترحيل 0062 ملأ الجدول من العمود، فهما متطابقان اليوم. لكن الاحتياط يبقى:
-   * موظف يُضاف بالطريقة القديمة، أو ملءٌ يفشل، لا ينبغي أن يُفقد صلاحيته كلها.
-   */
-  const { data: linked } = await svc
-    .from("employee_roles")
-    .select("roles(name_en)")
-    .eq("employee_id", emp.id);
-  const names = ((linked ?? []) as unknown as { roles: { name_en: string } | null }[])
-    .map((r) => toRole(r.roles?.name_en))
-    .filter((r): r is StaffRole => r !== null);
-
-  let primary: StaffRole | null = null;
-  if (emp.role_id) {
-    const { data: r } = await svc.from("roles").select("name_en").eq("id", emp.role_id).maybeSingle();
-    primary = toRole(r?.name_en);
-  }
+  const names = (emp.employee_roles ?? []).map((r) => toRole(r.roles?.name_en)).filter((r): r is StaffRole => r !== null);
+  const primary = toRole(emp.roles?.name_en);
   const roles = [...new Set([...names, ...(primary ? [primary] : [])])];
 
   const staff: Staff = {
@@ -182,8 +175,16 @@ export async function requireStaff(): Promise<Staff> {
  *
  * المدير ومن بلا وردية (الحسابات المشتركة) لا حضور لهم هنا كما كان.
  */
+const ATTENDANCE_TTL_MS = 10 * 60_000;
+const attendanceTouched = new Map<string, number>();
+
 async function guardShift(staff: Staff): Promise<void> {
   if (staff.isAdmin || !staff.shiftPeriod) return;
+  // كانت تُستدعى مع كل فعل — ثلث ثانية إضافية على كل نقرة للكاشير ذي الوردية،
+  // وهو من اشتكى البطء. السطر لا يُفتح إلا مرّة، فيكفي سؤال كل عشر دقائق.
+  const last = attendanceTouched.get(staff.employeeId) ?? 0;
+  if (Date.now() - last < ATTENDANCE_TTL_MS) return;
+  attendanceTouched.set(staff.employeeId, Date.now());
   const svc = createSupabaseServiceClient();
   // الحضور: يفتح سطراً إن لم يكن مفتوحاً، ولا يفعل شيئاً إن كان. تلقائي مع
   // الدخول كما اختار صاحب المحل — والحسابات المشتركة لا تصل هنا أصلاً، فلا

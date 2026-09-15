@@ -1,5 +1,6 @@
 "use server";
 
+import { forgetSession } from "./session-of";
 import { revalidatePath } from "next/cache";
 import { cacheGet, cachePut, hubEnabled } from "@/lib/hub/store";
 import { cloudReachable } from "@/lib/hub/net";
@@ -123,6 +124,7 @@ export async function openSession(input: { float: number; fromSession?: string |
   });
   if (error) return { ok: false as const, error: arabicError(error.message) };
   const sessionId = data as unknown as string;
+  forgetSession();
   // الحساب مشترك («كاشير»)؛ الاسم الذي كتبه الإنسان يُطبع على الوصل ويظهر في السجلّ
   const name = input.cashierName?.trim() || null;
   if (name) await supabase.rpc("set_session_cashier_name", { p_session: sessionId, p_name: name });
@@ -212,6 +214,7 @@ export async function closeSession(input: {
     p_handover_to: null,
     p_note: input.note?.trim() || null,
   });
+  forgetSession();
   if (error) return { ok: false as const, error: arabicError(error.message) };
   const row = data?.[0] as { expected_cash: number; variance: number } | undefined;
   revalidatePath("/cashier");

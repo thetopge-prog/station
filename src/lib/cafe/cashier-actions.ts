@@ -125,8 +125,13 @@ async function payOrder(
   customerId: string | null,
   extra = 0,
   extraNote: string | null = null,
+  needTotal = false,
 ): Promise<{ ok: true; total: number; awarded: number } | { ok: false; error: string }> {
-  const { data: ord } = await supabase.from("orders").select("subtotal, customer_id").eq("id", orderId).maybeSingle();
+  // السؤال عن المجموع يلزم لنقاط الولاء ولمبلغ الدين فقط؛ البيعة النقدية العادية
+  // تعرف مجموعها على الشاشة أصلاً — سؤال أقلّ على كل بيعة
+  const ord = customerId || needTotal
+    ? (await supabase.from("orders").select("subtotal, customer_id").eq("id", orderId).maybeSingle()).data
+    : null;
   const subtotal = ord?.subtotal ?? 0;
   const disc = Math.max(0, Math.round(discount));
   const ext = Math.max(0, Math.round(extra));
@@ -324,7 +329,7 @@ export async function cashierCheckout(input: {
     return { ok: false, error: error?.message ?? "تعذّر إنشاء الطلب." };
   }
 
-  const paid = await payOrder(supabase, placed[0].order_id, input.discount ?? 0, input.customerId ?? null, input.extra ?? 0, input.extraNote ?? null);
+  const paid = await payOrder(supabase, placed[0].order_id, input.discount ?? 0, input.customerId ?? null, input.extra ?? 0, input.extraNote ?? null, !!debtor);
   if (!paid.ok) return paid;
 
   // Stamp the money facts AFTER payment succeeds — see stampPayment.
