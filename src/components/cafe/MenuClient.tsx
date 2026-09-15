@@ -4,8 +4,19 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronRight, Minus, Plus, ShoppingBag, X } from "lucide-react";
 import type { MenuCategoryView, MenuItemView } from "@/lib/cafe/menu-data";
 import { formatIqdLabel } from "@/lib/cafe/money";
-import { submitOrder, type OrderLineInput } from "@/lib/cafe/order-actions";
-import { CHANNEL_OF, MODES, missingFields, type FulfilmentMode } from "./FulfilmentPicker";
+import {
+  cancelMyOrder,
+  getMyOrders,
+  submitOrder,
+  type OrderLineInput,
+} from "@/lib/cafe/order-actions";
+import type { CartLine } from "./use-cart";
+import {
+  CHANNEL_OF,
+  MODES,
+  missingFields,
+  type FulfilmentMode,
+} from "./FulfilmentPicker";
 import { useCart } from "./use-cart";
 import { useAttention } from "./use-attention";
 import { recommendedFor } from "@/lib/cafe/upsell";
@@ -38,13 +49,21 @@ const FIELD =
 
 /** الجملة الأخيرة التي يقرؤها الزبون — غموضها يصير مكالمة للمطعم. */
 const NEXT_STEP: Record<FulfilmentMode, (table: string | null) => string> = {
-  dinein: (t) => (t ? `طاولتك رقم ${t} — تفضّل بالجلوس وسيصلك طلبك` : "سيدلّك موظفنا على طاولتك"),
+  dinein: (t) =>
+    t
+      ? `طاولتك رقم ${t} — تفضّل بالجلوس وسيصلك طلبك`
+      : "سيدلّك موظفنا على طاولتك",
   pickup: () => "سنجهّزه خلال ١٥ دقيقة تقريباً — أبرِز الرمز عند الاستلام",
   delivery: () => "سنتصل بك لتأكيد العنوان ثم ينطلق الطلب إليك",
-  curbside: () => "سنراسلك على واتساب عند الجاهزية — اتصل بنا قبل وصولك بدقيقتين",
+  curbside: () =>
+    "سنراسلك على واتساب عند الجاهزية — اتصل بنا قبل وصولك بدقيقتين",
 };
 
-type Sheet = { item: MenuItemView; variantId: string | null; flavor: string | null };
+type Sheet = {
+  item: MenuItemView;
+  variantId: string | null;
+  flavor: string | null;
+};
 
 /**
  * أربعة قوالب لعرض الإدارة، آلة واحدة: السلة والورقة والدفع مشتركة، ويختلف
@@ -90,19 +109,25 @@ export function MenuClient({
   const sideNav = layout !== "rows";
   const tilesHome = layout === "tiles" && openCat === null;
   const wrap = sideNav ? "max-w-6xl" : "max-w-2xl";
-  const catThumb = (c: MenuCategoryView) => imgSrcs(c.image_url ?? c.items.find((i) => i.image_url)?.image_url);
+  const catThumb = (c: MenuCategoryView) =>
+    imgSrcs(c.image_url ?? c.items.find((i) => i.image_url)?.image_url);
   // شريط أعلى «tiles»: العروض إن وُجدت، وإلا أول صنف مصوَّر من ثلاثة أقسام
   const promos = useMemo(() => {
     const all = cats.flatMap((c) => c.items);
     const on = all.filter((i) => offers[i.id] !== undefined);
     if (on.length) return on.slice(0, 6);
-    return cats.map((c) => c.items.find((i) => i.image_url)).filter((i): i is MenuItemView => !!i).slice(0, 3);
+    return cats
+      .map((c) => c.items.find((i) => i.image_url))
+      .filter((i): i is MenuItemView => !!i)
+      .slice(0, 3);
   }, [cats, offers]);
   const [sheet, setSheet] = useState<Sheet | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [mode, setMode] = useState<FulfilmentMode | null>(scanned ? "dinein" : initialMode);
+  const [mode, setMode] = useState<FulfilmentMode | null>(
+    scanned ? "dinein" : initialMode,
+  );
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
@@ -110,7 +135,19 @@ export function MenuClient({
   const [guests, setGuests] = useState(2);
   const [note, setNote] = useState("");
   const [payment, setPayment] = useState<"cash" | "card">("cash");
-  const [confirmed, setConfirmed] = useState<{ orderNumber: string; pickupCode: string | null; table: string | null; mode: FulfilmentMode } | null>(null);
+  const [confirmed, setConfirmed] = useState<{
+    orderId: string | null;
+    orderNumber: string;
+    pickupCode: string | null;
+    table: string | null;
+    mode: FulfilmentMode;
+  } | null>(null);
+  // ما دام المطبخ لم يلمس الطلب يستطيع الزبون إلغاءه أو تعديله من هنا — بدل
+  // رسالة واتساب يقرؤها الكاشير متأخراً. «started» = فات الأوان
+  const [orderPhase, setOrderPhase] = useState<
+    "open" | "started" | "cancelled" | "busy"
+  >("open");
+  const [lastLines, setLastLines] = useState<CartLine[]>([]);
 
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
   const pillRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -118,7 +155,8 @@ export function MenuClient({
 
   const priceOf = (it: MenuItemView) => offers[it.id] ?? it.price;
   const cartIds = useMemo(() => new Set(lines.map((l) => l.itemId)), [lines]);
-  const qtyOf = (id: string) => lines.filter((l) => l.itemId === id).reduce((s, l) => s + l.qty, 0);
+  const qtyOf = (id: string) =>
+    lines.filter((l) => l.itemId === id).reduce((s, l) => s + l.qty, 0);
 
   // ── حفظ السلة على الهاتف فقط ──────────────────────────────────────────────
   const persist = !scanned && channel !== "kiosk";
@@ -156,16 +194,24 @@ export function MenuClient({
       },
       { rootMargin: "-30% 0px -60% 0px" },
     );
-    for (const el of Object.values(sectionRefs.current)) if (el) obs.observe(el);
+    for (const el of Object.values(sectionRefs.current))
+      if (el) obs.observe(el);
     return () => obs.disconnect();
   }, [cats, tilesHome]);
   useEffect(() => {
-    pillRefs.current[activeCat]?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+    pillRefs.current[activeCat]?.scrollIntoView({
+      inline: "center",
+      block: "nearest",
+      behavior: "smooth",
+    });
   }, [activeCat]);
   function goTo(c: string) {
     setActiveCat(c);
     attention.visitCategory(c);
-    sectionRefs.current[c]?.scrollIntoView({ behavior: "smooth", block: "start" });
+    sectionRefs.current[c]?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
   }
   function openTiles(c: string) {
     setOpenCat(c);
@@ -174,7 +220,8 @@ export function MenuClient({
   }
   // الأقسام تُركَّب بعد اختيار القسم — التمرير إليه بعد التركيب
   useEffect(() => {
-    if (openCat) sectionRefs.current[openCat]?.scrollIntoView({ block: "start" });
+    if (openCat)
+      sectionRefs.current[openCat]?.scrollIntoView({ block: "start" });
   }, [openCat]);
 
   // ── Escape يغلق الورقة والدرج ─────────────────────────────────────────────
@@ -204,7 +251,11 @@ export function MenuClient({
   function openSheet(it: MenuItemView, trigger: HTMLElement | null) {
     attention.tap(it.id);
     lastTrigger.current = trigger;
-    setSheet({ item: it, variantId: it.variants[0]?.id ?? null, flavor: it.flavors[0] ?? null });
+    setSheet({
+      item: it,
+      variantId: it.variants[0]?.id ?? null,
+      flavor: it.flavors[0] ?? null,
+    });
   }
   function addFromSheet() {
     if (!sheet) return;
@@ -224,7 +275,9 @@ export function MenuClient({
     const prices = sheet?.item.variants.map((v) => v.price) ?? [];
     if (prices.length < 2) return false;
     const top = Math.max(...prices);
-    const chosen = sheet?.item.variants.find((x) => x.id === sheet.variantId)?.price;
+    const chosen = sheet?.item.variants.find(
+      (x) => x.id === sheet.variantId,
+    )?.price;
     return top > Math.min(...prices) && chosen === top;
   })();
 
@@ -235,7 +288,8 @@ export function MenuClient({
   const openProps = (it: MenuItemView) => ({
     role: "button" as const,
     tabIndex: 0,
-    onClick: (e: React.MouseEvent<HTMLElement>) => openSheet(it, e.currentTarget),
+    onClick: (e: React.MouseEvent<HTMLElement>) =>
+      openSheet(it, e.currentTarget),
     onKeyDown: (e: React.KeyboardEvent<HTMLElement>) => {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
@@ -246,12 +300,26 @@ export function MenuClient({
   const photo = (it: MenuItemView, cat: string, box: string, icon: string) => {
     const s = imgSrcs(it.image_url);
     return (
-      <div className={`grid shrink-0 place-items-center overflow-hidden bg-secondary ${box}`}>
+      <div
+        className={`grid shrink-0 place-items-center overflow-hidden bg-secondary ${box}`}
+      >
         {s ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={s.sm} data-full={s.full} alt="" loading="lazy" onError={onImgError} className="size-full object-cover" />
+          <img
+            src={s.sm}
+            data-full={s.full}
+            alt=""
+            loading="lazy"
+            onError={onImgError}
+            className="size-full object-cover"
+          />
         ) : (
-          <MenuIcon name={it.name_ar} category={cat} animated={false} className={`${icon} text-primary`} />
+          <MenuIcon
+            name={it.name_ar}
+            category={cat}
+            animated={false}
+            className={`${icon} text-primary`}
+          />
         )}
       </div>
     );
@@ -260,15 +328,25 @@ export function MenuClient({
     const price = priceOf(it);
     const onOffer = price !== it.price;
     return (
-      <p className={`flex flex-wrap items-center gap-2 font-extrabold tabular-nums text-primary ${cls}`}>
+      <p
+        className={`flex flex-wrap items-center gap-2 font-extrabold tabular-nums text-primary ${cls}`}
+      >
         {price > 0 ? formatIqdLabel(price) : "مجاناً"}
         {onOffer && (
           <>
-            <s className="text-xs font-bold text-muted-foreground">{formatIqdLabel(it.price)}</s>
-            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-black text-primary">عرض</span>
+            <s className="text-xs font-bold text-muted-foreground">
+              {formatIqdLabel(it.price)}
+            </s>
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-black text-primary">
+              عرض
+            </span>
           </>
         )}
-        {it.variants.length > 1 && !onOffer && <span className="text-xs font-bold text-muted-foreground">يبدأ من</span>}
+        {it.variants.length > 1 && !onOffer && (
+          <span className="text-xs font-bold text-muted-foreground">
+            يبدأ من
+          </span>
+        )}
       </p>
     );
   };
@@ -281,12 +359,23 @@ export function MenuClient({
     if (!needsSheet && qty > 0) {
       const btn = style === "pill" ? "size-9" : "size-11";
       return (
-        <div onClick={stop} className={`flex shrink-0 items-center border-2 border-primary ${style === "wide" ? "w-full justify-between rounded-xl" : "rounded-full"}`}>
-          <button onClick={() => dispatch({ type: "dec", key: plainKey })} aria-label={`إنقاص ${it.name_ar}`} className={`grid ${btn} place-items-center text-primary`}>
+        <div
+          onClick={stop}
+          className={`flex shrink-0 items-center border-2 border-primary ${style === "wide" ? "w-full justify-between rounded-xl" : "rounded-full"}`}
+        >
+          <button
+            onClick={() => dispatch({ type: "dec", key: plainKey })}
+            aria-label={`إنقاص ${it.name_ar}`}
+            className={`grid ${btn} place-items-center text-primary`}
+          >
             <Minus className="size-4" />
           </button>
           <span className="w-6 text-center font-black tabular-nums">{qty}</span>
-          <button onClick={() => dispatch({ type: "inc", key: plainKey })} aria-label={`زيادة ${it.name_ar}`} className={`grid ${btn} place-items-center text-primary`}>
+          <button
+            onClick={() => dispatch({ type: "inc", key: plainKey })}
+            aria-label={`زيادة ${it.name_ar}`}
+            className={`grid ${btn} place-items-center text-primary`}
+          >
             <Plus className="size-4" />
           </button>
         </div>
@@ -298,36 +387,61 @@ export function MenuClient({
       else addDirect(it);
     };
     const badge = qty > 0 && (
-      <span className="absolute -top-1.5 -left-1.5 grid size-5 place-items-center rounded-full bg-primary text-[11px] font-black text-primary-foreground">{qty}</span>
+      <span className="absolute -top-1.5 -left-1.5 grid size-5 place-items-center rounded-full bg-primary text-[11px] font-black text-primary-foreground">
+        {qty}
+      </span>
     );
     if (style === "wide")
       return (
-        <button onClick={onAdd} aria-label={`أضف ${it.name_ar}`} className="relative min-h-11 w-full rounded-xl bg-primary font-black text-primary-foreground transition active:scale-[0.98]">
+        <button
+          onClick={onAdd}
+          aria-label={`أضف ${it.name_ar}`}
+          className="relative min-h-11 w-full rounded-xl bg-primary font-black text-primary-foreground transition active:scale-[0.98]"
+        >
           {needsSheet ? "اختر" : "أضف"}
           {badge}
         </button>
       );
     if (style === "pill")
       return (
-        <button onClick={onAdd} aria-label={`أضف ${it.name_ar}`} className="relative flex min-h-9 shrink-0 items-center gap-1.5 rounded-full bg-primary px-3 text-sm font-black text-primary-foreground transition active:scale-95">
+        <button
+          onClick={onAdd}
+          aria-label={`أضف ${it.name_ar}`}
+          className="relative flex min-h-9 shrink-0 items-center gap-1.5 rounded-full bg-primary px-3 text-sm font-black text-primary-foreground transition active:scale-95"
+        >
           <ShoppingBag className="size-4" />
           أضف
           {badge}
         </button>
       );
     return (
-      <button onClick={onAdd} aria-label={`أضف ${it.name_ar}`} className="relative grid size-11 shrink-0 place-items-center rounded-full border-2 border-primary text-primary transition active:scale-95">
+      <button
+        onClick={onAdd}
+        aria-label={`أضف ${it.name_ar}`}
+        className="relative grid size-11 shrink-0 place-items-center rounded-full border-2 border-primary text-primary transition active:scale-95"
+      >
         <Plus className="size-5" />
         {badge}
       </button>
     );
   };
   const renderItem = (it: MenuItemView, cat: string) => {
-    const desc = it.description && <p className="mt-0.5 line-clamp-2 text-xs font-bold text-muted-foreground">{it.description}</p>;
+    const desc = it.description && (
+      <p className="mt-0.5 line-clamp-2 text-xs font-bold text-muted-foreground">
+        {it.description}
+      </p>
+    );
     if (layout === "cards")
       return (
-        <li key={it.id} ref={attention.track(it.id, cat)} className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-station)]">
-          <div {...openProps(it)} className="min-w-0 flex-1 outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <li
+          key={it.id}
+          ref={attention.track(it.id, cat)}
+          className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-station)]"
+        >
+          <div
+            {...openProps(it)}
+            className="min-w-0 flex-1 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
             {photo(it, cat, "aspect-[4/3] w-full", "size-12")}
             <div className="p-3">
               <p className="line-clamp-1 font-black">{it.name_ar}</p>
@@ -340,11 +454,20 @@ export function MenuClient({
       );
     if (layout === "split")
       return (
-        <li key={it.id} ref={attention.track(it.id, cat)} className="rounded-2xl border border-border bg-card p-3">
-          <div {...openProps(it)} className="flex items-start gap-3 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <li
+          key={it.id}
+          ref={attention.track(it.id, cat)}
+          className="rounded-2xl border border-border bg-card p-3"
+        >
+          <div
+            {...openProps(it)}
+            className="flex items-start gap-3 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
             {photo(it, cat, "size-[72px] rounded-xl", "size-7")}
             <div className="min-w-0 flex-1">
-              <p className="line-clamp-1 text-sm font-black tracking-wide">{it.name_ar}</p>
+              <p className="line-clamp-1 text-sm font-black tracking-wide">
+                {it.name_ar}
+              </p>
               {desc}
               <div className="mt-2 flex items-center justify-between gap-2">
                 {priceLine(it, "")}
@@ -356,8 +479,15 @@ export function MenuClient({
       );
     if (layout === "tiles")
       return (
-        <li key={it.id} ref={attention.track(it.id, cat)} className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3">
-          <div {...openProps(it)} className="flex min-w-0 flex-1 items-center gap-3 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <li
+          key={it.id}
+          ref={attention.track(it.id, cat)}
+          className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3"
+        >
+          <div
+            {...openProps(it)}
+            className="flex min-w-0 flex-1 items-center gap-3 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
             <div className="min-w-0 flex-1">
               <p className="line-clamp-1 font-black">{it.name_ar}</p>
               {desc}
@@ -369,12 +499,23 @@ export function MenuClient({
         </li>
       );
     return (
-      <li key={it.id} ref={attention.track(it.id, cat)} className="flex items-center gap-3 py-3">
-        <div {...openProps(it)} className="flex min-w-0 flex-1 items-center gap-3 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <li
+        key={it.id}
+        ref={attention.track(it.id, cat)}
+        className="flex items-center gap-3 py-3"
+      >
+        <div
+          {...openProps(it)}
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
           {photo(it, cat, "size-[88px] rounded-2xl", "size-8")}
           <div className="min-w-0 flex-1">
             <p className="line-clamp-2 font-black leading-snug">{it.name_ar}</p>
-            {it.description && <p className="mt-0.5 line-clamp-1 text-sm font-bold text-muted-foreground">{it.description}</p>}
+            {it.description && (
+              <p className="mt-0.5 line-clamp-1 text-sm font-bold text-muted-foreground">
+                {it.description}
+              </p>
+            )}
             {priceLine(it)}
           </div>
         </div>
@@ -389,7 +530,12 @@ export function MenuClient({
     if (gap) return setErr(gap);
     setBusy(true);
     setErr(null);
-    const payload: OrderLineInput[] = lines.map((l) => ({ item_id: l.itemId, variant_id: l.variantId, flavor: l.flavor, qty: l.qty }));
+    const payload: OrderLineInput[] = lines.map((l) => ({
+      item_id: l.itemId,
+      variant_id: l.variantId,
+      flavor: l.flavor,
+      qty: l.qty,
+    }));
     // «#auto» يطلب من الخادم حجز طاولة حرّة داخل معاملة الطلب نفسها
     const tableArg = scanned ? table : mode === "dinein" ? "#auto" : null;
     const res = await submitOrder({
@@ -407,35 +553,97 @@ export function MenuClient({
     });
     setBusy(false);
     if (!res.ok) return setErr(res.error);
+    // تُحفظ لزرّ «تعديل الطلب»: السلة تعود كما كانت بعد الإلغاء
+    setLastLines(lines);
+    setOrderPhase("open");
     dispatch({ type: "clear" });
     setNote("");
     setAddress("");
     setCarNote("");
     setCartOpen(false);
     attention.reset();
-    setConfirmed({ orderNumber: res.orderNumber, pickupCode: res.pickupCode ?? null, table: res.table ?? table ?? null, mode: mode ?? "dinein" });
+    setConfirmed({
+      orderId: res.orderId ?? null,
+      orderNumber: res.orderNumber,
+      pickupCode: res.pickupCode ?? null,
+      table: res.table ?? table ?? null,
+      mode: mode ?? "dinein",
+    });
+  }
+
+  // كل ٢٠ ثانية: هل بدأ المطبخ؟ عندها يختفي الإلغاء ويظهر «بدأ التجهيز»
+  useEffect(() => {
+    const id = confirmed?.orderId;
+    if (!id || orderPhase !== "open") return;
+    let live = true;
+    const check = async () => {
+      const [o] = await getMyOrders([id]).catch(() => []);
+      if (!live || !o) return;
+      if (o.status === "cancelled") setOrderPhase("cancelled");
+      else if (o.status !== "pending" || o.prep_status !== "new")
+        setOrderPhase("started");
+    };
+    void check();
+    const iv = setInterval(() => void check(), 20_000);
+    return () => {
+      live = false;
+      clearInterval(iv);
+    };
+  }, [confirmed?.orderId, orderPhase]);
+
+  async function cancelConfirmed(thenEdit: boolean) {
+    if (!confirmed?.orderId) return;
+    setOrderPhase("busy");
+    const r = await cancelMyOrder(confirmed.orderId);
+    if (r === "cancelled" || r === "gone") {
+      if (thenEdit) {
+        dispatch({ type: "hydrate", lines: lastLines });
+        setConfirmed(null);
+        setCartOpen(true);
+        return;
+      }
+      setOrderPhase("cancelled");
+      return;
+    }
+    setOrderPhase(r === "started" ? "started" : "open");
+    if (r === "error") setErr("لا اتصال — اتصل بالمطعم " + BRAND.phoneDisplay);
   }
 
   // «داخل المطعم» خيار فقط لمن جاء برابطه؛ من الشارع يختار من ثلاثة
-  const modes = MODES.filter((m) => m.mode !== "dinein" || initialMode === "dinein");
+  const modes = MODES.filter(
+    (m) => m.mode !== "dinein" || initialMode === "dinein",
+  );
 
   return (
-    <div dir="rtl" className="touch-pos min-h-dvh bg-background text-foreground">
+    <div
+      dir="rtl"
+      className="touch-pos min-h-dvh bg-background text-foreground"
+    >
       <p className="sr-only" aria-live="polite">
         {count} في السلة
       </p>
 
       {/* ── الرأس ──────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
-        <div className={`mx-auto flex ${wrap} items-center justify-between px-4 py-2.5`}>
+        <div
+          className={`mx-auto flex ${wrap} items-center justify-between px-4 py-2.5`}
+        >
           <div className="flex items-center gap-2">
             <StationSmiley className="size-9 text-primary" />
             <div className="leading-tight">
-              <p className="station-script text-2xl text-primary">{BRAND.nameLatin}</p>
-              <p className="-mt-1 text-[11px] font-bold text-muted-foreground">{BRAND.taglineAr}</p>
+              <p className="station-script text-2xl text-primary">
+                {BRAND.nameLatin}
+              </p>
+              <p className="-mt-1 text-[11px] font-bold text-muted-foreground">
+                {BRAND.taglineAr}
+              </p>
             </div>
           </div>
-          {scanned && <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-black text-primary">🍽️ طاولة {table}</span>}
+          {scanned && (
+            <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-black text-primary">
+              🍽️ طاولة {table}
+            </span>
+          )}
         </div>
         {layout === "tiles" && (
           <div className="bg-primary px-4 py-1.5 text-center text-xs font-black text-primary-foreground">
@@ -443,9 +651,15 @@ export function MenuClient({
           </div>
         )}
         {!tilesHome && (
-          <nav aria-label="الأقسام" className={`mx-auto flex ${wrap} gap-2 overflow-x-auto px-4 pb-2.5 pt-2 [scrollbar-width:none] ${sideNav ? "lg:hidden" : ""}`}>
+          <nav
+            aria-label="الأقسام"
+            className={`mx-auto flex ${wrap} gap-2 overflow-x-auto px-4 pb-2.5 pt-2 [scrollbar-width:none] ${sideNav ? "lg:hidden" : ""}`}
+          >
             {layout === "tiles" && (
-              <button onClick={() => setOpenCat(null)} className="flex min-h-10 shrink-0 items-center gap-1 whitespace-nowrap rounded-full border-2 border-primary px-3 text-sm font-black text-primary">
+              <button
+                onClick={() => setOpenCat(null)}
+                className="flex min-h-10 shrink-0 items-center gap-1 whitespace-nowrap rounded-full border-2 border-primary px-3 text-sm font-black text-primary"
+              >
                 <ChevronRight className="size-4" />
                 القائمة الكاملة
               </button>
@@ -461,7 +675,9 @@ export function MenuClient({
                   onClick={() => goTo(c.name_ar)}
                   aria-current={on ? "true" : undefined}
                   className={`min-h-10 shrink-0 whitespace-nowrap rounded-full px-4 text-sm font-black transition ${
-                    on ? "bg-primary text-primary-foreground shadow-[var(--shadow-station)]" : "bg-secondary text-foreground"
+                    on
+                      ? "bg-primary text-primary-foreground shadow-[var(--shadow-station)]"
+                      : "bg-secondary text-foreground"
                   }`}
                 >
                   {c.name_ar}
@@ -472,12 +688,17 @@ export function MenuClient({
         )}
       </header>
 
-      <div className={`mx-auto ${wrap} px-4 pb-32 ${sideNav && !tilesHome ? "lg:grid lg:grid-cols-[220px_1fr] lg:gap-6" : ""}`}>
+      <div
+        className={`mx-auto ${wrap} px-4 pb-32 ${sideNav && !tilesHome ? "lg:grid lg:grid-cols-[220px_1fr] lg:gap-6" : ""}`}
+      >
         {/* ── العمود الجانبي (شاشات عريضة) ─────────────────────────────── */}
         {sideNav && !tilesHome && (
           <aside className="sticky top-20 hidden max-h-[calc(100dvh-6rem)] self-start overflow-y-auto pt-6 lg:block">
             {layout === "tiles" && (
-              <button onClick={() => setOpenCat(null)} className="mb-3 flex items-center gap-1 text-sm font-black text-primary">
+              <button
+                onClick={() => setOpenCat(null)}
+                className="mb-3 flex items-center gap-1 text-sm font-black text-primary"
+              >
                 <ChevronRight className="size-4" />
                 القائمة الكاملة
               </button>
@@ -492,21 +713,46 @@ export function MenuClient({
                       onClick={() => goTo(c.name_ar)}
                       aria-current={on ? "true" : undefined}
                       className={`flex min-h-11 w-full items-center gap-2.5 rounded-xl px-3 text-start text-sm font-black transition ${
-                        on ? "bg-primary text-primary-foreground" : "hover:bg-secondary"
+                        on
+                          ? "bg-primary text-primary-foreground"
+                          : "hover:bg-secondary"
                       }`}
                     >
-                      {layout === "cards" && <MenuIcon name={c.name_ar} category={c.name_ar} animated={false} className="size-5 shrink-0" />}
+                      {layout === "cards" && (
+                        <MenuIcon
+                          name={c.name_ar}
+                          category={c.name_ar}
+                          animated={false}
+                          className="size-5 shrink-0"
+                        />
+                      )}
                       {layout === "tiles" && (
                         <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-full bg-secondary">
                           {th ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={th.sm} data-full={th.full} alt="" loading="lazy" onError={onImgError} className="size-full object-cover" />
+                            <img
+                              src={th.sm}
+                              data-full={th.full}
+                              alt=""
+                              loading="lazy"
+                              onError={onImgError}
+                              className="size-full object-cover"
+                            />
                           ) : (
-                            <MenuIcon name={c.name_ar} category={c.name_ar} animated={false} className="size-5 text-primary" />
+                            <MenuIcon
+                              name={c.name_ar}
+                              category={c.name_ar}
+                              animated={false}
+                              className="size-5 text-primary"
+                            />
                           )}
                         </span>
                       )}
-                      <span className={layout === "split" ? "tracking-wide" : ""}>{c.name_ar}</span>
+                      <span
+                        className={layout === "split" ? "tracking-wide" : ""}
+                      >
+                        {c.name_ar}
+                      </span>
                     </button>
                   </li>
                 );
@@ -521,27 +767,51 @@ export function MenuClient({
             <>
               {promos.length > 0 && (
                 <>
-                  <h2 className="mb-2 mt-5 text-lg font-black">{Object.keys(offers).length ? "عروض اليوم" : "مختارات ستيشن"}</h2>
+                  <h2 className="mb-2 mt-5 text-lg font-black">
+                    {Object.keys(offers).length
+                      ? "عروض اليوم"
+                      : "مختارات ستيشن"}
+                  </h2>
                   <ul className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:none]">
                     {promos.map((it) => {
                       const s = imgSrcs(it.image_url);
                       const price = priceOf(it);
                       return (
                         <li key={it.id} className="w-64 shrink-0">
-                          <button onClick={(e) => openSheet(it, e.currentTarget)} className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-2 text-start shadow-[var(--shadow-station)]">
+                          <button
+                            onClick={(e) => openSheet(it, e.currentTarget)}
+                            className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-2 text-start shadow-[var(--shadow-station)]"
+                          >
                             <span className="grid size-24 shrink-0 place-items-center overflow-hidden rounded-xl bg-secondary">
                               {s ? (
                                 // eslint-disable-next-line @next/next/no-img-element
-                                <img src={s.sm} data-full={s.full} alt="" loading="lazy" onError={onImgError} className="size-full object-cover" />
+                                <img
+                                  src={s.sm}
+                                  data-full={s.full}
+                                  alt=""
+                                  loading="lazy"
+                                  onError={onImgError}
+                                  className="size-full object-cover"
+                                />
                               ) : (
-                                <MenuIcon name={it.name_ar} animated={false} className="size-10 text-primary" />
+                                <MenuIcon
+                                  name={it.name_ar}
+                                  animated={false}
+                                  className="size-10 text-primary"
+                                />
                               )}
                             </span>
                             <span className="min-w-0">
-                              <span className="line-clamp-1 font-black">{it.name_ar}</span>
-                              <span className="mt-0.5 line-clamp-2 text-xs font-bold text-muted-foreground">{it.description}</span>
+                              <span className="line-clamp-1 font-black">
+                                {it.name_ar}
+                              </span>
+                              <span className="mt-0.5 line-clamp-2 text-xs font-bold text-muted-foreground">
+                                {it.description}
+                              </span>
                               <span className="mt-1 block font-extrabold tabular-nums text-primary">
-                                {price !== it.price ? `كان ${formatIqdLabel(it.price)} — الآن ${formatIqdLabel(price)}` : formatIqdLabel(price)}
+                                {price !== it.price
+                                  ? `كان ${formatIqdLabel(it.price)} — الآن ${formatIqdLabel(price)}`
+                                  : formatIqdLabel(price)}
                               </span>
                             </span>
                           </button>
@@ -557,16 +827,33 @@ export function MenuClient({
                   const th = catThumb(c);
                   return (
                     <li key={c.name_ar}>
-                      <button onClick={() => openTiles(c.name_ar)} className="w-full rounded-2xl outline-none transition active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring">
+                      <button
+                        onClick={() => openTiles(c.name_ar)}
+                        className="w-full rounded-2xl outline-none transition active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring"
+                      >
                         <span className="grid aspect-square w-full place-items-center overflow-hidden rounded-2xl border border-border bg-secondary">
                           {th ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={th.sm} data-full={th.full} alt="" loading="lazy" onError={onImgError} className="size-full object-cover" />
+                            <img
+                              src={th.sm}
+                              data-full={th.full}
+                              alt=""
+                              loading="lazy"
+                              onError={onImgError}
+                              className="size-full object-cover"
+                            />
                           ) : (
-                            <MenuIcon name={c.name_ar} category={c.name_ar} animated={false} className="size-12 text-primary" />
+                            <MenuIcon
+                              name={c.name_ar}
+                              category={c.name_ar}
+                              animated={false}
+                              className="size-12 text-primary"
+                            />
                           )}
                         </span>
-                        <span className="mt-2 block text-center text-sm font-black">{c.name_ar}</span>
+                        <span className="mt-2 block text-center text-sm font-black">
+                          {c.name_ar}
+                        </span>
                       </button>
                     </li>
                   );
@@ -584,10 +871,18 @@ export function MenuClient({
                 }}
                 className="scroll-mt-28"
               >
-                <h2 className={layout === "split" ? "mb-2 mt-7 text-sm font-black tracking-widest text-muted-foreground" : "mb-1 mt-6 text-xl font-black"}>
+                <h2
+                  className={
+                    layout === "split"
+                      ? "mb-2 mt-7 text-sm font-black tracking-widest text-muted-foreground"
+                      : "mb-1 mt-6 text-xl font-black"
+                  }
+                >
                   {cat.name_ar}
                 </h2>
-                <ul className={LIST_CLASS[layout]}>{cat.items.map((it) => renderItem(it, cat.name_ar))}</ul>
+                <ul className={LIST_CLASS[layout]}>
+                  {cat.items.map((it) => renderItem(it, cat.name_ar))}
+                </ul>
               </section>
             ))
           )}
@@ -607,16 +902,23 @@ export function MenuClient({
             <span className="flex items-center gap-2 font-black">
               <ShoppingBag className="size-5" />
               عرض السلة
-              <span className="rounded-full bg-white/20 px-2 text-sm">{count}</span>
+              <span className="rounded-full bg-white/20 px-2 text-sm">
+                {count}
+              </span>
             </span>
-            <span className="text-lg font-black tabular-nums">{formatIqdLabel(total)}</span>
+            <span className="text-lg font-black tabular-nums">
+              {formatIqdLabel(total)}
+            </span>
           </button>
         </div>
       )}
 
       {/* ── ورقة الصنف ──────────────────────────────────────────────────── */}
       {sheet && (
-        <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/60 sm:items-center" onClick={closeSheet}>
+        <div
+          className="fixed inset-0 z-40 flex items-end justify-center bg-black/60 sm:items-center"
+          onClick={closeSheet}
+        >
           <div
             role="dialog"
             aria-modal="true"
@@ -628,7 +930,12 @@ export function MenuClient({
               <h3 id="sheet-title" className="text-xl font-black">
                 {sheet.item.name_ar}
               </h3>
-              <button autoFocus onClick={closeSheet} aria-label="إغلاق" className="grid size-11 place-items-center rounded-full bg-secondary">
+              <button
+                autoFocus
+                onClick={closeSheet}
+                aria-label="إغلاق"
+                className="grid size-11 place-items-center rounded-full bg-secondary"
+              >
                 <X className="size-5" />
               </button>
             </div>
@@ -637,15 +944,25 @@ export function MenuClient({
               return s ? (
                 <div className="mb-3 aspect-[4/3] overflow-hidden rounded-2xl bg-secondary">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={s.full} alt={sheet.item.name_ar} className="size-full object-cover" />
+                  <img
+                    src={s.full}
+                    alt={sheet.item.name_ar}
+                    className="size-full object-cover"
+                  />
                 </div>
               ) : null;
             })()}
-            {sheet.item.description && <p className="mb-3 text-sm font-bold leading-relaxed text-muted-foreground">{sheet.item.description}</p>}
+            {sheet.item.description && (
+              <p className="mb-3 text-sm font-bold leading-relaxed text-muted-foreground">
+                {sheet.item.description}
+              </p>
+            )}
 
             {sheet.item.variants.length > 0 && (
               <div className="mb-3">
-                <p className="mb-1.5 text-xs font-black text-muted-foreground">اختر الحجم</p>
+                <p className="mb-1.5 text-xs font-black text-muted-foreground">
+                  اختر الحجم
+                </p>
                 <div className="flex flex-wrap gap-2">
                   {sheet.item.variants.map((v) => {
                     const on = v.id === sheet.variantId;
@@ -666,7 +983,9 @@ export function MenuClient({
             )}
             {sheet.item.flavors.length > 0 && (
               <div className="mb-3">
-                <p className="mb-1.5 text-xs font-black text-muted-foreground">اختر النكهة</p>
+                <p className="mb-1.5 text-xs font-black text-muted-foreground">
+                  اختر النكهة
+                </p>
                 <div className="flex flex-wrap gap-2">
                   {sheet.item.flavors.map((f) => {
                     const on = f === sheet.flavor;
@@ -685,7 +1004,10 @@ export function MenuClient({
               </div>
             )}
             {mealSelected && <MealExtras />}
-            <button onClick={addFromSheet} className="min-h-14 w-full rounded-2xl bg-primary text-lg font-black text-primary-foreground transition active:scale-[0.99]">
+            <button
+              onClick={addFromSheet}
+              className="min-h-14 w-full rounded-2xl bg-primary text-lg font-black text-primary-foreground transition active:scale-[0.99]"
+            >
               أضف للسلة · {formatIqdLabel(sheetUnit)}
             </button>
           </div>
@@ -694,7 +1016,10 @@ export function MenuClient({
 
       {/* ── درج السلة ───────────────────────────────────────────────────── */}
       {cartOpen && (
-        <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/60 sm:items-center" onClick={() => setCartOpen(false)}>
+        <div
+          className="fixed inset-0 z-40 flex items-end justify-center bg-black/60 sm:items-center"
+          onClick={() => setCartOpen(false)}
+        >
           <div
             role="dialog"
             aria-modal="true"
@@ -706,7 +1031,12 @@ export function MenuClient({
               <h3 id="cart-title" className="text-xl font-black">
                 سلة الطلب
               </h3>
-              <button autoFocus onClick={() => setCartOpen(false)} aria-label="إغلاق" className="grid size-11 place-items-center rounded-full bg-secondary">
+              <button
+                autoFocus
+                onClick={() => setCartOpen(false)}
+                aria-label="إغلاق"
+                className="grid size-11 place-items-center rounded-full bg-secondary"
+              >
                 <X className="size-5" />
               </button>
             </div>
@@ -716,34 +1046,65 @@ export function MenuClient({
                 <li key={l.key} className="flex items-center gap-3 py-2.5">
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-black">{l.name}</p>
-                    <p className="text-sm font-bold text-muted-foreground tabular-nums">{formatIqdLabel(l.unitPrice * l.qty)}</p>
+                    <p className="text-sm font-bold text-muted-foreground tabular-nums">
+                      {formatIqdLabel(l.unitPrice * l.qty)}
+                    </p>
                   </div>
                   <div className="flex shrink-0 items-center rounded-full border-2 border-primary">
-                    <button onClick={() => dispatch({ type: "dec", key: l.key })} aria-label="إنقاص" className="grid size-11 place-items-center text-primary">
+                    <button
+                      onClick={() => dispatch({ type: "dec", key: l.key })}
+                      aria-label="إنقاص"
+                      className="grid size-11 place-items-center text-primary"
+                    >
                       <Minus className="size-4" />
                     </button>
-                    <span className="w-6 text-center font-black tabular-nums">{l.qty}</span>
-                    <button onClick={() => dispatch({ type: "inc", key: l.key })} aria-label="زيادة" className="grid size-11 place-items-center text-primary">
+                    <span className="w-6 text-center font-black tabular-nums">
+                      {l.qty}
+                    </span>
+                    <button
+                      onClick={() => dispatch({ type: "inc", key: l.key })}
+                      aria-label="زيادة"
+                      className="grid size-11 place-items-center text-primary"
+                    >
                       <Plus className="size-4" />
                     </button>
                   </div>
                 </li>
               ))}
-              {lines.length === 0 && <li className="py-6 text-center text-sm font-bold text-muted-foreground">السلة فارغة</li>}
+              {lines.length === 0 && (
+                <li className="py-6 text-center text-sm font-bold text-muted-foreground">
+                  السلة فارغة
+                </li>
+              )}
             </ul>
 
             {/* «مقترح لك» — ممّا نظر إليه هذا الزبون في هذه الجلسة */}
             {(() => {
-              const recs = recommendedFor({ menu, rankedItemIds: attention.ranked().map((r) => r.id), topCategories: attention.topCategories(), inCart: cartIds });
+              const recs = recommendedFor({
+                menu,
+                rankedItemIds: attention.ranked().map((r) => r.id),
+                topCategories: attention.topCategories(),
+                inCart: cartIds,
+              });
               if (!recs.length) return null;
               return (
                 <div className="mt-4">
-                  <p className="mb-2 text-xs font-black text-muted-foreground">مقترح لك</p>
+                  <p className="mb-2 text-xs font-black text-muted-foreground">
+                    مقترح لك
+                  </p>
                   <div className="flex gap-2 overflow-x-auto pb-1">
                     {recs.map((r) => (
-                      <button key={r.id} onClick={() => addDirect(r)} className="w-28 shrink-0 rounded-xl border-2 border-border bg-background p-2 text-center transition active:scale-95">
-                        <p className="truncate text-xs font-black">{r.name_ar}</p>
-                        <p className="text-xs font-extrabold text-primary">{formatIqdLabel(priceOf(r))}</p>
+                      <button
+                        key={r.id}
+                        onClick={() => addDirect(r)}
+                        className="w-28 shrink-0 rounded-xl border-2 border-border bg-background p-2 text-center transition active:scale-95"
+                      >
+                        <p className="truncate text-xs font-black">
+                          {r.name_ar}
+                        </p>
+                        <p className="text-xs font-extrabold text-primary">
+                          {formatIqdLabel(priceOf(r))}
+                        </p>
                       </button>
                     ))}
                   </div>
@@ -753,8 +1114,12 @@ export function MenuClient({
 
             {!scanned && (
               <div className="mt-4">
-                <p className="mb-1.5 text-xs font-black text-muted-foreground">كيف تريد طلبك؟</p>
-                <div className={`grid gap-1 rounded-2xl bg-secondary p-1 ${modes.length === 4 ? "grid-cols-2" : "grid-cols-3"}`}>
+                <p className="mb-1.5 text-xs font-black text-muted-foreground">
+                  كيف تريد طلبك؟
+                </p>
+                <div
+                  className={`grid gap-1 rounded-2xl bg-secondary p-1 ${modes.length === 4 ? "grid-cols-2" : "grid-cols-3"}`}
+                >
                   {modes.map(({ mode: m, label, icon: Icon }) => {
                     const on = mode === m;
                     return (
@@ -775,48 +1140,109 @@ export function MenuClient({
             )}
 
             <div className="mt-3 space-y-2">
-              {!scanned && <input value={name} onChange={(e) => setName(e.target.value)} placeholder="الاسم" className={FIELD} />}
+              {!scanned && (
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="الاسم"
+                  className={FIELD}
+                />
+              )}
               <input
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 inputMode="tel"
-                placeholder={mode === "delivery" || mode === "curbside" ? "رقم الهاتف (مطلوب)" : "رقم الهاتف (اختياري — لجمع النقاط)"}
+                placeholder={
+                  mode === "delivery" || mode === "curbside"
+                    ? "رقم الهاتف (مطلوب)"
+                    : "رقم الهاتف (اختياري — لجمع النقاط)"
+                }
                 dir="ltr"
                 className={FIELD}
               />
-              {mode === "delivery" && <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="العنوان بالتفصيل — أقرب نقطة دالة" className={FIELD} />}
-              {mode === "curbside" && <input value={carNote} onChange={(e) => setCarNote(e.target.value)} placeholder="وصف السيارة (كيا بيضاء…)" className={FIELD} />}
+              {mode === "delivery" && (
+                <input
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  placeholder="العنوان بالتفصيل — أقرب نقطة دالة"
+                  className={FIELD}
+                />
+              )}
+              {mode === "curbside" && (
+                <input
+                  value={carNote}
+                  onChange={(e) => setCarNote(e.target.value)}
+                  placeholder="وصف السيارة (كيا بيضاء…)"
+                  className={FIELD}
+                />
+              )}
               {mode === "dinein" && !scanned && (
                 <div className="flex items-center justify-between rounded-xl border border-border bg-background px-3 py-2">
                   <span className="text-sm font-black">عدد الأشخاص</span>
                   <div className="flex items-center gap-2">
-                    <button type="button" onClick={() => setGuests((g) => Math.max(1, g - 1))} aria-label="إنقاص" className="grid size-10 place-items-center rounded-full border border-border">
+                    <button
+                      type="button"
+                      onClick={() => setGuests((g) => Math.max(1, g - 1))}
+                      aria-label="إنقاص"
+                      className="grid size-10 place-items-center rounded-full border border-border"
+                    >
                       <Minus className="size-4" />
                     </button>
-                    <span className="w-6 text-center font-black tabular-nums">{guests}</span>
-                    <button type="button" onClick={() => setGuests((g) => Math.min(20, g + 1))} aria-label="زيادة" className="grid size-10 place-items-center rounded-full border border-border">
+                    <span className="w-6 text-center font-black tabular-nums">
+                      {guests}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setGuests((g) => Math.min(20, g + 1))}
+                      aria-label="زيادة"
+                      className="grid size-10 place-items-center rounded-full border border-border"
+                    >
                       <Plus className="size-4" />
                     </button>
                   </div>
                 </div>
               )}
-              <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="ملاحظة (بدون مخلل، صوص إضافي، حار…)" className={FIELD} />
+              <input
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="ملاحظة (بدون مخلل، صوص إضافي، حار…)"
+                className={FIELD}
+              />
               {!scanned && mode && (
                 <div className="grid grid-cols-2 gap-1 rounded-xl bg-secondary p-1">
-                  {([["cash", "💵 نقدي"], ["card", "💳 كي كارد"]] as const).map(([k, lbl]) => (
-                    <button key={k} type="button" onClick={() => setPayment(k)} aria-pressed={payment === k} className={`min-h-10 rounded-lg text-sm font-black transition ${payment === k ? "bg-primary text-primary-foreground" : ""}`}>
+                  {(
+                    [
+                      ["cash", "💵 نقدي"],
+                      ["card", "💳 كي كارد"],
+                    ] as const
+                  ).map(([k, lbl]) => (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => setPayment(k)}
+                      aria-pressed={payment === k}
+                      className={`min-h-10 rounded-lg text-sm font-black transition ${payment === k ? "bg-primary text-primary-foreground" : ""}`}
+                    >
                       {lbl}
                     </button>
                   ))}
                 </div>
               )}
             </div>
-            {err && <p className="mt-2 text-sm font-bold text-destructive">{err}</p>}
+            {err && (
+              <p className="mt-2 text-sm font-bold text-destructive">{err}</p>
+            )}
             <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
               <span className="font-bold text-muted-foreground">الإجمالي</span>
-              <span className="text-2xl font-black tabular-nums text-primary">{formatIqdLabel(total)}</span>
+              <span className="text-2xl font-black tabular-nums text-primary">
+                {formatIqdLabel(total)}
+              </span>
             </div>
-            <button onClick={checkout} disabled={busy || lines.length === 0} className="mt-3 min-h-14 w-full rounded-2xl bg-primary text-lg font-black text-primary-foreground transition active:scale-[0.99] disabled:opacity-60">
+            <button
+              onClick={checkout}
+              disabled={busy || lines.length === 0}
+              className="mt-3 min-h-14 w-full rounded-2xl bg-primary text-lg font-black text-primary-foreground transition active:scale-[0.99] disabled:opacity-60"
+            >
               {busy ? "جارٍ الإرسال…" : "إتمام الطلب"}
             </button>
           </div>
@@ -831,18 +1257,66 @@ export function MenuClient({
               <Check className="size-10" strokeWidth={3} />
             </div>
             <p className="text-xl font-black">تم إرسال طلبك</p>
-            <p className="mt-1 text-sm font-bold text-muted-foreground">رقم طلبك</p>
-            <p className="text-7xl font-black tabular-nums text-primary">{confirmed.orderNumber}</p>
+            <p className="mt-1 text-sm font-bold text-muted-foreground">
+              رقم طلبك
+            </p>
+            <p className="text-7xl font-black tabular-nums text-primary">
+              {confirmed.orderNumber}
+            </p>
             {confirmed.pickupCode && confirmed.mode !== "dinein" && (
               <div className="mx-auto mt-3 w-fit rounded-2xl border-2 border-dashed border-primary px-6 py-2">
-                <p className="text-xs font-black text-muted-foreground">رمز الاستلام</p>
-                <p dir="ltr" className="text-4xl font-black tracking-widest text-primary">
+                <p className="text-xs font-black text-muted-foreground">
+                  رمز الاستلام
+                </p>
+                <p
+                  dir="ltr"
+                  className="text-4xl font-black tracking-widest text-primary"
+                >
                   {confirmed.pickupCode}
                 </p>
               </div>
             )}
-            <p className="mt-4 text-sm font-bold leading-relaxed">{NEXT_STEP[confirmed.mode](confirmed.table)}</p>
-            <button onClick={() => setConfirmed(null)} className="mt-6 min-h-12 w-full rounded-2xl bg-primary font-black text-primary-foreground">
+            {orderPhase === "cancelled" ? (
+              <p className="mt-4 rounded-xl bg-secondary px-3 py-2 text-sm font-black">
+                أُلغي الطلب.
+              </p>
+            ) : (
+              <p className="mt-4 text-sm font-bold leading-relaxed">
+                {NEXT_STEP[confirmed.mode](confirmed.table)}
+              </p>
+            )}
+            {/* التعديل والإلغاء بيد الزبون حتى يبدأ المطبخ — لا رسالة تُقرأ متأخرة */}
+            {confirmed.orderId && orderPhase === "started" && (
+              <p className="mt-3 text-sm font-black text-primary">
+                بدأ التجهيز 🔥 — للتعديل اتصل بنا {BRAND.phoneDisplay}
+              </p>
+            )}
+            {confirmed.orderId &&
+              (orderPhase === "open" || orderPhase === "busy") && (
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => void cancelConfirmed(true)}
+                    disabled={orderPhase === "busy"}
+                    className="min-h-12 rounded-2xl border-2 border-primary font-black text-primary disabled:opacity-50"
+                  >
+                    تعديل الطلب
+                  </button>
+                  <button
+                    onClick={() => void cancelConfirmed(false)}
+                    disabled={orderPhase === "busy"}
+                    className="min-h-12 rounded-2xl border-2 border-border font-black text-muted-foreground disabled:opacity-50"
+                  >
+                    إلغاء الطلب
+                  </button>
+                </div>
+              )}
+            {err && (
+              <p className="mt-2 text-sm font-bold text-destructive">{err}</p>
+            )}
+            <button
+              onClick={() => setConfirmed(null)}
+              className="mt-6 min-h-12 w-full rounded-2xl bg-primary font-black text-primary-foreground"
+            >
               طلب جديد
             </button>
           </div>

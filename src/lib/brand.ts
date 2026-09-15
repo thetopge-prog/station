@@ -44,6 +44,28 @@ export function whatsappOrderLink(body: string, phone: string = BRAND.whatsapp):
 }
 
 /**
+ * «استلمنا طلبك» — the cashier's one-tap reply on WhatsApp Web after accepting.
+ *
+ * The shop's number stays an ordinary WhatsApp: no API, no template approval.
+ * wa.me opens the chat with the text ready; the cashier presses send.
+ */
+export function orderAcceptedLink(input: { phone: string; orderNumber: string; delivery: boolean }): string {
+  const body = [
+    `تم استلام طلبك رقم ${input.orderNumber} ✅ — ${BRAND.nameAr}`,
+    input.delivery ? "يصلك خلال ٣٠–٤٥ دقيقة إن شاء الله 🛵" : "يكون جاهزاً خلال ~٢٠ دقيقة 🍔",
+    "",
+    `للاستفسار: ${BRAND.phoneDisplay}`,
+  ].join("\n");
+  return whatsappOrderLink(body, normaliseIraqiPhone(input.phone));
+}
+
+/** «طلبك في الطريق» — the expediter's tap when a delivery bag leaves. */
+export function deliveryOnWayLink(input: { phone: string; orderNumber: string }): string {
+  const body = [`طلبك رقم ${input.orderNumber} في الطريق إليك 🛵 — ${BRAND.nameAr}`, "", `للاستفسار: ${BRAND.phoneDisplay}`].join("\n");
+  return whatsappOrderLink(body, normaliseIraqiPhone(input.phone));
+}
+
+/**
  * «طلبك جاهز» for a customer waiting in their car.
  *
  * Opened by the expediter, sent with one tap from the shop phone. Deliberately

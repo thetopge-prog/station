@@ -1,7 +1,16 @@
 "use client";
 
+import { orderAcceptedLink } from "@/lib/brand";
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { Check, Minus, Pencil, Plus, Printer, Trash2 } from "lucide-react";
+import {
+  Check,
+  MessageCircle,
+  Minus,
+  Pencil,
+  Plus,
+  Printer,
+  Trash2,
+} from "lucide-react";
 import type { MenuCategoryView, MenuItemView } from "@/lib/cafe/menu-data";
 import { formatIqdLabel } from "@/lib/cafe/money";
 import { cashierCheckout, type PayMethod } from "@/lib/cafe/cashier-actions";
@@ -135,7 +144,11 @@ export function CashierClient({
   const [success, setSuccess] = useState<{
     orderNumber: string;
     awarded: number;
+    /** wa.me with «تم استلام طلبك رقم N» ready — for any order that has a phone */
+    waLink: string | null;
   } | null>(null);
+  // «واتساب تلقائي بعد الطلب» — per-device, set on the incoming-orders page
+  const autoWaRef = useRef(false);
   // cash opens the drawer; Qi-card payments happen on the Qi device — no drawer.
   const [payMethod, setPayMethod] = useState<PayMethod>("cash");
   // «على حساب أحمد» — من يدفع لاحقاً؛ يُسجَّل في الديون باسمه
@@ -185,6 +198,7 @@ export function CashierClient({
   }, [payMethod]);
   useEffect(() => {
     drawerKickRef.current = localStorage.getItem("st-drawer") === "1";
+    autoWaRef.current = localStorage.getItem("st-auto-wa") === "1";
   }, []);
   function kickDrawer() {
     // guard against a double-open if the pay action ever fires twice in quick succession
@@ -505,7 +519,26 @@ export function CashierClient({
         }),
       });
       if (payMethod === "cash") kickDrawer();
-      setSuccess({ orderNumber: res.orderNumber, awarded: res.awarded });
+      // any customer with a phone — a delivery, a takeaway, or a caller whose
+      // number the cashier typed — gets their order number on WhatsApp. The
+      // shop's WhatsApp Web is open on this PC: the chat opens with the text
+      // ready and the cashier taps send. No API, no template.
+      const waPhone =
+        cust.phone && normalizeIraqiPhone(cust.phone) ? cust.phone : null;
+      const waLink = waPhone
+        ? orderAcceptedLink({
+            phone: waPhone,
+            orderNumber: res.orderNumber,
+            delivery: orderType === "delivery",
+          })
+        : null;
+      if (waLink && autoWaRef.current)
+        window.open(waLink, "_blank", "noopener");
+      setSuccess({
+        orderNumber: res.orderNumber,
+        awarded: res.awarded,
+        waLink,
+      });
       dispatch({ type: "clear" });
       setCustomer(null);
       setDiscountIqd(0);
@@ -1172,6 +1205,17 @@ export function CashierClient({
               <p className="text-sm text-muted-foreground">
                 أُضيفت {success.awarded} نقطة ولاء.
               </p>
+            )}
+            {success.waLink && (
+              <a
+                href={success.waLink}
+                target="_blank"
+                rel="noopener"
+                className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] font-black text-white"
+              >
+                <MessageCircle className="size-5" />
+                أرسل رقم الطلب للزبون على واتساب
+              </a>
             )}
             {saleNote && (
               <p className="mt-2 rounded-xl border-2 border-primary bg-primary/10 px-3 py-2 text-sm font-black text-primary">

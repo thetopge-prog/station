@@ -6,7 +6,24 @@ import { ChevronDown } from "lucide-react";
 type Section = { q: string; steps: string[] };
 
 const CASHIER: Section[] = [
-  { q: "تسجيل الدخول", steps: ["افتح اختصار «كاشير ستيشن» على الجهاز.", "اسم المستخدم: aaa — كلمة المرور: 123."] },
+  {
+    q: "تسجيل الدخول",
+    steps: [
+      "افتح اختصار «كاشير ستيشن» على الجهاز.",
+      "اسم المستخدم: aaa — كلمة المرور: 123.",
+    ],
+  },
+  {
+    q: "طلب يصل على واتساب",
+    steps: [
+      "لا تستجوب الزبون: أرسل له رابط الطلب وهو يختار أصنافه وعنوانه بنفسه.",
+      "مرة واحدة: في واتساب بزنس ← الأدوات ← الردود السريعة ← أضف اختصار «/طلب» ونصه: «أهلاً بك في ستيشن 🍔 اطلب من هنا: https://station-anbar.netlify.app/delivery».",
+      "بعدها اكتب /طلب في أي محادثة وأرسل. طلب الزبون يظهر في «الطلبات الواردة» كاملاً — اقبله بنقرة.",
+      "الزبون يستطيع تعديل طلبه أو إلغاءه من هاتفه حتى يبدأ المطبخ؛ إن أُلغي يختفي من الواردة مع تنبيه.",
+      "زر «واتساب» بجانب هاتف الزبون يفتح رسالة «تم استلام طلبك رقم …» جاهزة — اضغط إرسال. وبعد الدفع في الكاشير يظهر الزر نفسه لأي زبون له رقم.",
+      "فعّل «واتساب تلقائي بعد الطلب» من الطلبات الواردة ليفتح الرسالة وحدها بعد كل طلب.",
+    ],
+  },
   {
     q: "إصدار طلب من الكاشير",
     steps: [
@@ -83,10 +100,16 @@ const ADMIN: Section[] = [
       "تُحسم تلقائياً من صافي الربح الشهري في لوحة التحكم.",
     ],
   },
-  { q: "الموظفون والرواتب", steps: ["«الموظفون»: أضف الموظفين ورواتبهم (يومي/أسبوعي/شهري)."] },
+  {
+    q: "الموظفون والرواتب",
+    steps: ["«الموظفون»: أضف الموظفين ورواتبهم (يومي/أسبوعي/شهري)."],
+  },
   {
     q: "رموز QR للطاولات",
-    steps: ["«رموز QR»: اطبع ملصق كل طاولة والصقه عليها — يطلب الزبون بمسحه.", "الملصقات تُولّد للطاولات الفعّالة فقط."],
+    steps: [
+      "«رموز QR»: اطبع ملصق كل طاولة والصقه عليها — يطلب الزبون بمسحه.",
+      "الملصقات تُولّد للطاولات الفعّالة فقط.",
+    ],
   },
   {
     q: "بوت التليجرام",
@@ -111,10 +134,18 @@ function Accordion({ items }: { items: Section[] }) {
   return (
     <div className="space-y-2">
       {items.map((s, i) => (
-        <div key={i} className="overflow-hidden rounded-2xl border border-border bg-card">
-          <button onClick={() => setOpen(open === i ? null : i)} className="flex w-full items-center justify-between gap-2 px-4 py-3 text-right font-bold">
+        <div
+          key={i}
+          className="overflow-hidden rounded-2xl border border-border bg-card"
+        >
+          <button
+            onClick={() => setOpen(open === i ? null : i)}
+            className="flex w-full items-center justify-between gap-2 px-4 py-3 text-right font-bold"
+          >
             <span>{s.q}</span>
-            <ChevronDown className={`size-4 shrink-0 transition ${open === i ? "rotate-180" : ""}`} />
+            <ChevronDown
+              className={`size-4 shrink-0 transition ${open === i ? "rotate-180" : ""}`}
+            />
           </button>
           {open === i && (
             <ol className="list-decimal space-y-1.5 border-t border-border px-6 py-3 text-sm text-muted-foreground [direction:rtl]">
@@ -132,7 +163,9 @@ function Accordion({ items }: { items: Section[] }) {
 }
 
 export function HelpClient({ isAdmin }: { isAdmin: boolean }) {
-  const [tab, setTab] = useState<"cashier" | "admin">(isAdmin ? "admin" : "cashier");
+  const [tab, setTab] = useState<"cashier" | "admin">(
+    isAdmin ? "admin" : "cashier",
+  );
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">📘 تعليمات النظام</h1>

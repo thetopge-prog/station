@@ -1,10 +1,29 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Ban, Camera, Check, Hand, MessageCircle, PackageCheck, ScanLine, Timer } from "lucide-react";
-import { claimOrder, confirmAssembled, confirmAssembledByCode, confirmAssembledMany, listPrepOrders, markItemUnavailable, markNotified, markOrderHanded, type PrepOrder } from "@/lib/cafe/prep-actions";
+import {
+  Ban,
+  Camera,
+  Check,
+  Hand,
+  MessageCircle,
+  PackageCheck,
+  ScanLine,
+  Timer,
+} from "lucide-react";
+import {
+  claimOrder,
+  confirmAssembled,
+  confirmAssembledByCode,
+  confirmAssembledMany,
+  listPrepOrders,
+  markItemUnavailable,
+  markNotified,
+  markOrderHanded,
+  type PrepOrder,
+} from "@/lib/cafe/prep-actions";
 import { sinceLabel } from "@/lib/cafe/time";
-import { curbsideReadyLink } from "@/lib/brand";
+import { curbsideReadyLink, deliveryOnWayLink } from "@/lib/brand";
 import { useLiveOrders } from "./use-live-orders";
 import { parseScan, useBarcodeScanner } from "./use-barcode-scanner";
 import { QrScanner } from "./QrScanner";
@@ -24,18 +43,27 @@ import { chimeNewOrder, chimeReady, unlockAudio } from "@/lib/cafe/chime";
  */
 export function ExpediterClient({ name }: { name: string }) {
   const fetcher = useCallback(() => listPrepOrders(null), []);
-  const { rows, loaded, live, refresh, setRows } = useLiveOrders<PrepOrder>(fetcher, { channelName: "station-expediter" });
+  const { rows, loaded, live, refresh, setRows } = useLiveOrders<PrepOrder>(
+    fetcher,
+    { channelName: "station-expediter" },
+  );
 
   /** paint the outcome now; the poll and realtime reconcile a moment later */
   const patchRow = useCallback(
     (id: string, patch: Partial<PrepOrder> | "remove") =>
-      setRows((rs) => (patch === "remove" ? rs.filter((r) => r.id !== id) : rs.map((r) => (r.id === id ? { ...r, ...patch } : r)))),
+      setRows((rs) =>
+        patch === "remove"
+          ? rs.filter((r) => r.id !== id)
+          : rs.map((r) => (r.id === id ? { ...r, ...patch } : r)),
+      ),
     [setRows],
   );
 
   const [checked, setChecked] = useState<Record<string, Set<string>>>({});
   const [busy, setBusy] = useState<string | null>(null);
-  const [scan, setScan] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+  const [scan, setScan] = useState<{ kind: "ok" | "err"; text: string } | null>(
+    null,
+  );
   // camera fallback for when the hardware scanner is flat, lost, or refuses
   const [camOpen, setCamOpen] = useState(false);
   // one clock for the whole board: card age must not be read during render
@@ -84,7 +112,11 @@ export function ExpediterClient({ name }: { name: string }) {
   }
 
   const act = useCallback(
-    async (id: string, fn: (id: string) => Promise<{ ok: boolean }>, patch?: Partial<PrepOrder> | "remove") => {
+    async (
+      id: string,
+      fn: (id: string) => Promise<{ ok: boolean }>,
+      patch?: Partial<PrepOrder> | "remove",
+    ) => {
       if (busy) return;
       setBusy(id);
       try {
@@ -94,14 +126,20 @@ export function ExpediterClient({ name }: { name: string }) {
         // they need the reason on the same screen, in the same second.
         const res = await fn(id);
         if (!res.ok) {
-          setScan({ kind: "err", text: (res as { error?: string }).error ?? "تعذّر إتمام العملية" });
+          setScan({
+            kind: "err",
+            text: (res as { error?: string }).error ?? "تعذّر إتمام العملية",
+          });
           return;
         }
         // no full refetch after a tap: the card moves itself, the poll confirms
         if (patch) patchRow(id, patch);
         else await refresh();
       } catch (e) {
-        setScan({ kind: "err", text: e instanceof Error ? e.message : "تعذّر إتمام العملية" });
+        setScan({
+          kind: "err",
+          text: e instanceof Error ? e.message : "تعذّر إتمام العملية",
+        });
       } finally {
         setBusy(null);
       }
@@ -118,10 +156,19 @@ export function ExpediterClient({ name }: { name: string }) {
     if (!window.confirm(`تسليم ${ids.length} طلب دفعة واحدة؟`)) return;
     setAllBusy(true);
     try {
-      const results = await Promise.allSettled(ids.map((id) => markOrderHanded(id)));
-      const done = ids.filter((_, i) => results[i].status === "fulfilled" && (results[i] as PromiseFulfilledResult<{ ok: boolean }>).value.ok);
+      const results = await Promise.allSettled(
+        ids.map((id) => markOrderHanded(id)),
+      );
+      const done = ids.filter(
+        (_, i) =>
+          results[i].status === "fulfilled" &&
+          (results[i] as PromiseFulfilledResult<{ ok: boolean }>).value.ok,
+      );
       setRows((rs) => rs.filter((r) => !done.includes(r.id)));
-      setScan({ kind: done.length === ids.length ? "ok" : "err", text: `${done.length} من ${ids.length} سُلّم ✓` });
+      setScan({
+        kind: done.length === ids.length ? "ok" : "err",
+        text: `${done.length} من ${ids.length} سُلّم ✓`,
+      });
     } finally {
       setAllBusy(false);
     }
@@ -133,11 +180,18 @@ export function ExpediterClient({ name }: { name: string }) {
     try {
       const res = await confirmAssembledMany(ids);
       if (!res.ok) return setScan({ kind: "err", text: res.error });
-      setRows((rs) => rs.map((r) => (ids.includes(r.id) ? { ...r, prep_status: "ready" } : r)));
+      setRows((rs) =>
+        rs.map((r) =>
+          ids.includes(r.id) ? { ...r, prep_status: "ready" } : r,
+        ),
+      );
       chimeReady();
       setScan({ kind: "ok", text: `${res.count} طلب → جاهز ✓` });
     } catch (e) {
-      setScan({ kind: "err", text: e instanceof Error ? e.message : "تعذّر التجهيز" });
+      setScan({
+        kind: "err",
+        text: e instanceof Error ? e.message : "تعذّر التجهيز",
+      });
     } finally {
       setAllBusy(false);
     }
@@ -152,8 +206,16 @@ export function ExpediterClient({ name }: { name: string }) {
    */
   function notifyCustomer(o: PrepOrder) {
     if (!o.customer_phone) return;
+    const orderNumber = String(o.order_seq).padStart(3, "0");
     window.open(
-      curbsideReadyLink({ phone: o.customer_phone, orderNumber: String(o.order_seq).padStart(3, "0"), code: o.pickup_code }),
+      // delivery: «في الطريق» when the bag leaves; curbside: «اتصل قبل وصولك»
+      o.channel === "delivery"
+        ? deliveryOnWayLink({ phone: o.customer_phone, orderNumber })
+        : curbsideReadyLink({
+            phone: o.customer_phone,
+            orderNumber,
+            code: o.pickup_code,
+          }),
       "_blank",
       "noopener",
     );
@@ -176,20 +238,45 @@ export function ExpediterClient({ name }: { name: string }) {
       // A ticket printed a second ago may not be in the last poll yet. The
       // scan is sent anyway — the server knows the order — and the row is
       // painted «ready» here without waiting for a full refetch.
-      const target = scan.kind === "uuid" ? rows.find((r) => r.id === scan.id) : rows.find((r) => r.order_seq === scan.seq && (r.pickup_code ?? "").toUpperCase() === scan.code);
+      const target =
+        scan.kind === "uuid"
+          ? rows.find((r) => r.id === scan.id)
+          : rows.find(
+              (r) =>
+                r.order_seq === scan.seq &&
+                (r.pickup_code ?? "").toUpperCase() === scan.code,
+            );
       if (target?.prep_status === "ready") {
-        return setScan({ kind: "ok", text: `طلب ${String(target.order_seq).padStart(3, "0")} جاهز مسبقاً` });
+        return setScan({
+          kind: "ok",
+          text: `طلب ${String(target.order_seq).padStart(3, "0")} جاهز مسبقاً`,
+        });
       }
 
-      const res = scan.kind === "uuid" ? await confirmAssembled(scan.id) : await confirmAssembledByCode(scan.seq, scan.code);
+      const res =
+        scan.kind === "uuid"
+          ? await confirmAssembled(scan.id)
+          : await confirmAssembledByCode(scan.seq, scan.code);
       if (!res.ok) {
-        return setScan({ kind: "err", text: (res as { error?: string }).error ?? "تعذّر التأكيد" });
+        return setScan({
+          kind: "err",
+          text: (res as { error?: string }).error ?? "تعذّر التأكيد",
+        });
       }
-      const seq = target?.order_seq ?? (scan.kind === "code" ? scan.seq : "orderSeq" in res ? res.orderSeq : null);
+      const seq =
+        target?.order_seq ??
+        (scan.kind === "code"
+          ? scan.seq
+          : "orderSeq" in res
+            ? res.orderSeq
+            : null);
       if (target) patchRow(target.id, { prep_status: "ready" });
       else void refresh();
       chimeReady();
-      setScan({ kind: "ok", text: `طلب ${seq != null ? String(seq).padStart(3, "0") : ""} → جاهز ✓` });
+      setScan({
+        kind: "ok",
+        text: `طلب ${seq != null ? String(seq).padStart(3, "0") : ""} → جاهز ✓`,
+      });
     },
     [rows, refresh, patchRow],
   );
@@ -243,7 +330,9 @@ export function ExpediterClient({ name }: { name: string }) {
           </button>
           <span
             className={`rounded-full px-3 py-1 text-xs font-bold ${
-              live ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+              live
+                ? "bg-primary/10 text-primary"
+                : "bg-muted text-muted-foreground"
             }`}
           >
             {live ? "● اتصال لحظي" : "○ تحديث دوري"}
@@ -265,7 +354,9 @@ export function ExpediterClient({ name }: { name: string }) {
       )}
 
       {!loaded ? (
-        <p className="rounded-2xl border-2 border-dashed border-border p-10 text-center font-bold text-muted-foreground">…</p>
+        <p className="rounded-2xl border-2 border-dashed border-border p-10 text-center font-bold text-muted-foreground">
+          …
+        </p>
       ) : rows.length === 0 ? (
         <p className="rounded-2xl border-2 border-dashed border-border p-10 text-center text-lg font-bold text-muted-foreground">
           لا توجد طلبات حالياً
@@ -281,12 +372,21 @@ export function ExpediterClient({ name }: { name: string }) {
               busy={busy === o.id}
               onToggle={(itemId) => toggle(o.id, itemId)}
               onUnavailable={async (itemId) => {
-                if (!confirm("تأكيد: هذا الصنف نفد؟ سيُخصم من الفاتورة ويُبلَّغ الكاشير ليتصل بالزبون.")) return;
+                if (
+                  !confirm(
+                    "تأكيد: هذا الصنف نفد؟ سيُخصم من الفاتورة ويُبلَّغ الكاشير ليتصل بالزبون.",
+                  )
+                )
+                  return;
                 await markItemUnavailable(itemId);
                 await refresh();
               }}
-              onClaim={() => act(o.id, claimOrder, { prep_status: "preparing" })}
-              onReady={() => act(o.id, confirmAssembled, { prep_status: "ready" })}
+              onClaim={() =>
+                act(o.id, claimOrder, { prep_status: "preparing" })
+              }
+              onReady={() =>
+                act(o.id, confirmAssembled, { prep_status: "ready" })
+              }
               onHanded={() => act(o.id, markOrderHanded, "remove")}
               onNotify={() => void notifyCustomer(o)}
             />
@@ -341,24 +441,37 @@ function OrderCard({
   return (
     <article
       className={`flex flex-col gap-3 rounded-2xl border-2 bg-card p-4 ${
-        isReady ? "border-primary shadow-station" : late ? "border-destructive" : "border-border"
+        isReady
+          ? "border-primary shadow-station"
+          : late
+            ? "border-destructive"
+            : "border-border"
       }`}
     >
       <header className="flex items-start justify-between gap-2">
         <div>
-          <p className="text-4xl font-black tabular-nums leading-none">{String(order.order_seq).padStart(3, "0")}</p>
+          <p className="text-4xl font-black tabular-nums leading-none">
+            {String(order.order_seq).padStart(3, "0")}
+          </p>
           <p className="mt-1 text-sm font-bold text-muted-foreground">
-            {order.table_no ? `طاولة ${order.table_no}` : CHANNEL_AR[order.channel] ?? order.channel}
+            {order.table_no
+              ? `طاولة ${order.table_no}`
+              : (CHANNEL_AR[order.channel] ?? order.channel)}
             {order.cashier_name ? ` · ${order.cashier_name}` : ""}
           </p>
         </div>
         <div className="text-left">
           {order.pickup_code && (
-            <p className="rounded-full bg-primary px-3 py-0.5 text-lg font-black tabular-nums text-primary-foreground" dir="ltr">
+            <p
+              className="rounded-full bg-primary px-3 py-0.5 text-lg font-black tabular-nums text-primary-foreground"
+              dir="ltr"
+            >
               {order.pickup_code}
             </p>
           )}
-          <p className={`mt-1 flex items-center justify-end gap-1 text-sm font-bold ${late ? "text-destructive" : "text-muted-foreground"}`}>
+          <p
+            className={`mt-1 flex items-center justify-end gap-1 text-sm font-bold ${late ? "text-destructive" : "text-muted-foreground"}`}
+          >
             <Timer className="size-4" />
             {sinceLabel(mins)}
           </p>
@@ -385,7 +498,9 @@ function OrderCard({
                     <span className="block font-bold line-through opacity-60">
                       {it.qty} × {it.name_ar}
                     </span>
-                    <span className="block text-xs font-black text-destructive">نفد — خُصم من الفاتورة وأُبلغ الكاشير</span>
+                    <span className="block text-xs font-black text-destructive">
+                      نفد — خُصم من الفاتورة وأُبلغ الكاشير
+                    </span>
                   </span>
                 </div>
               </li>
@@ -397,26 +512,38 @@ function OrderCard({
                 onClick={() => onToggle(it.id)}
                 aria-pressed={on}
                 className={`flex min-w-0 flex-1 items-center gap-3 rounded-xl border-2 p-3 text-right transition ${
-                  on ? "border-primary bg-primary/10" : "border-border hover:bg-secondary"
+                  on
+                    ? "border-primary bg-primary/10"
+                    : "border-border hover:bg-secondary"
                 }`}
               >
                 <span
                   className={`flex size-8 shrink-0 items-center justify-center rounded-lg border-2 ${
-                    on ? "border-primary bg-primary text-primary-foreground" : "border-border"
+                    on
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border"
                   }`}
                 >
                   {on && <Check className="size-5" />}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className={`block font-bold ${on ? "line-through opacity-60" : ""}`}>
+                  <span
+                    className={`block font-bold ${on ? "line-through opacity-60" : ""}`}
+                  >
                     {it.qty} × {it.name_ar}
                   </span>
                   {(it.flavor_ar || it.station_name) && (
                     <span className="block text-xs font-bold text-muted-foreground">
-                      {[it.flavor_ar, it.station_name].filter(Boolean).join(" · ")}
+                      {[it.flavor_ar, it.station_name]
+                        .filter(Boolean)
+                        .join(" · ")}
                     </span>
                   )}
-                  {it.note && <span className="block text-sm font-black text-primary">← {it.note}</span>}
+                  {it.note && (
+                    <span className="block text-sm font-black text-primary">
+                      ← {it.note}
+                    </span>
+                  )}
                 </span>
               </button>
               {/* «نفد» — the only honest answer when the shelf is empty. Without
@@ -438,19 +565,22 @@ function OrderCard({
         <div className="grid gap-2">
           {/* curbside: message them BEFORE they arrive, which is the whole
               promise of the mode — «اتصل بنا قبل وصولك بدقيقتين» */}
-          {order.channel === "curbside" && order.customer_phone && (
-            <button
-              onClick={onNotify}
-              className={`flex min-h-14 w-full items-center justify-center gap-2 rounded-xl text-lg font-black transition ${
-                order.notified_at
-                  ? "border-2 border-border text-muted-foreground"
-                  : "bg-[#25D366] text-white shadow-station"
-              }`}
-            >
-              <MessageCircle className="size-5" />
-              {order.notified_at ? "تم إبلاغ الزبون ✓" : "أبلِغ الزبون عبر واتساب"}
-            </button>
-          )}
+          {(order.channel === "curbside" || order.channel === "delivery") &&
+            order.customer_phone && (
+              <button
+                onClick={onNotify}
+                className={`flex min-h-14 w-full items-center justify-center gap-2 rounded-xl text-lg font-black transition ${
+                  order.notified_at
+                    ? "border-2 border-border text-muted-foreground"
+                    : "bg-[#25D366] text-white shadow-station"
+                }`}
+              >
+                <MessageCircle className="size-5" />
+                {order.notified_at
+                  ? "تم إبلاغ الزبون ✓"
+                  : "أبلِغ الزبون عبر واتساب"}
+              </button>
+            )}
           <button
             onClick={onHanded}
             disabled={busy}
@@ -482,7 +612,12 @@ function OrderCard({
             <PackageCheck className="size-6" />
             {busy ? "…" : "تم التحضير كامل ✓"}
           </button>
-          {!allTicked && <p className="text-center text-xs font-bold text-muted-foreground">لم يُعلَّم {live.length - checked.size} من الأصناف — التعليم للتدقيق لا شرط</p>}
+          {!allTicked && (
+            <p className="text-center text-xs font-bold text-muted-foreground">
+              لم يُعلَّم {live.length - checked.size} من الأصناف — التعليم
+              للتدقيق لا شرط
+            </p>
+          )}
         </div>
       )}
     </article>

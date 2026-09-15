@@ -22,9 +22,10 @@ const nextConfig: NextConfig = {
   // public — without tripping the staff auth gate.
   async redirects() {
     return [
-      { source: "/delivery", destination: "/menu?mode=delivery", permanent: false },
-      { source: "/pickup", destination: "/menu?mode=pickup", permanent: false },
-      { source: "/car", destination: "/menu?mode=curbside", permanent: false },
+      // /menunew: the rebuilt menu (rows). The old /menu stays for comparison.
+      { source: "/delivery", destination: "/menunew?mode=delivery", permanent: false },
+      { source: "/pickup", destination: "/menunew?mode=pickup", permanent: false },
+      { source: "/car", destination: "/menunew?mode=curbside", permanent: false },
     ];
   },
   async rewrites() {

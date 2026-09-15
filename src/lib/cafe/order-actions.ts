@@ -159,12 +159,30 @@ export type PublicOrder = {
   id: string;
   order_seq: number;
   status: string;
+  /** «new» until the kitchen touches it — the window in which the customer may still cancel */
+  prep_status: string;
   table_no: string | null;
   subtotal: number;
   discount: number;
   created_at: string;
   items: PublicOrderItem[];
 };
+
+/**
+ * الزبون يلغي طلبه من صفحة التأكيد — ما دام معلّقاً ولم يبدأ المطبخ.
+ * «started» = فات الأوان، يتصل بالمطعم. المعرّف uuid هو الإذن (0088).
+ */
+export async function cancelMyOrder(orderId: string): Promise<"cancelled" | "started" | "gone" | "error"> {
+  if (isDemoServer()) return "cancelled";
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc("cancel_my_order", { p_order: orderId });
+    if (error) return "error";
+    return (data as "cancelled" | "started" | "gone") ?? "error";
+  } catch {
+    return "error";
+  }
+}
 
 /** Customer-side order tracking — looks up their own orders by unguessable id. */
 export async function getMyOrders(ids: string[]): Promise<PublicOrder[]> {
