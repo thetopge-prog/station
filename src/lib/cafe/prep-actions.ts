@@ -9,6 +9,7 @@ import { hubEnabled, isLocalOrder, liveLocalOrders, queuePrep, setLocalPrep } fr
 import { forStation } from "@/lib/hub/local";
 import { cachedRef } from "./ttl-cache";
 import { cloudReachable } from "@/lib/hub/net";
+import { READY_EXPIRE_MIN } from "./time";
 
 /**
  * The kitchen side of an order: what the chefs cook, what the expediter
@@ -20,9 +21,6 @@ import { cloudReachable } from "@/lib/hub/net";
 
 /** reference data lives a minute; a station rename mid-service is not a thing */
 const REF_TTL_MS = 60_000;
-
-/** «تم التجهيز» يبقى على الشاشة هذه الدقائق ثم يُرفع — والكاشير يُنبَّه قبلها بدقيقة */
-export const READY_EXPIRE_MIN = 5;
 
 export type PrepItem = {
   id: string;

@@ -1,6 +1,6 @@
 "use server";
 
-import { READY_EXPIRE_MIN } from "./prep-actions";
+import { READY_EXPIRE_MIN } from "./time";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { getStaff } from "./auth";
 import { hubEnabled, liveLocalOrders } from "@/lib/hub/store";

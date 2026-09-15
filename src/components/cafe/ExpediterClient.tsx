@@ -22,7 +22,7 @@ import {
   type PrepOrder,
 } from "@/lib/cafe/prep-actions";
 import { sinceLabel } from "@/lib/cafe/time";
-import { READY_EXPIRE_MIN } from "@/lib/cafe/prep-actions";
+import { READY_EXPIRE_MIN } from "@/lib/cafe/time";
 import { curbsideReadyLink, deliveryOnWayLink } from "@/lib/brand";
 import { useLiveOrders } from "./use-live-orders";
 import { parseScan, useBarcodeScanner } from "./use-barcode-scanner";

@@ -5,7 +5,7 @@ import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/s
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/lib/types";
 import { requireRole, requireStaff } from "./auth";
-import { READY_EXPIRE_MIN } from "./prep-actions";
+import { READY_EXPIRE_MIN } from "./time";
 import { openSessionIdFor } from "./session-of";
 import { hubEnabled } from "@/lib/hub/store";
 import { cloudReachable, isNetworkError, markCloudDown } from "@/lib/hub/net";

@@ -11,6 +11,9 @@ export const CAFE_TZ = "Asia/Baghdad";
  */
 export const DAY_CUT_HOURS = 4;
 
+/** «تم التجهيز» يبقى على الشاشة هذه الدقائق ثم يُرفع — والكاشير يُنبَّه قبلها بدقيقة (0090) */
+export const READY_EXPIRE_MIN = 5;
+
 export function businessDay(date: Date = new Date(), tz: string = CAFE_TZ): string {
   return formatInTimeZone(new Date(date.getTime() - DAY_CUT_HOURS * 3_600_000), tz, "yyyy-MM-dd");
 }
