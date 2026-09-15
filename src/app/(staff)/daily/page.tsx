@@ -1,4 +1,4 @@
-import { requireRole } from "@/lib/cafe/auth";
+import { requireAdmin } from "@/lib/cafe/auth";
 import { getDailyCount } from "@/lib/cafe/daily-count";
 import { DailyCountClient } from "@/components/cafe/DailyCountClient";
 
@@ -12,7 +12,7 @@ import { DailyCountClient } from "@/components/cafe/DailyCountClient";
 export const dynamic = "force-dynamic";
 
 export default async function DailyPage({ searchParams }: { searchParams: Promise<{ day?: string }> }) {
-  const staff = await requireRole("cashier");
+  const staff = await requireAdmin();
   const { day } = await searchParams;
   const initial = await getDailyCount(day);
   return <DailyCountClient initial={initial} cashier={staff.name} />;

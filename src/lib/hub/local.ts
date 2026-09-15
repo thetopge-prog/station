@@ -192,6 +192,7 @@ export function buildLocalOrder({
       customer_phone: input.phone?.trim() || null,
       customer_name: input.name?.trim() || null,
       notified_at: null,
+      updated_at: createdAt,
       items,
     },
   };

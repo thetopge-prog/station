@@ -119,7 +119,15 @@ describe("an order taken during an outage", () => {
       routing: ROUTING, prices: PRICES, staffNames: NAMES,
       cashierId: null, expediterId: null, pickupCode: "AAA",
     });
-    expect(late.day).toBe("2026-08-21");
+    // 00:30 Baghdad on the 21st — the day cuts at 04:00, so it is still the 20th's shift
+    expect(late.day).toBe("2026-08-20");
+    const morning = buildLocalOrder({
+      input: { channel: "qr", lines: [{ item_id: "fries1", qty: 1 }] },
+      id: "y", seq: 2, now: new Date("2026-08-21T02:00:00.000Z"), // 05:00 Baghdad
+      routing: ROUTING, prices: PRICES, staffNames: NAMES,
+      cashierId: null, expediterId: null, pickupCode: "AAA",
+    });
+    expect(morning.day).toBe("2026-08-21");
   });
 });
 

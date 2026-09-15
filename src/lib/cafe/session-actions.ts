@@ -64,12 +64,12 @@ export async function myOpenSession(): Promise<OpenSession | null> {
   const svc = createSupabaseServiceClient();
   const { data, error } = await svc
     .from("cashier_sessions")
-    .select("id, cashier_id, opened_at, opening_float")
+    .select("id, cashier_id, opened_at, opening_float, cashier_name")
     .eq("cashier_id", staff.employeeId)
     .is("closed_at", null)
     .maybeSingle();
   if (error && hubEnabled()) return (await cacheGet<OpenSession | null>(key)) ?? null;
-  const out = data ? { ...data, cashier_name: staff.name } : null;
+  const out = data ? { id: data.id, cashier_id: data.cashier_id, opened_at: data.opened_at, opening_float: data.opening_float, cashier_name: data.cashier_name || staff.name } : null;
   if (hubEnabled()) await cachePut(key, out);
   return out;
 }
@@ -113,7 +113,7 @@ function arabicError(msg: string): string {
   return msg;
 }
 
-export async function openSession(input: { float: number; fromSession?: string | null; counted?: number | null }) {
+export async function openSession(input: { float: number; fromSession?: string | null; counted?: number | null; cashierName?: string | null }) {
   await requireRole("cashier");
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.rpc("open_cashier_session", {
@@ -122,8 +122,12 @@ export async function openSession(input: { float: number; fromSession?: string |
     p_counted: input.counted ?? null,
   });
   if (error) return { ok: false as const, error: arabicError(error.message) };
+  const sessionId = data as unknown as string;
+  // الحساب مشترك («كاشير»)؛ الاسم الذي كتبه الإنسان يُطبع على الوصل ويظهر في السجلّ
+  const name = input.cashierName?.trim() || null;
+  if (name) await supabase.rpc("set_session_cashier_name", { p_session: sessionId, p_name: name });
   revalidatePath("/cashier");
-  return { ok: true as const, sessionId: data as unknown as string };
+  return { ok: true as const, sessionId };
 }
 
 /**
@@ -143,7 +147,7 @@ export async function currentShiftLine(): Promise<ShiftLine | null> {
   const svc = createSupabaseServiceClient();
   const { data } = await svc
     .from("cashier_sessions")
-    .select("opening_float, opened_at, cashier_id")
+    .select("opening_float, opened_at, cashier_id, cashier_name")
     .is("closed_at", null)
     .order("opened_at", { ascending: false })
     .limit(1)
@@ -151,9 +155,9 @@ export async function currentShiftLine(): Promise<ShiftLine | null> {
 
   if (!data) return { open: false, float: 0, sinceMinutes: 0, cashier: null };
 
-  // the name only matters to a manager looking at somebody else's drawer
-  let cashier: string | null = null;
-  if (data.cashier_id && data.cashier_id !== staff.employeeId) {
+  // the human's typed name first; the account name only for somebody else's drawer
+  let cashier: string | null = data.cashier_name || null;
+  if (!cashier && data.cashier_id && data.cashier_id !== staff.employeeId) {
     const { data: emp } = await svc.from("employees").select("name_ar").eq("id", data.cashier_id).maybeSingle();
     cashier = emp?.name_ar ?? null;
   }

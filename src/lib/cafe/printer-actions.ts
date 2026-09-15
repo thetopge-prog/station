@@ -176,7 +176,7 @@ export async function buildOrderJobs(
     .from("orders")
     // one literal string, not a concatenation: supabase-js infers the row type
     // from the select text, and `a + b` erases that inference
-    .select("id, order_seq, pickup_code, channel, table_no, note, subtotal, discount, extra, extra_note, customer_phone, address_note, customer_name, cashier_id, expediter_id, partner_id, partner_ref, partner_total, created_at")
+    .select("id, order_seq, pickup_code, channel, table_no, note, subtotal, discount, extra, extra_note, customer_phone, address_note, customer_name, cashier_id, expediter_id, partner_id, partner_ref, partner_total, created_at, session_id")
     .eq("id", orderId)
     .maybeSingle();
   if (!order) return { jobs: [], unrouted: [] };
@@ -193,7 +193,7 @@ export async function buildOrderJobs(
   // these six questions were asked one after another and the cashier waited
   // over a second for paper that could have taken a fifth of that. None of
   // them depends on another — only on the order and its lines, already here.
-  const [{ data: menu }, { data: cats }, { data: stationRows }, { data: staffRows }, { data: partner }, configs] = await Promise.all([
+  const [{ data: menu }, { data: cats }, { data: stationRows }, { data: staffRows }, { data: partner }, configs, { data: session }] = await Promise.all([
     itemIds.length ? svc.from("menu_items").select("id, category_id").in("id", itemIds) : Promise.resolve({ data: [] as { id: string; category_id: string }[] }),
     svc.from("categories").select("id, station_id"),
     svc.from("stations").select("id, name_ar"),
@@ -201,6 +201,8 @@ export async function buildOrderJobs(
     // stamped by payment (stampPayment) before this runs — the print effect fires after checkout commits
     order.partner_id ? svc.from("delivery_partners").select("name_ar").eq("id", order.partner_id).maybeSingle() : Promise.resolve({ data: null as { name_ar: string } | null }),
     listPrinters(),
+    // the name the cashier typed at «بدء الوردية» — the shared account says only «كاشير»
+    order.session_id ? svc.from("cashier_sessions").select("cashier_name").eq("id", order.session_id).maybeSingle() : Promise.resolve({ data: null as { cashier_name: string | null } | null }),
   ]);
   const catOfItem = new Map((menu ?? []).map((m) => [m.id, m.category_id]));
 
@@ -211,7 +213,7 @@ export async function buildOrderJobs(
 
   // Both names go on the assembly ticket — that is the accountability record.
   const staffName = new Map((staffRows ?? []).map((e) => [e.id, e.name_ar]));
-  const cashierName = order.cashier_id ? staffName.get(order.cashier_id) ?? null : null;
+  const cashierName = session?.cashier_name || (order.cashier_id ? staffName.get(order.cashier_id) ?? null : null);
   const expediterName = order.expediter_id ? staffName.get(order.expediter_id) ?? null : null;
 
   const items: PrintItem[] = (rawItems ?? []).map((i) => ({

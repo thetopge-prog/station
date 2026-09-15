@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Printer, Search } from "lucide-react";
+import { Ban, Printer, Search } from "lucide-react";
+import { cancelPaidOrder } from "@/lib/cafe/cashier-actions";
 import { listOrdersByDay, type HistoryOrder } from "@/lib/cafe/history-actions";
 import { buildReceiptJob } from "@/lib/cafe/printer-actions";
 import { printJobs } from "@/lib/cafe/print-client";
@@ -16,14 +17,49 @@ import { PartnerLogo } from "./PartnerLogo";
  * (buildReceiptJob + printJobs) فتخرج الورقة مطابقة للأصل حرفاً بحرف.
  */
 
-const CHANNEL_AR: Record<string, string> = { cashier: "كاشير", qr: "طاولة", kiosk: "كشك", delivery: "توصيل", pickup: "استلام", curbside: "من السيارة", takeaway: "سفري" };
-const SOURCE_AR: Record<string, string> = { telegram: "تليغرام", whatsapp: "واتساب", web: "الموقع", toters: "توترز", talabaty: "طلباتي" };
-const STATUS_AR: Record<string, string> = { pending: "معلّق", paid: "مدفوع", cancelled: "ملغي", refunded: "مسترجع" };
-const PAY_AR: Record<string, string> = { cash: "نقد", card: "بطاقة", partner: "شركة توصيل", debt: "دين" };
+const CHANNEL_AR: Record<string, string> = {
+  cashier: "كاشير",
+  qr: "طاولة",
+  kiosk: "كشك",
+  delivery: "توصيل",
+  pickup: "استلام",
+  curbside: "من السيارة",
+  takeaway: "سفري",
+};
+const SOURCE_AR: Record<string, string> = {
+  telegram: "تليغرام",
+  whatsapp: "واتساب",
+  web: "الموقع",
+  toters: "توترز",
+  talabaty: "طلباتي",
+};
+const STATUS_AR: Record<string, string> = {
+  pending: "معلّق",
+  paid: "مدفوع",
+  cancelled: "ملغي",
+  refunded: "مسترجع",
+};
+const PAY_AR: Record<string, string> = {
+  cash: "نقد",
+  card: "بطاقة",
+  partner: "شركة توصيل",
+  debt: "دين",
+};
 
-const time = (iso: string) => new Intl.DateTimeFormat("ar-IQ", { timeZone: "Asia/Baghdad", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
+const time = (iso: string) =>
+  new Intl.DateTimeFormat("ar-IQ", {
+    timeZone: "Asia/Baghdad",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(iso));
 
-export function HistoryClient({ initialDay, initialOrders }: { initialDay: string; initialOrders: HistoryOrder[] }) {
+export function HistoryClient({
+  initialDay,
+  initialOrders,
+}: {
+  initialDay: string;
+  initialOrders: HistoryOrder[];
+}) {
   const [day, setDay] = useState(initialDay);
   const [q, setQ] = useState("");
   const [orders, setOrders] = useState<HistoryOrder[]>(initialOrders);
@@ -33,10 +69,16 @@ export function HistoryClient({ initialDay, initialOrders }: { initialDay: strin
 
   // يُعاد الجلب بعد ٣٠٠ مللي ثانية من آخر تغيير — لا مع كل حرف
   useEffect(() => {
-    if (first.current) { first.current = false; return; }
+    if (first.current) {
+      first.current = false;
+      return;
+    }
     const t = setTimeout(() => {
       setBusy(true);
-      listOrdersByDay(day, q).then(setOrders).catch(() => setOrders([])).finally(() => setBusy(false));
+      listOrdersByDay(day, q)
+        .then(setOrders)
+        .catch(() => setOrders([]))
+        .finally(() => setBusy(false));
     }, 300);
     return () => clearTimeout(t);
   }, [day, q]);
@@ -47,13 +89,46 @@ export function HistoryClient({ initialDay, initialOrders }: { initialDay: strin
       const job = await buildReceiptJob(id, 1);
       if (!job) return setMsg("لا توجد طابعة كاشير مفعّلة.");
       const out = await printJobs([job]);
-      setMsg(out.sent > 0 ? `طُبع إيصال ${String(seq).padStart(3, "0")} ✓` : out.errors[0] ?? "الطابعة لم تستجب.");
+      setMsg(
+        out.sent > 0
+          ? `طُبع إيصال ${String(seq).padStart(3, "0")} ✓`
+          : (out.errors[0] ?? "الطابعة لم تستجب."),
+      );
     } catch {
       setMsg("تعذّرت الطباعة.");
     }
   }
 
-  const total = orders.filter((o) => o.status === "paid").reduce((s, o) => s + o.total, 0);
+  // إلغاء طلب مدفوع خلال ٩٠ دقيقة — تأخّر المندوب، غيّر رأيه، خطأ إدخال
+  const [cancelId, setCancelId] = useState<string | null>(null);
+  const [reason, setReason] = useState("تأخير");
+  async function cancel(o: HistoryOrder) {
+    setMsg(null);
+    const r = await cancelPaidOrder(o.id, reason);
+    if (!r.ok) return setMsg(r.error);
+    setCancelId(null);
+    setOrders((os) =>
+      os.map((x) =>
+        x.id === o.id
+          ? { ...x, status: "cancelled", cancel_reason: reason }
+          : x,
+      ),
+    );
+    setMsg(
+      `أُلغي الطلب ${String(o.order_seq).padStart(3, "0")} — سقط من النقد والوردية.`,
+    );
+  }
+  // ساعة واحدة تُقرأ مع كل تحميل للقائمة، لا في الرسم
+  const [now, setNow] = useState(0);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one clock read per list load
+    setNow(Date.now());
+  }, [orders]);
+  const canCancel = (o: HistoryOrder) => o.status === "paid" && !!o.paid_at && now - new Date(o.paid_at).getTime() <= 90 * 60_000;
+
+  const total = orders
+    .filter((o) => o.status === "paid")
+    .reduce((s, o) => s + o.total, 0);
 
   return (
     <div className="space-y-4">
@@ -82,7 +157,9 @@ export function HistoryClient({ initialDay, initialOrders }: { initialDay: strin
         </span>
       </div>
 
-      {msg && <p className="rounded-xl bg-secondary p-2.5 text-sm font-bold">{msg}</p>}
+      {msg && (
+        <p className="rounded-xl bg-secondary p-2.5 text-sm font-bold">{msg}</p>
+      )}
 
       {orders.length === 0 ? (
         <p className="rounded-2xl border-2 border-dashed border-border p-8 text-center font-bold text-muted-foreground">
@@ -91,49 +168,122 @@ export function HistoryClient({ initialDay, initialOrders }: { initialDay: strin
       ) : (
         <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {orders.map((o) => (
-            <li key={o.id} className={`flex flex-col rounded-2xl border bg-card p-4 ${o.status === "cancelled" || o.status === "refunded" ? "border-destructive/40 opacity-70" : "border-border"}`}>
+            <li
+              key={o.id}
+              className={`flex flex-col rounded-2xl border bg-card p-4 ${o.status === "cancelled" || o.status === "refunded" ? "border-destructive/40 opacity-70" : "border-border"}`}
+            >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-2xl font-extrabold text-primary">#{String(o.order_seq).padStart(3, "0")}</span>
-                <span className="text-xs font-bold text-muted-foreground tabular-nums" dir="ltr">{time(o.created_at)}</span>
+                <span className="text-2xl font-extrabold text-primary">
+                  #{String(o.order_seq).padStart(3, "0")}
+                </span>
+                <span
+                  className="text-xs font-bold text-muted-foreground tabular-nums"
+                  dir="ltr"
+                >
+                  {time(o.created_at)}
+                </span>
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
-                <span className="rounded-full bg-secondary px-2 py-0.5 font-bold">{CHANNEL_AR[o.channel] ?? o.channel}</span>
+                <span className="rounded-full bg-secondary px-2 py-0.5 font-bold">
+                  {CHANNEL_AR[o.channel] ?? o.channel}
+                </span>
                 {SOURCE_AR[o.order_source] && (
                   <span className="flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 font-bold text-primary">
                     <PartnerLogo name={o.order_source} className="h-4" />
                     {SOURCE_AR[o.order_source]}
                   </span>
                 )}
-                {o.table_no && <span className="rounded-full bg-secondary px-2 py-0.5 font-bold">طاولة {o.table_no}</span>}
-                <span className={`rounded-full px-2 py-0.5 font-bold ${o.status === "paid" ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>
+                {o.table_no && (
+                  <span className="rounded-full bg-secondary px-2 py-0.5 font-bold">
+                    طاولة {o.table_no}
+                  </span>
+                )}
+                <span
+                  className={`rounded-full px-2 py-0.5 font-bold ${o.status === "paid" ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}
+                >
                   {STATUS_AR[o.status] ?? o.status}
                 </span>
-                {o.payment_method && <span className="text-muted-foreground">{PAY_AR[o.payment_method] ?? o.payment_method}</span>}
+                {o.payment_method && (
+                  <span className="text-muted-foreground">
+                    {PAY_AR[o.payment_method] ?? o.payment_method}
+                  </span>
+                )}
               </div>
               {(o.customer_name || o.customer_phone || o.address_note) && (
                 <p className="mt-2 text-xs text-muted-foreground">
-                  {[o.customer_name, o.customer_phone, o.address_note].filter(Boolean).join(" · ")}
+                  {[o.customer_name, o.customer_phone, o.address_note]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </p>
               )}
               <ul className="my-3 flex-1 space-y-0.5 text-sm">
                 {o.items.map((it, i) => (
                   <li key={i} className="flex justify-between gap-2">
-                    <span>{it.qty > 1 ? `${it.qty} × ` : ""}{it.name_ar}{it.flavor_ar ? ` (${it.flavor_ar})` : ""}</span>
-                    <span className="tabular-nums text-muted-foreground">{formatIqdLabel(it.line_total)}</span>
+                    <span>
+                      {it.qty > 1 ? `${it.qty} × ` : ""}
+                      {it.name_ar}
+                      {it.flavor_ar ? ` (${it.flavor_ar})` : ""}
+                    </span>
+                    <span className="tabular-nums text-muted-foreground">
+                      {formatIqdLabel(it.line_total)}
+                    </span>
                   </li>
                 ))}
               </ul>
-              {o.note && <p className="mb-2 rounded-lg bg-secondary px-2 py-1 text-xs font-bold">📝 {o.note}</p>}
+              {o.note && (
+                <p className="mb-2 rounded-lg bg-secondary px-2 py-1 text-xs font-bold">
+                  📝 {o.note}
+                </p>
+              )}
+              {o.cancel_reason && (
+                <p className="mb-2 text-xs font-bold text-destructive">
+                  🚫 ملغى — {o.cancel_reason}
+                </p>
+              )}
               <div className="flex items-center justify-between gap-2 border-t border-border pt-2">
-                <span className="font-black tabular-nums">{formatIqdLabel(o.total)}</span>
-                <button
-                  onClick={() => void reprint(o.id, o.order_seq)}
-                  className="touch-pos flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-bold hover:bg-secondary"
-                >
-                  <Printer className="size-4" />
-                  إعادة طباعة
-                </button>
+                <span className="font-black tabular-nums">
+                  {formatIqdLabel(o.total)}
+                </span>
+                <div className="flex items-center gap-1.5">
+                  {canCancel(o) && (
+                    <button
+                      onClick={() =>
+                        setCancelId(cancelId === o.id ? null : o.id)
+                      }
+                      className="touch-pos flex items-center gap-1.5 rounded-lg border border-destructive px-3 py-1.5 text-sm font-bold text-destructive hover:bg-destructive/10"
+                    >
+                      <Ban className="size-4" />
+                      إلغاء
+                    </button>
+                  )}
+                  <button
+                    onClick={() => void reprint(o.id, o.order_seq)}
+                    className="touch-pos flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-bold hover:bg-secondary"
+                  >
+                    <Printer className="size-4" />
+                    إعادة طباعة
+                  </button>
+                </div>
               </div>
+              {cancelId === o.id && (
+                <div className="mt-2 flex flex-wrap items-center gap-1.5 rounded-xl border-2 border-destructive bg-destructive/10 p-2">
+                  {["تأخير", "غيّر رأيه", "خطأ إدخال", "آخر"].map((r) => (
+                    <button
+                      key={r}
+                      onClick={() => setReason(r)}
+                      className={`min-h-9 rounded-lg border px-3 text-sm font-bold ${reason === r ? "border-destructive bg-destructive text-white" : "border-border bg-background"}`}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => void cancel(o)}
+                    className="min-h-9 rounded-lg bg-destructive px-4 text-sm font-black text-white"
+                  >
+                    تأكيد الإلغاء
+                  </button>
+                </div>
+              )}
             </li>
           ))}
         </ul>

@@ -21,6 +21,9 @@ import { cloudReachable } from "@/lib/hub/net";
 /** reference data lives a minute; a station rename mid-service is not a thing */
 const REF_TTL_MS = 60_000;
 
+/** «تم التجهيز» يبقى على الشاشة هذه الدقائق ثم يُرفع — والكاشير يُنبَّه قبلها بدقيقة */
+export const READY_EXPIRE_MIN = 5;
+
 export type PrepItem = {
   id: string;
   /** نفد أثناء التجهيز — خارج قائمة التأشير وخارج مجموع الطلب */
@@ -56,6 +59,8 @@ export type PrepOrder = {
   customer_name: string | null;
   /** set once «أبلِغ الزبون» has been used, so nobody is messaged twice */
   notified_at: string | null;
+  /** when the row last moved — a ready card counts down from here (0090 expire_ready) */
+  updated_at: string;
   items: PrepItem[];
 };
 
@@ -84,9 +89,11 @@ export async function listPrepOrders(stationId: string | null = null): Promise<P
   // socket waiting to be told so
   if (hubEnabled() && !(await cloudReachable())) return local;
 
+  // الجاهز منذ خمس دقائق يُرفع من الشاشة هنا، في مسار القراءة — بلا مؤقّت خارجي
+  await svc.rpc("expire_ready", { p_minutes: READY_EXPIRE_MIN }).then(() => {}, () => {});
   const { data: orders } = await svc
     .from("orders")
-    .select("id, order_seq, pickup_code, prep_status, status, channel, table_no, note, eta_minutes, created_at, cashier_id, expediter_id, customer_phone, customer_name, notified_at")
+    .select("id, order_seq, pickup_code, prep_status, status, channel, table_no, note, eta_minutes, created_at, updated_at, cashier_id, expediter_id, customer_phone, customer_name, notified_at")
     .in("prep_status", ["new", "preparing", "ready"])
     .neq("status", "cancelled")
     .order("created_at", { ascending: true })
@@ -161,6 +168,7 @@ export async function listPrepOrders(stationId: string | null = null): Promise<P
         customer_phone: o.customer_phone,
         customer_name: o.customer_name,
         notified_at: o.notified_at,
+        updated_at: o.updated_at,
         items,
       };
     })

@@ -277,7 +277,7 @@ export type Database = {
       };
       cashier_sessions: {
         Row: Timestamped & {
-          business_day: string; cashier_id: string; opened_at: string; opening_float: number;
+          business_day: string; cashier_id: string; opened_at: string; opening_float: number; cashier_name?: string | null;
           opened_from: string | null; closed_at: string | null; counted_cash: number | null;
           deposited: number; expected_cash: number | null; variance: number | null;
           close_note: string | null; handover_to: string | null; handover_amount: number | null;
@@ -380,6 +380,7 @@ export type Database = {
           payment_method: "cash" | "card" | "partner" | "debt" | null; session_id: string | null; partner_id: string | null; courier_requested_at: string | null; courier_ref: string | null;
           partner_ref: string | null; partner_total: number | null;  // 0073 — رقم الشركة ومبلغها، للمطابقة
           printed_at: string | null;  // 0074 — الطابعة تتبع الطلب
+          cancel_reason: string | null; cancelled_at: string | null; cancelled_by: string | null;  // 0090 — إلغاء طلب مدفوع
           whatsapp_wa_id: string | null;  // 0075 — زبون بوت واتساب، ليُبلَّغ
         };
         Insert: {
@@ -591,6 +592,9 @@ export type Database = {
       };
       sync_hub_prep: { Args: { p_id: string; p_status: PrepStatus; p_at: string }; Returns: boolean };
       cancel_my_order: { Args: { p_order: string }; Returns: string };
+      cancel_paid_order: { Args: { p_order: string; p_reason?: string | null }; Returns: undefined };
+      set_session_cashier_name: { Args: { p_session: string; p_name: string | null }; Returns: undefined };
+      expire_ready: { Args: { p_minutes?: number }; Returns: number[] };
       sync_hub_payment: {
         Args: {
           p_id: string; p_paid_at: string; p_discount?: number; p_extra?: number; p_extra_note?: string | null;

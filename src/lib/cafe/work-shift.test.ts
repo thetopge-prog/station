@@ -114,9 +114,9 @@ describe("workDay", () => {
     expect(workDay(fiveAm)).toBe("2026-09-03");
   });
 
-  it("is not business_day — that is the whole reason it exists", () => {
+  it("agrees with business_day since both cut at 04:00 (0089)", () => {
     const oneAm = new Date(Date.UTC(2026, 8, 2, 22, 0)); // ٠١:٠٠ بغداد يوم ٣
-    expect(businessDay(oneAm)).toBe("2026-09-03");
+    expect(businessDay(oneAm)).toBe("2026-09-02");
     expect(workDay(oneAm)).toBe("2026-09-02");
   });
 });

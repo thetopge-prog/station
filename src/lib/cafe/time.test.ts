@@ -7,9 +7,16 @@ describe("Baghdad business day (UTC+3, no DST)", () => {
     expect(businessDay(new Date("2026-07-22T20:00:00Z"))).toBe("2026-07-22");
   });
 
+  it("keeps the small hours on the shift that sold them — the day cuts at 04:00 Baghdad", () => {
+    // 02:30 Baghdad = 23:30 UTC the day before
+    expect(businessDay(new Date("2026-07-22T23:30:00Z"))).toBe("2026-07-22");
+    // 04:30 Baghdad = 01:30 UTC
+    expect(businessDay(new Date("2026-07-23T01:30:00Z"))).toBe("2026-07-23");
+  });
+
   it("rolls to the next day after Baghdad midnight", () => {
     // 21:30Z = 00:30 Baghdad next day
-    expect(businessDay(new Date("2026-07-22T21:30:00Z"))).toBe("2026-07-23");
+    expect(businessDay(new Date("2026-07-23T01:30:00Z"))).toBe("2026-07-23");
   });
 
   it("builds an inclusive N-day range ending today", () => {

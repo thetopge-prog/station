@@ -11,7 +11,7 @@ import {
   type ExternalAlert,
 } from "@/lib/cafe/external-actions";
 import { sinceLabel } from "@/lib/cafe/time";
-import { chimeNewOrder } from "@/lib/cafe/chime";
+import { chimeNewOrder, chimeReady } from "@/lib/cafe/chime";
 import { agentAlive, kickDrawer, printJobs } from "@/lib/cafe/print-client";
 import { buildOrderJobs } from "@/lib/cafe/printer-actions";
 import { claimPrint, releasePrint } from "@/lib/cafe/print-spool-actions";
@@ -20,6 +20,7 @@ import {
   payPendingOrder,
   cancelOrder,
   type PendingOrder,
+  readyExpiringSoon,
 } from "@/lib/cafe/cashier-actions";
 import { Receipt, type ReceiptData } from "./Receipt";
 import { PartnerLogo } from "./PartnerLogo";
@@ -78,6 +79,8 @@ function ticketFor(o: PendingOrder, heading?: string): ReceiptData {
 export function IncomingOrdersClient() {
   const [pending, setPending] = useState<PendingOrder[]>([]);
   const [vanished, setVanished] = useState<string | null>(null);
+  const [expiring, setExpiring] = useState<string | null>(null);
+  const warnedSeq = useRef<Set<number>>(new Set());
   const acceptedHere = useRef<Set<string>>(new Set());
   const seenSeq = useRef<Map<string, number>>(new Map());
   const [queueErr, setQueueErr] = useState<string | null>(null);
@@ -158,6 +161,26 @@ export function IncomingOrdersClient() {
   // ponytail: 5s poll — swap to Supabase realtime if volume grows.
   const refreshPending = useCallback(async () => {
     try {
+      // جاهز منذ ٤ دقائق: «سيُرفع من الشاشة بعد دقيقة» — بصوت مرّة واحدة لكل طلب
+      void readyExpiringSoon().then(
+        (soon) => {
+          if (!soon.length) return setExpiring(null);
+          const fresh = soon.filter((x) => !warnedSeq.current.has(x.order_seq));
+          if (fresh.length) {
+            fresh.forEach((x) => warnedSeq.current.add(x.order_seq));
+            chimeReady();
+          }
+          setExpiring(
+            soon
+              .map(
+                (x) =>
+                  `الطلب ${String(x.order_seq).padStart(3, "0")} جاهز على الشاشة — يُرفع بعد ${Math.max(10, Math.round(x.secondsLeft / 10) * 10)} ث`,
+              )
+              .join(" · "),
+          );
+        },
+        () => {},
+      );
       const orders = await listPendingOrders();
       // طلب اختفى من القائمة ولم يقبله هذا الجهاز: ألغاه الزبون من هاتفه (أو
       // جهاز آخر) — يُقال بصوت وسطر، حتى لا يُجهَّز طلب لم يعد موجوداً
@@ -200,7 +223,6 @@ export function IncomingOrdersClient() {
     }
   }, []);
   useEffect(() => {
-     
     refreshPending();
     // خمس ثوانٍ كانت ١٧٬٢٨٠ استدعاءً يومياً. الطلب الجديد يصل عبر الزمن الحيّ
     // خلال ثانية؛ الاستطلاع لمن انقطع عنه الاشتراك.
@@ -328,6 +350,11 @@ export function IncomingOrdersClient() {
       {vanished && (
         <p className="rounded-xl border-2 border-destructive bg-destructive/10 px-3 py-2 text-sm font-black text-destructive">
           {vanished}
+        </p>
+      )}
+      {expiring && (
+        <p className="rounded-xl border-2 border-primary bg-primary/10 px-3 py-2 text-sm font-black text-primary">
+          ⏳ {expiring}
         </p>
       )}
       {queueErr && <p className="text-sm text-destructive">{queueErr}</p>}

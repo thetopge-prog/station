@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/lib/types";
-import { requireStaff } from "./auth";
+import { requireRole, requireStaff } from "./auth";
+import { READY_EXPIRE_MIN } from "./prep-actions";
 import { openSessionIdFor } from "./session-of";
 import { hubEnabled } from "@/lib/hub/store";
 import { cloudReachable, isNetworkError, markCloudDown } from "@/lib/hub/net";
@@ -46,6 +47,24 @@ export type PendingOrder = {
 };
 
 /** Self-orders (qr/kiosk) awaiting the counter, oldest first. */
+/** الطلبات الجاهزة التي تُرفع من الشاشة قريباً — يُنبَّه بها الكاشير قبل دقيقة. */
+export async function readyExpiringSoon(): Promise<{ order_seq: number; secondsLeft: number }[]> {
+  await requireStaff();
+  const svc = createSupabaseServiceClient();
+  const { data } = await svc
+    .from("orders")
+    .select("order_seq, updated_at")
+    .eq("prep_status", "ready")
+    .neq("status", "cancelled")
+    .lt("updated_at", new Date(Date.now() - (READY_EXPIRE_MIN - 1) * 60_000).toISOString())
+    .limit(10);
+  const now = Date.now();
+  return (data ?? []).map((o) => ({
+    order_seq: o.order_seq,
+    secondsLeft: Math.max(0, READY_EXPIRE_MIN * 60 - Math.round((now - new Date(o.updated_at).getTime()) / 1000)),
+  }));
+}
+
 export async function listPendingOrders(): Promise<PendingOrder[]> {
   await requireStaff();
   const supabase = await createSupabaseServerClient();
@@ -388,6 +407,24 @@ export async function payPendingOrder(
     awarded: paid.awarded,
     warning: stampErr ? "الطلب مدفوع لكنه لم يُنسب للوردية — راجع المطوّر." : undefined,
   };
+}
+
+/**
+ * إلغاء طلب مدفوع خلال 90 دقيقة — تأخير، غيّر رأيه، خطأ إدخال.
+ * الدالة (0090) تُسقطه من النقد والوردية وتعكس النقاط وتسدّد الدين المرتبط.
+ */
+export async function cancelPaidOrder(orderId: string, reason: string | null) {
+  await requireRole("cashier");
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("cancel_paid_order", { p_order: orderId, p_reason: reason });
+  if (error) {
+    const m = error.message;
+    return { ok: false as const, error: /too late/.test(m) ? "مضى أكثر من ٩٠ دقيقة على الدفع — راجع المدير." : /not paid/.test(m) ? "الطلب ليس مدفوعاً." : m };
+  }
+  revalidatePath("/history");
+  revalidatePath("/cashier");
+  revalidatePath("/dashboard");
+  return { ok: true as const };
 }
 
 export async function cancelOrder(orderId: string) {

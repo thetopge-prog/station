@@ -1,5 +1,6 @@
 "use server";
 
+import { READY_EXPIRE_MIN } from "./prep-actions";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { getStaff } from "./auth";
 import { hubEnabled, liveLocalOrders } from "@/lib/hub/store";
@@ -93,6 +94,8 @@ export async function listQueue(displayKey?: string | null): Promise<QueueRow[]>
 
   if (hubEnabled() && !(await cloudReachable())) return local;
 
+  // الشاشة تنظّف نفسها: الجاهز منذ خمس دقائق يُرفع قبل القراءة (0090)
+  await createSupabaseServiceClient().rpc("expire_ready", { p_minutes: READY_EXPIRE_MIN }).then(() => {}, () => {});
   const { data, error } = await supabase
     .from("queue_public")
     .select("id, order_seq, pickup_code, prep_status, table_no, channel, created_at, updated_at, cashier_name, expediter_name");

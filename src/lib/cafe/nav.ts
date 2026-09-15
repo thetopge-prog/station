@@ -42,7 +42,8 @@ export const NAV: NavItem[] = [
   { href: "/queue", label: "شاشة الاستلام", short: "الاستلام", allow: ["expediter", "cashier"], group: "المطبخ", icon: MonitorPlay, external: true },
   { href: "/clean", label: "تنظيف الطاولات", short: "التنظيف", allow: ["cleaner", "cashier"], group: "المطبخ", icon: Sparkles },
 
-  { href: "/daily", label: "جرد اليوم", short: "الجرد", allow: ["cashier"], group: "الحسابات", icon: ClipboardCheck },
+  // المالك: «اخفِ قائمة الجرد من الكاشير» — المدير وحده
+  { href: "/daily", label: "جرد اليوم", short: "الجرد", allow: [], group: "الحسابات", icon: ClipboardCheck },
   { href: "/expenses", label: "المصروفات", short: "المصروفات", allow: ["cashier"], group: "الحسابات", icon: Wallet },
   { href: "/inventory", label: "المخزون", short: "المخزون", allow: ["chef", "cashier", "expediter"], group: "الحسابات", icon: Boxes },
   { href: "/dashboard", label: "لوحة التحكم", short: "التحكم", allow: [], group: "الحسابات", icon: LayoutDashboard },

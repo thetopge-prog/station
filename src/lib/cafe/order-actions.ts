@@ -1,5 +1,6 @@
 "use server";
 
+import { isShopOpen } from "./shop-open";
 import { isDemoServer } from "./demo";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { sendNewOrderPush } from "./push";
@@ -60,6 +61,8 @@ export type SubmitOrderResult =
  *  order to them, so paying at the counter auto-awards their points. */
 export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderResult> {
   if (!input.lines?.length) return { ok: false, error: "السلة فارغة" };
+  // صفحة فُتحت قبل الإغلاق لا تمرّر طلباً بعده
+  if (!(await isShopOpen())) return { ok: false, error: "المطعم مغلق الآن — نستقبل الطلبات من ٩ صباحاً حتى ٣ فجراً." };
 
   if (isDemoServer()) {
     const n = Math.floor(Math.random() * 900 + 100);

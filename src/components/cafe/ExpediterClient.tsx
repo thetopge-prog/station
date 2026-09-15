@@ -12,7 +12,6 @@ import {
   Timer,
 } from "lucide-react";
 import {
-  claimOrder,
   confirmAssembled,
   confirmAssembledByCode,
   confirmAssembledMany,
@@ -23,6 +22,7 @@ import {
   type PrepOrder,
 } from "@/lib/cafe/prep-actions";
 import { sinceLabel } from "@/lib/cafe/time";
+import { READY_EXPIRE_MIN } from "@/lib/cafe/prep-actions";
 import { curbsideReadyLink, deliveryOnWayLink } from "@/lib/brand";
 import { useLiveOrders } from "./use-live-orders";
 import { parseScan, useBarcodeScanner } from "./use-barcode-scanner";
@@ -381,9 +381,6 @@ export function ExpediterClient({ name }: { name: string }) {
                 await markItemUnavailable(itemId);
                 await refresh();
               }}
-              onClaim={() =>
-                act(o.id, claimOrder, { prep_status: "preparing" })
-              }
               onReady={() =>
                 act(o.id, confirmAssembled, { prep_status: "ready" })
               }
@@ -415,7 +412,6 @@ function OrderCard({
   busy,
   onToggle,
   onUnavailable,
-  onClaim,
   onReady,
   onHanded,
   onNotify,
@@ -426,7 +422,6 @@ function OrderCard({
   busy: boolean;
   onToggle: (itemId: string) => void;
   onUnavailable: (itemId: string) => void | Promise<void>;
-  onClaim: () => void;
   onReady: () => void;
   onHanded: () => void;
   onNotify: () => void;
@@ -436,6 +431,15 @@ function OrderCard({
   const allTicked = live.every((i) => checked.has(i.id));
   const isReady = order.prep_status === "ready";
   const mins = Math.floor((now - new Date(order.created_at).getTime()) / 60000);
+  // «تم التجهيز» يُرفع من الشاشة بعد خمس دقائق من لحظة الجاهزية
+  const readySecs = isReady
+    ? Math.max(
+        0,
+        READY_EXPIRE_MIN * 60 -
+          Math.floor((now - new Date(order.updated_at).getTime()) / 1000),
+      )
+    : 0;
+  const readyLeft = `${Math.floor(readySecs / 60)}:${String(readySecs % 60).padStart(2, "0")}`;
   const late = mins >= 12;
 
   return (
@@ -589,18 +593,15 @@ function OrderCard({
             <Hand className="size-5" />
             {busy ? "…" : "تم التسليم للزبون"}
           </button>
+          <p
+            className={`text-center text-xs font-black tabular-nums ${readySecs <= 60 ? "text-destructive" : "text-muted-foreground"}`}
+            dir="ltr"
+          >
+            ⏳ {readyLeft}
+          </p>
         </div>
       ) : (
         <div className="grid gap-2">
-          {order.prep_status === "new" && (
-            <button
-              onClick={onClaim}
-              disabled={busy}
-              className="min-h-12 rounded-xl border-2 border-border px-4 font-black transition hover:bg-secondary disabled:opacity-50"
-            >
-              {busy ? "…" : "استلمت الطلب"}
-            </button>
-          )}
           {/* one tap, from «new» as well: confirm_assembled stamps the expediter
               itself. The ticks stay a checklist — «تبقّى N» is shown, not enforced —
               because at a rush the gate cost more orders than it saved. */}

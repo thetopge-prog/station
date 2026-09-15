@@ -21,6 +21,8 @@ export type HistoryOrder = {
   order_source: string;
   status: string;
   prep_status: string;
+  paid_at: string | null;
+  cancel_reason: string | null;
   payment_method: string | null;
   total: number;
   table_no: string | null;
@@ -40,7 +42,7 @@ export async function listOrdersByDay(day: string, q?: string | null): Promise<H
 
   const { data: orders } = await svc
     .from("orders")
-    .select("id, order_seq, created_at, channel, order_source, status, prep_status, payment_method, subtotal, discount, extra, table_no, note, customer_name, customer_phone, address_note")
+    .select("id, order_seq, created_at, channel, order_source, status, prep_status, paid_at, cancel_reason, payment_method, subtotal, discount, extra, table_no, note, customer_name, customer_phone, address_note")
     .eq("business_day", day)
     .order("created_at", { ascending: false })
     .limit(400);
@@ -76,6 +78,8 @@ export async function listOrdersByDay(day: string, q?: string | null): Promise<H
     order_source: o.order_source ?? "pos",
     status: o.status,
     prep_status: o.prep_status,
+    paid_at: o.paid_at ?? null,
+    cancel_reason: o.cancel_reason ?? null,
     payment_method: o.payment_method ?? null,
     total: Math.max(0, (o.subtotal ?? 0) - (o.discount ?? 0) + (o.extra ?? 0)),
     table_no: o.table_no ?? null,

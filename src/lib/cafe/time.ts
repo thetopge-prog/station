@@ -4,8 +4,15 @@ import { formatInTimeZone } from "date-fns-tz";
 export const CAFE_TZ = "Asia/Baghdad";
 
 /** Business day (yyyy-MM-dd) for an instant, in Baghdad time. */
+/**
+ * يوم العمل من 9 صباحاً إلى 3 فجراً: الحدّ 04:00 بغداد لا منتصف الليل، فطلب
+ * الواحدة فجراً يُحسب في يوم الوردية التي باعته. توأم public.business_day_of()
+ * في الترحيل 0089 — يُغيَّران معاً أو لا يُغيَّران.
+ */
+export const DAY_CUT_HOURS = 4;
+
 export function businessDay(date: Date = new Date(), tz: string = CAFE_TZ): string {
-  return formatInTimeZone(date, tz, "yyyy-MM-dd");
+  return formatInTimeZone(new Date(date.getTime() - DAY_CUT_HOURS * 3_600_000), tz, "yyyy-MM-dd");
 }
 
 /** N-day range ending today (inclusive), as [fromDay, toDay] Baghdad dates. */
