@@ -117,9 +117,11 @@ async function resolveStaff(): Promise<Staff | null> {
    * من جدول الربط (0062) في استعلام واحد مضمَّن. القاعدة على بعد ~300 مللي ثانية،
    * وكل سؤال متتابع هو ثلث ثانية يقفها الكاشير أمام الزبون.
    */
-  const { data: raw } = await svc
+  // roles!employees_role_id_fkey: الجدولان مرتبطان بطريقين (العمود القديم وجدول
+  // الربط) وPostgREST يرفض التخمين — بلا التلميح أُقفل الدخول على الجميع صباح ١٥/٩
+  const { data: raw, error: empErr } = await svc
     .from("employees")
-    .select("id, name_ar, role_id, station_id, is_developer, shift_period, roles(name_en), employee_roles(roles(name_en))")
+    .select("id, name_ar, role_id, station_id, is_developer, shift_period, roles!employees_role_id_fkey(name_en), employee_roles(roles(name_en))")
     .eq("auth_user_id", user.id)
     .eq("is_active", true)
     .maybeSingle();
@@ -128,6 +130,8 @@ async function resolveStaff(): Promise<Staff | null> {
     roles: { name_en: string } | null;
     employee_roles: { roles: { name_en: string } | null }[] | null;
   } | null;
+  // خطأ في الاستعلام ليس «لا موظف»: لا تُقفل الأبواب على الجميع بسبب سطر select
+  if (empErr) throw new Error(`staff lookup failed: ${empErr.message}`);
   if (!emp) return null;
 
   const names = (emp.employee_roles ?? []).map((r) => toRole(r.roles?.name_en)).filter((r): r is StaffRole => r !== null);
