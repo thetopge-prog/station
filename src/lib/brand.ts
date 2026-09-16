@@ -23,6 +23,11 @@ export const BRAND = {
 
   /** as printed on the menu board */
   phoneDisplay: "0783 155 1888",
+  /**
+   * الرقم داخل رسالة عربية: بلا مسافات، وإلا أعاد واتساب ترتيب المجموعات
+   * الثلاث من اليمين فقرأ الزبون «1888 155 0783». مقطع أرقام واحد لا يُقلب.
+   */
+  phoneInText: "07831551888",
   /** E.164 without the +, for wa.me links */
   whatsapp: "9647831551888",
 
@@ -51,17 +56,17 @@ export function whatsappOrderLink(body: string, phone: string = BRAND.whatsapp):
  */
 export function orderAcceptedLink(input: { phone: string; orderNumber: string; delivery: boolean }): string {
   const body = [
-    `تم استلام طلبك رقم ${input.orderNumber} ✅ — ${BRAND.nameAr}`,
+    `تم استلام طلبك رقم ${input.orderNumber} ✅ ${BRAND.nameAr}`,
     input.delivery ? "يصلك خلال ٣٠–٤٥ دقيقة إن شاء الله 🛵" : "يكون جاهزاً خلال ~٢٠ دقيقة 🍔",
     "",
-    `للاستفسار: ${BRAND.phoneDisplay}`,
+    `للاستفسار: ${BRAND.phoneInText}`,
   ].join("\n");
   return whatsappOrderLink(body, normaliseIraqiPhone(input.phone));
 }
 
 /** «طلبك في الطريق» — the expediter's tap when a delivery bag leaves. */
 export function deliveryOnWayLink(input: { phone: string; orderNumber: string }): string {
-  const body = [`طلبك رقم ${input.orderNumber} في الطريق إليك 🛵 — ${BRAND.nameAr}`, "", `للاستفسار: ${BRAND.phoneDisplay}`].join("\n");
+  const body = [`طلبك رقم ${input.orderNumber} في الطريق إليك 🛵 ${BRAND.nameAr}`, "", `للاستفسار: ${BRAND.phoneInText}`].join("\n");
   return whatsappOrderLink(body, normaliseIraqiPhone(input.phone));
 }
 
@@ -76,12 +81,12 @@ export function deliveryOnWayLink(input: { phone: string; orderNumber: string })
 export function curbsideReadyLink(input: { phone: string; orderNumber: string; code: string | null }): string {
   const iraqi = normaliseIraqiPhone(input.phone);
   const body = [
-    `طلبك جاهز 🍔 — ${BRAND.nameAr}`,
+    `طلبك جاهز 🍔 ${BRAND.nameAr}`,
     `رقم الطلب: ${input.orderNumber}`,
     input.code ? `رمزك: ${input.code}` : null,
     "",
     "قبل وصولك بدقيقتين اتصل بنا ويسلّمك موظفنا طلبك مباشرة دون نزولك!",
-    BRAND.phoneDisplay,
+    BRAND.phoneInText,
   ]
     .filter((l) => l !== null)
     .join("\n");

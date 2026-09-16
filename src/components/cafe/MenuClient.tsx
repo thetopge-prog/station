@@ -606,7 +606,7 @@ export function MenuClient({
       return;
     }
     setOrderPhase(r === "started" ? "started" : "open");
-    if (r === "error") setErr("لا اتصال — اتصل بالمطعم " + BRAND.phoneDisplay);
+    if (r === "error") setErr("لا اتصال — اتصل بالمطعم " + BRAND.phoneInText);
   }
 
   // «داخل المطعم» خيار فقط لمن جاء برابطه؛ من الشارع يختار من ثلاثة
@@ -1288,7 +1288,7 @@ export function MenuClient({
             {/* التعديل والإلغاء بيد الزبون حتى يبدأ المطبخ — لا رسالة تُقرأ متأخرة */}
             {confirmed.orderId && orderPhase === "started" && (
               <p className="mt-3 text-sm font-black text-primary">
-                بدأ التجهيز 🔥 — للتعديل اتصل بنا {BRAND.phoneDisplay}
+                بدأ التجهيز 🔥 — للتعديل اتصل بنا <bdi dir="ltr">{BRAND.phoneDisplay}</bdi>
               </p>
             )}
             {confirmed.orderId &&
