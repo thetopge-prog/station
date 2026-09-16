@@ -24,7 +24,9 @@ const fmt = (n: unknown) => new Intl.NumberFormat("en-US").format(Math.round(Num
 const esc = (s: unknown) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const normDigits = (s: string) => s.replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
 const baghdadDay = (offsetDays = 0) =>
-  new Date(Date.now() + 3 * 3600e3 + offsetDays * 86400e3).toISOString().slice(0, 10);
+  // يوم العمل يُقطع عند 04:00 بغداد لا منتصف الليل (0089): بغداد = UTC+3، ناقص 4 ساعات
+  // للحدّ — فتقرير 3:00 فجراً يحمل يوم الوردية التي انتهت لا يوم «الغد» بأصفار
+  new Date(Date.now() + 3 * 3600e3 - 4 * 3600e3 + offsetDays * 86400e3).toISOString().slice(0, 10);
 const agoMin = (iso: string) => Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
 /** Parse a user-typed date (digits already normalized) into yyyy-MM-dd, or null.
  *  Accepts 2026-08-10, 10/08/2026, 10-08-2026, or 10/08 (current year). Rejects
