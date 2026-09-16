@@ -277,7 +277,7 @@ function baghdadStamp(iso: string): string {
 }
 
 /** tickets → what the agent receives; one place, so the offline path prints the same paper */
-function toJobs(tickets: ReturnType<typeof routeOrder>, configs: Pick<PrinterConfig, "id" | "name_ar" | "host" | "port" | "share" | "copies">[], channel: string, kickDrawer: boolean): PrintJob[] {
+function toJobs(tickets: ReturnType<typeof routeOrder>, configs: Pick<PrinterConfig, "id" | "name_ar" | "host" | "port" | "share" | "copies">[], _channel: string, kickDrawer: boolean): PrintJob[] {
   const byId = new Map(configs.map((p) => [p.id, p]));
   return tickets.map((t) => {
     const p = byId.get(t.printerId)!;
@@ -287,8 +287,9 @@ function toJobs(tickets: ReturnType<typeof routeOrder>, configs: Pick<PrinterCon
       host: p.host,
       port: p.port,
       share: p.share,
-      // «سفري»: one receipt for the customer, one stapled to the bag
-      copies: t.kind === "receipt" && channel === "takeaway" ? 2 : p.copies,
+      // one customer receipt for every order — «سفري» used to get two, and the
+      // owner counted three sheets on the counter and asked for two
+      copies: p.copies,
       // Content, not bytes. The agent draws it — see PrintJob.doc.
       doc: {
         ...renderTicketDoc(t, {

@@ -17,11 +17,10 @@ import { cashierCheckout, type PayMethod } from "@/lib/cafe/cashier-actions";
 import type { Partner } from "@/lib/cafe/partner-actions";
 import { buildOrderJobs, buildReceiptJob } from "@/lib/cafe/printer-actions";
 import {
-  agentAlive,
   printJobs,
   kickDrawer as kickDrawerAgent,
 } from "@/lib/cafe/print-client";
-import { claimPrint } from "@/lib/cafe/print-spool-actions";
+import { claimPrint, releasePrint } from "@/lib/cafe/print-spool-actions";
 import { redeemReward, type Card } from "@/lib/cafe/loyalty-actions";
 import { Receipt, type ReceiptData } from "./Receipt";
 import { MenuIcon } from "./MenuIcon";
@@ -226,16 +225,26 @@ export function CashierClient({
     let cancelled = false;
     const id = setTimeout(async () => {
       try {
-        const { jobs, unrouted } = await buildOrderJobs(receipt.orderId!, {
-          kickDrawer: drawerKickRef.current && payMethodRef.current === "cash",
-        });
+        // Exactly one printer prints an order. The claim is an atomic update
+        // (printed_at is null → now) raced by every spooler on every open
+        // tab; whoever wins prints, the rest stand down. It used to be
+        // claimed AFTER printing — and the spooler on another tab, polling in
+        // that gap, printed the same order again: four receipts for one
+        // bottle of water on the counter. Claim and build in parallel so the
+        // paper is not a round trip later.
+        const orderId = receipt.orderId!;
+        const [mine, { jobs, unrouted }] = await Promise.all([
+          claimPrint(orderId).catch(() => true),
+          buildOrderJobs(orderId, { kickDrawer: drawerKickRef.current && payMethodRef.current === "cash" }),
+        ]);
         if (cancelled) return;
+        if (!mine) return; // another tab printed it
         const out = jobs.length
           ? await printJobs(jobs)
           : { sent: 0, queued: 0, agent: false, skipped: [], errors: [] };
         if (cancelled) return;
-        // claimed at checkout when the agent answered; this is the belt to that brace
-        if (out.sent > 0) void claimPrint(receipt.orderId!).catch(() => {});
+        // nothing reached a printer here: hand it back so the spooler retries
+        if (out.sent === 0 && jobs.length) void releasePrint(orderId).catch(() => {});
         // All three warnings, not one of them. These were an if/else chain, so a
         // shop with any permanently-unrouted category (sauces legitimately are)
         // could NEVER see «تذكرة لم تُطبع» — the printer-down warning was dead
@@ -476,12 +485,6 @@ export function CashierClient({
         setErr(res.error);
         return;
       }
-      // This till has a printer ⇒ this order is mine to print: claim it now, before
-      // the spooler on any other tab sees the row change. No agent (a phone) ⇒ no
-      // claim, and the till prints it within a second.
-      void agentAlive(500).then(
-        (ok) => ok && claimPrint(res.orderId).catch(() => {}),
-      );
       // «حُفظ على هذا الجهاز» / «لم يُنسب للوردية» — the sale stands; the cashier must know which
       setSaleNote(res.warning ?? null);
       setReceipt({

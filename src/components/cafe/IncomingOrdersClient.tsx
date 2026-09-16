@@ -12,7 +12,7 @@ import {
 } from "@/lib/cafe/external-actions";
 import { sinceLabel } from "@/lib/cafe/time";
 import { chimeNewOrder, chimeReady } from "@/lib/cafe/chime";
-import { agentAlive, kickDrawer, printJobs } from "@/lib/cafe/print-client";
+import { kickDrawer, printJobs } from "@/lib/cafe/print-client";
 import { buildOrderJobs } from "@/lib/cafe/printer-actions";
 import { claimPrint, releasePrint } from "@/lib/cafe/print-spool-actions";
 import {
@@ -307,11 +307,11 @@ export function IncomingOrdersClient() {
       // unmarked; the till prints it within seconds.
       void (async () => {
         try {
-          // a printer here ⇒ claim first, so no other tab prints it meanwhile
-          if (await agentAlive(500)) await claimPrint(id);
-          const { jobs } = await buildOrderJobs(id);
+          // the claim decides who prints: one atomic update, whoever wins prints
+          const [mine, { jobs }] = await Promise.all([claimPrint(id), buildOrderJobs(id)]);
+          if (!mine) return;
           const out = jobs.length ? await printJobs(jobs) : { sent: 0 };
-          if (out.sent === 0) await releasePrint(id);
+          if (out.sent === 0 && jobs.length) await releasePrint(id);
         } catch {
           /* the spooler will try */
         }
