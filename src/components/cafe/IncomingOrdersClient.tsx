@@ -299,7 +299,12 @@ export function IncomingOrdersClient() {
   }
   async function reject(id: string) {
     setQueueErr(null);
-    const res = await cancelOrder(id);
+    const reason = window.prompt(
+      "سبب الإلغاء؟ (تأخير / غيّر رأيه / خطأ إدخال / آخر)",
+      "غيّر رأيه",
+    );
+    if (reason === null) return;
+    const res = await cancelOrder(id, reason);
     if (!res.ok) setQueueErr(res.error);
     void refreshPending();
   }

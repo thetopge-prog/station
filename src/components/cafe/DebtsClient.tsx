@@ -7,7 +7,13 @@ import { addDebtEntry, type Debtor } from "@/lib/cafe/debt-actions";
 import { formatIqdLabel } from "@/lib/cafe/money";
 import { PriceInput } from "./PriceInput";
 
-export function DebtsClient({ debtors, outstanding }: { debtors: Debtor[]; outstanding: number }) {
+export function DebtsClient({
+  debtors,
+  outstanding,
+}: {
+  debtors: Debtor[];
+  outstanding: number | null;
+}) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [amount, setAmount] = useState(0);
@@ -38,10 +44,16 @@ export function DebtsClient({ debtors, outstanding }: { debtors: Debtor[]; outst
           <Wallet className="size-6 text-primary" />
           سجل الديون
         </h1>
-        <div className="rounded-2xl border-2 border-destructive/40 bg-destructive/5 px-5 py-2 text-center">
-          <p className="text-xs text-muted-foreground">إجمالي الديون المستحقة</p>
-          <p className="text-2xl font-extrabold tabular-nums text-destructive">{formatIqdLabel(outstanding)}</p>
-        </div>
+        {outstanding !== null && (
+          <div className="rounded-2xl border-2 border-destructive/40 bg-destructive/5 px-5 py-2 text-center">
+            <p className="text-xs text-muted-foreground">
+              إجمالي الديون المستحقة
+            </p>
+            <p className="text-2xl font-extrabold tabular-nums text-destructive">
+              {formatIqdLabel(outstanding)}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* add / settle */}
@@ -90,9 +102,13 @@ export function DebtsClient({ debtors, outstanding }: { debtors: Debtor[]; outst
 
       {/* debtors */}
       <div className="space-y-2">
-        <h2 className="text-sm font-semibold text-muted-foreground">العملاء المدينون</h2>
+        <h2 className="text-sm font-semibold text-muted-foreground">
+          العملاء المدينون
+        </h2>
         {debtors.filter((d) => d.balance !== 0).length === 0 ? (
-          <p className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">لا توجد ديون مستحقة.</p>
+          <p className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
+            لا توجد ديون مستحقة.
+          </p>
         ) : (
           debtors
             .filter((d) => d.balance > 0)
@@ -109,12 +125,17 @@ export function DebtsClient({ debtors, outstanding }: { debtors: Debtor[]; outst
                 <div className="min-w-0">
                   <p className="font-bold">{d.customer_name}</p>
                   <p className="text-xs text-muted-foreground">
-                    إجمالي الدين {formatIqdLabel(d.total_debt)} · سُدّد {formatIqdLabel(d.total_paid)}
+                    إجمالي الدين {formatIqdLabel(d.total_debt)} · سُدّد{" "}
+                    {formatIqdLabel(d.total_paid)}
                   </p>
                 </div>
                 <div className="shrink-0 text-left">
-                  <p className="text-lg font-extrabold tabular-nums text-destructive">{formatIqdLabel(d.balance)}</p>
-                  <p className="text-[11px] text-muted-foreground">المتبقّي — اضغط للتسديد</p>
+                  <p className="text-lg font-extrabold tabular-nums text-destructive">
+                    {formatIqdLabel(d.balance)}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    المتبقّي — اضغط للتسديد
+                  </p>
                 </div>
               </button>
             ))

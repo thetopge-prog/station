@@ -56,9 +56,11 @@ const time = (iso: string) =>
 export function HistoryClient({
   initialDay,
   initialOrders,
+  isAdmin = true,
 }: {
   initialDay: string;
   initialOrders: HistoryOrder[];
+  isAdmin?: boolean;
 }) {
   const [day, setDay] = useState(initialDay);
   const [q, setQ] = useState("");
@@ -124,11 +126,19 @@ export function HistoryClient({
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one clock read per list load
     setNow(Date.now());
   }, [orders]);
-  const canCancel = (o: HistoryOrder) => o.status === "paid" && !!o.paid_at && now - new Date(o.paid_at).getTime() <= 90 * 60_000;
+  const canCancel = (o: HistoryOrder) =>
+    o.status === "paid" &&
+    !!o.paid_at &&
+    now - new Date(o.paid_at).getTime() <= 90 * 60_000;
 
   const total = orders
     .filter((o) => o.status === "paid")
     .reduce((s, o) => s + o.total, 0);
+  const [onlyCancelled, setOnlyCancelled] = useState(false);
+  const cancelledCount = orders.filter((o) => o.status === "cancelled").length;
+  const shown = onlyCancelled
+    ? orders.filter((o) => o.status === "cancelled")
+    : orders;
 
   return (
     <div className="space-y-4">
@@ -152,8 +162,19 @@ export function HistoryClient({
             className="w-full bg-transparent text-sm outline-none"
           />
         </label>
+        {/* خانة «الإلغاء» التي طلبتها الإدارة: الملغاة وحدها بالسبب ومن ألغى ومتى */}
+        <button
+          onClick={() => setOnlyCancelled((v) => !v)}
+          className={`min-h-9 rounded-lg border px-3 text-sm font-bold ${onlyCancelled ? "border-destructive bg-destructive text-white" : "border-border"}`}
+        >
+          🚫 الملغاة{cancelledCount ? ` (${cancelledCount})` : ""}
+        </button>
         <span className="text-sm font-bold text-muted-foreground">
-          {busy ? "…" : `${orders.length} طلب · ${formatIqdLabel(total)}`}
+          {busy
+            ? "…"
+            : isAdmin
+              ? `${orders.length} طلب · ${formatIqdLabel(total)}`
+              : `${orders.length} طلب`}
         </span>
       </div>
 
@@ -167,7 +188,7 @@ export function HistoryClient({
         </p>
       ) : (
         <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {orders.map((o) => (
+          {shown.map((o) => (
             <li
               key={o.id}
               className={`flex flex-col rounded-2xl border bg-card p-4 ${o.status === "cancelled" || o.status === "refunded" ? "border-destructive/40 opacity-70" : "border-border"}`}
@@ -235,9 +256,13 @@ export function HistoryClient({
                   📝 {o.note}
                 </p>
               )}
-              {o.cancel_reason && (
+              {o.status === "cancelled" && (
                 <p className="mb-2 text-xs font-bold text-destructive">
-                  🚫 ملغى — {o.cancel_reason}
+                  🚫 ملغى{o.cancel_reason ? ` — ${o.cancel_reason}` : ""}
+                  {o.cancelled_by_name ? ` · ${o.cancelled_by_name}` : ""}
+                  {o.cancelled_at
+                    ? ` · ${new Date(o.cancelled_at).toLocaleTimeString("en-GB", { timeZone: "Asia/Baghdad", hour: "2-digit", minute: "2-digit" })}`
+                    : ""}
                 </p>
               )}
               <div className="flex items-center justify-between gap-2 border-t border-border pt-2">

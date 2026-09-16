@@ -397,6 +397,7 @@ export type Database = {
         Update: Partial<{
           status: OrderStatus; discount: number; extra: number; extra_note: string | null;
           customer_id: string | null; paid_at: string | null; shortage_ack_at: string | null;
+          cancel_reason: string | null; cancelled_at: string | null; cancelled_by: string | null;
           prep_status: PrepStatus; expediter_id: string | null; eta_minutes: number | null; updated_at: string; payment_method: "cash" | "card" | "partner" | "debt" | null; session_id: string | null; partner_id: string | null; courier_requested_at: string | null; courier_ref: string | null;
           order_source: "pos" | "web" | "whatsapp" | "telegram" | "toters" | "talabaty"; telegram_chat_id: string | null;
           partner_cash_received: number | null; partner_commission: number | null;

@@ -28,6 +28,15 @@ export async function getRangeSummary(from: string, to: string): Promise<DaySumm
  *  `business_day` rolls at midnight, so after 12am «today» starts fresh — this
  *  lets the owner pull yesterday's (or any date's) closing total to reconcile
  *  the cash drawer. Admin only (reads profit → service client). */
+/** إلغاءات اليوم — عدد ومبلغ، لبطاقة على لوحة التحكم (طلب الإدارة: خانة الإلغاء) */
+export async function getCancellationsToday(day: string): Promise<{ count: number; amount: number }> {
+  await requireAdmin();
+  const svc = createSupabaseServiceClient();
+  const { data } = await svc.from("orders").select("subtotal, discount, extra").eq("business_day", day).eq("status", "cancelled");
+  const rows = data ?? [];
+  return { count: rows.length, amount: rows.reduce((t, o) => t + Math.max(0, (o.subtotal ?? 0) - (o.discount ?? 0) + (o.extra ?? 0)), 0) };
+}
+
 export async function getDaySummary(day: string): Promise<DaySummary> {
   await requireAdmin();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new Error("تاريخ غير صالح");

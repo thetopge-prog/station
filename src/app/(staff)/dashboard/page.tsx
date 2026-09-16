@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getStaff } from "@/lib/cafe/auth";
 import { isDemoServer } from "@/lib/cafe/demo";
-import { getRangeSummary, getRecentOrders, getGuestEstimate, getTodaySinceReset, getDaySummary, getStartupShift, type DaySummary, type RecentOrder, type StartupShift } from "@/lib/cafe/dashboard-actions";
+import { getRangeSummary, getRecentOrders, getGuestEstimate, getTodaySinceReset, getDaySummary, getStartupShift, getCancellationsToday, type DaySummary, type RecentOrder, type StartupShift } from "@/lib/cafe/dashboard-actions";
 import { getMonthlyCosts } from "@/lib/cafe/expense-actions";
 import { getTotalOutstanding } from "@/lib/cafe/debt-actions";
 import { shortageReport } from "@/lib/cafe/shortage-actions";
@@ -38,9 +38,10 @@ export default async function DashboardPage({
   const [yesterday] = lastNDays(2);
   let yesterdaySummary: DaySummary | null = null;
   let startup: StartupShift = { orders: [], count: 0, sales: 0, discounts: 0, capped: false };
+  let cancellations = { count: 0, amount: 0 };
   try {
     const [from, to] = lastNDays(days);
-    const [s, r, mc, gt, gr, tr, od, ys, sh, st] = await Promise.all([
+    const [s, r, mc, gt, gr, tr, od, ys, sh, st, cx] = await Promise.all([
       getRangeSummary(from, to),
       getRecentOrders(12),
       getMonthlyCosts(),
@@ -51,7 +52,9 @@ export default async function DashboardPage({
       getDaySummary(yesterday),
       shortageReport(days),
       getStartupShift(from, to),
+      getCancellationsToday(today),
     ]);
+    cancellations = cx;
     summary = s;
     recent = r;
     monthlyCosts = mc.reduce((t, c) => t + c.amount, 0);
@@ -66,5 +69,5 @@ export default async function DashboardPage({
     // demo mode or transient DB failure — render the empty state below
   }
 
-  return <DashboardClient days={days} summary={summary} recent={recent} monthlyCosts={monthlyCosts} guestsToday={guestsToday} guestsRange={guestsRange} todayReset={todayReset} outstandingDebts={outstandingDebts} todayDate={today} yesterday={yesterday} yesterdaySummary={yesterdaySummary} shortages={shortages} startup={startup} />;
+  return <DashboardClient days={days} summary={summary} recent={recent} monthlyCosts={monthlyCosts} guestsToday={guestsToday} guestsRange={guestsRange} todayReset={todayReset} outstandingDebts={outstandingDebts} todayDate={today} yesterday={yesterday} yesterdaySummary={yesterdaySummary} shortages={shortages} startup={startup} cancellations={cancellations} />;
 }

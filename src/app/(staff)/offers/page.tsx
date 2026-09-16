@@ -1,4 +1,4 @@
-import { requireRole } from "@/lib/cafe/auth";
+import { requireAdmin } from "@/lib/cafe/auth";
 import { listOffers, listTodayItemOffers, type Offer, type ItemOffer } from "@/lib/cafe/offer-actions";
 import { getPublicMenu } from "@/lib/cafe/menu-data";
 import { isDemoServer } from "@/lib/cafe/demo";
@@ -7,7 +7,7 @@ import { OffersClient } from "@/components/cafe/OffersClient";
 export const dynamic = "force-dynamic";
 
 export default async function OffersPage() {
-  if (!isDemoServer()) await requireRole("cashier");
+  if (!isDemoServer()) await requireAdmin();
   let offers: Offer[] = [];
   let itemOffers: ItemOffer[] = [];
   let items: { id: string; name_ar: string; price: number; category: string }[] = [];

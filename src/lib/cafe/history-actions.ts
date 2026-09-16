@@ -23,6 +23,9 @@ export type HistoryOrder = {
   prep_status: string;
   paid_at: string | null;
   cancel_reason: string | null;
+  cancelled_at: string | null;
+  /** اسم من ألغى — للمساءلة في خانة «الملغاة» */
+  cancelled_by_name: string | null;
   payment_method: string | null;
   total: number;
   table_no: string | null;
@@ -42,7 +45,7 @@ export async function listOrdersByDay(day: string, q?: string | null): Promise<H
 
   const { data: orders } = await svc
     .from("orders")
-    .select("id, order_seq, created_at, channel, order_source, status, prep_status, paid_at, cancel_reason, payment_method, subtotal, discount, extra, table_no, note, customer_name, customer_phone, address_note")
+    .select("id, order_seq, created_at, channel, order_source, status, prep_status, paid_at, cancel_reason, cancelled_at, cancelled_by, payment_method, subtotal, discount, extra, table_no, note, customer_name, customer_phone, address_note")
     .eq("business_day", day)
     .order("created_at", { ascending: false })
     .limit(400);
@@ -70,6 +73,9 @@ export async function listOrdersByDay(day: string, q?: string | null): Promise<H
     byOrder.set(it.order_id, arr);
   }
 
+  const byIds = [...new Set(hit.map((o) => o.cancelled_by).filter((x): x is string => !!x))];
+  const { data: emps } = byIds.length ? await svc.from("employees").select("id, name_ar").in("id", byIds) : { data: [] as { id: string; name_ar: string }[] };
+  const nameOf = new Map((emps ?? []).map((e) => [e.id, e.name_ar]));
   return hit.map((o) => ({
     id: o.id,
     order_seq: o.order_seq,
@@ -80,6 +86,8 @@ export async function listOrdersByDay(day: string, q?: string | null): Promise<H
     prep_status: o.prep_status,
     paid_at: o.paid_at ?? null,
     cancel_reason: o.cancel_reason ?? null,
+    cancelled_at: o.cancelled_at ?? null,
+    cancelled_by_name: o.cancelled_by ? (nameOf.get(o.cancelled_by) ?? null) : null,
     payment_method: o.payment_method ?? null,
     total: Math.max(0, (o.subtotal ?? 0) - (o.discount ?? 0) + (o.extra ?? 0)),
     table_no: o.table_no ?? null,

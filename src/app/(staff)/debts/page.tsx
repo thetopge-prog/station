@@ -6,11 +6,13 @@ import { DebtsClient } from "@/components/cafe/DebtsClient";
 export const dynamic = "force-dynamic";
 
 export default async function DebtsPage() {
-  if (!isDemoServer()) await requireRole("cashier");
+  const staff = isDemoServer() ? null : await requireRole("cashier");
+  const isAdmin = staff?.isAdmin ?? true;
   let debtors: Debtor[] = [];
-  let outstanding = 0;
+  let outstanding: number | null = null;
   try {
-    if (!isDemoServer()) [debtors, outstanding] = await Promise.all([listDebtors(), getTotalOutstanding()]);
+    // الكاشير يسجّل ويسدّد على الكاونتر؛ مجموع الذمم كلّها رقم الإدارة
+    if (!isDemoServer()) [debtors, outstanding] = await Promise.all([listDebtors(), isAdmin ? getTotalOutstanding() : Promise.resolve(null)]);
   } catch {
     // signed-out / demo — empty state
   }

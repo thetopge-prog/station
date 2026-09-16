@@ -1,4 +1,5 @@
 import { requireRole } from "@/lib/cafe/auth";
+import { businessDay } from "@/lib/cafe/time";
 import { listOrdersByDay } from "@/lib/cafe/history-actions";
 import { HistoryClient } from "@/components/cafe/HistoryClient";
 
@@ -10,11 +11,10 @@ import { HistoryClient } from "@/components/cafe/HistoryClient";
  */
 export const dynamic = "force-dynamic";
 
-const baghdadToday = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Baghdad" }).format(new Date());
-
 export default async function HistoryPage() {
-  await requireRole("cashier");
-  const today = baghdadToday();
+  const staff = await requireRole("cashier");
+  // يوم العمل (يُقطع 04:00) لا تاريخ التقويم — طلبات الواحدة فجراً في سجلّ أمس
+  const today = businessDay();
   const orders = await listOrdersByDay(today).catch(() => []);
-  return <HistoryClient initialDay={today} initialOrders={orders} />;
+  return <HistoryClient initialDay={today} initialOrders={orders} isAdmin={staff.isAdmin} />;
 }

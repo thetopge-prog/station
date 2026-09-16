@@ -5,6 +5,6 @@ export const dynamic = "force-dynamic";
 
 export default async function InventoryPage() {
   // chefs receive deliveries and record waste; only the owner retunes thresholds
-  const staff = await requireRole("chef", "cashier", "expediter");
+  const staff = await requireRole("chef");
   return <InventoryClient isAdmin={staff.isAdmin} />;
 }

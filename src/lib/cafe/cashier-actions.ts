@@ -432,11 +432,16 @@ export async function cancelPaidOrder(orderId: string, reason: string | null) {
   return { ok: true as const };
 }
 
-export async function cancelOrder(orderId: string) {
-  await requireStaff();
+export async function cancelOrder(orderId: string, reason: string | null = null) {
+  const staff = await requireStaff();
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("cancel_order", { p_order: orderId });
   if (error) return { ok: false as const, error: error.message };
+  // خانة «الإلغاء»: السبب ومن ألغى ومتى، على الطلب المعلّق أيضاً (0090)
+  await createSupabaseServiceClient()
+    .from("orders")
+    .update({ cancel_reason: reason?.trim() || null, cancelled_at: new Date().toISOString(), cancelled_by: staff.employeeId })
+    .eq("id", orderId);
   revalidatePath("/cashier");
   await notifyCustomerOrder(orderId, "accepted");
   await notifyCustomerOrder(orderId, "cancelled");

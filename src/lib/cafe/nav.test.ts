@@ -33,6 +33,12 @@ describe("navFor", () => {
     for (const shut of ["/cashier", "/daily", "/expenses", "/debts"]) expect(chef).not.toContain(shut);
   });
 
+  it("keeps money off the cashier's menu — sales and expense entry only (management, 2026-09-16)", () => {
+    const cashier = navFor("cashier").links.map((l) => l.href);
+    for (const mine of ["/cashier", "/orders", "/history", "/expenses", "/debts"]) expect(cashier).toContain(mine);
+    for (const shut of ["/daily", "/inventory", "/loyalty", "/offers", "/dashboard"]) expect(cashier).not.toContain(shut);
+  });
+
   it("hides التركيب from an owner who is not the developer", () => {
     expect(navFor("admin").links.map((l) => l.href)).not.toContain("/setup");
     expect(navFor("admin", true).links.map((l) => l.href)).toContain("/setup");

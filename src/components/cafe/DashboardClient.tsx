@@ -45,6 +45,7 @@ export function DashboardClient({
   guestsRange,
   todayReset = null,
   outstandingDebts = 0,
+  cancellations = { count: 0, amount: 0 },
   todayDate,
   yesterday,
   yesterdaySummary = null,
@@ -59,6 +60,8 @@ export function DashboardClient({
   guestsRange: number;
   todayReset?: DaySummary | null;
   outstandingDebts?: number;
+  /** خانة الإلغاء: كم طلباً أُلغي اليوم وبكم */
+  cancellations?: { count: number; amount: number };
   todayDate: string;
   yesterday: string;
   /** «وردية الانطلاق» — مبيعات حساب الإدارة، مفروزة لا مطروحة */
@@ -207,6 +210,14 @@ export function DashboardClient({
             >
               <span className="text-sm font-semibold text-muted-foreground">💳 الديون المستحقة (غير محصّلة)</span>
               <span className="text-xl font-extrabold tabular-nums text-destructive">{formatIqdLabel(outstandingDebts)}</span>
+            </Link>
+          )}
+
+          {/* خانة الإلغاء (طلب الإدارة): كم طلباً أُلغي اليوم وبكم — التفاصيل بالسبب في سجلّ الطلبات ← الملغاة */}
+          {cancellations.count > 0 && (
+            <Link href="/history" className="flex items-center justify-between rounded-xl border border-border bg-card p-4 transition hover:border-destructive/60">
+              <span className="text-sm font-semibold text-muted-foreground">🚫 إلغاءات اليوم: {cancellations.count} طلب</span>
+              <span className="text-xl font-extrabold tabular-nums text-destructive">{formatIqdLabel(cancellations.amount)}</span>
             </Link>
           )}
 

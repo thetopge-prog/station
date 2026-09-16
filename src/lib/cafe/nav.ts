@@ -32,8 +32,9 @@ export const NAV: NavItem[] = [
   { href: "/orders", label: "الطلبات الواردة", short: "الطلبات", allow: ["cashier", "expediter"], group: "البيع", icon: ClipboardList },
   { href: "/history", label: "سجلّ الطلبات", short: "السجلّ", allow: ["cashier"], group: "البيع", icon: History },
   { href: "/tables", label: "الطاولات", short: "الطاولات", allow: ["cashier", "cleaner"], group: "البيع", icon: Armchair },
-  { href: "/loyalty", label: "الولاء", short: "الولاء", allow: ["cashier"], group: "البيع", icon: CreditCard },
-  { href: "/offers", label: "العروض", short: "العروض", allow: ["cashier"], group: "البيع", icon: Percent },
+  // الإدارة: كل ما يمسّ المال أو الأسعار للمدير وحده؛ الكاشير يبيع ويسجّل مصروفاً وديناً
+  { href: "/loyalty", label: "الولاء", short: "الولاء", allow: [], group: "البيع", icon: CreditCard },
+  { href: "/offers", label: "العروض", short: "العروض", allow: [], group: "البيع", icon: Percent },
   { href: "/debts", label: "سجل الديون", short: "الديون", allow: ["cashier"], group: "البيع", icon: HandCoins },
 
   { href: "/expediter", label: "التجهيز", short: "التجهيز", allow: ["expediter", "cashier"], group: "المطبخ", icon: PackageCheck },
@@ -45,7 +46,7 @@ export const NAV: NavItem[] = [
   // المالك: «اخفِ قائمة الجرد من الكاشير» — المدير وحده
   { href: "/daily", label: "جرد اليوم", short: "الجرد", allow: [], group: "الحسابات", icon: ClipboardCheck },
   { href: "/expenses", label: "المصروفات", short: "المصروفات", allow: ["cashier"], group: "الحسابات", icon: Wallet },
-  { href: "/inventory", label: "المخزون", short: "المخزون", allow: ["chef", "cashier", "expediter"], group: "الحسابات", icon: Boxes },
+  { href: "/inventory", label: "المخزون", short: "المخزون", allow: ["chef"], group: "الحسابات", icon: Boxes },
   { href: "/dashboard", label: "لوحة التحكم", short: "التحكم", allow: [], group: "الحسابات", icon: LayoutDashboard },
 
   { href: "/menu-admin", label: "المنيو", short: "المنيو", allow: [], group: "الإعدادات", icon: UtensilsCrossed },
