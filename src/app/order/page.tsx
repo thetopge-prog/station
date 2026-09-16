@@ -1,6 +1,8 @@
 import { getPublicMenu } from "@/lib/cafe/menu-data";
 import { OrderLandingClient, type Shot } from "@/components/cafe/OrderLandingClient";
 import { imgSrcs } from "@/lib/cafe/menu-img";
+import type { Metadata } from "next";
+import { BRAND } from "@/lib/brand";
 
 /**
  * /order — شاشة اختيار طريقة الاستلام.
@@ -10,6 +12,24 @@ import { imgSrcs } from "@/lib/cafe/menu-img";
  * الطريقة المطلوبة، فلا منطق جديد هنا ولا حالة.
  */
 export const dynamic = "force-dynamic";
+
+/**
+ * معاينة الرابط في واتساب وتلغرام: صورة تقول «اطلب من هنا» ونصّ يقول ما يفعله
+ * الرابط — لا شعار المتصفح الافتراضي وعنوان الموقع.
+ */
+export const metadata: Metadata = {
+  title: `اطلب من ${BRAND.nameAr} 🍔`,
+  description: "اضغط الرابط واختر: توصيل لباب البيت، استلام من المطعم، أو من السيارة دون نزول — يصلك رقم طلبك فوراً.",
+  openGraph: {
+    title: `اطلب من ${BRAND.nameAr} — توصيل · استلام · من السيارة`,
+    description: "اضغط الرابط واختر طلبك، ويصلك رقم الطلب فوراً.",
+    siteName: BRAND.nameAr,
+    locale: "ar_IQ",
+    type: "website",
+    images: [{ url: "/og-order.png", width: 1200, height: 630, alt: `اطلب من ${BRAND.nameAr}` }],
+  },
+  twitter: { card: "summary_large_image", images: ["/og-order.png"] },
+};
 
 export default async function OrderPage() {
   let shots: Shot[] = [];
