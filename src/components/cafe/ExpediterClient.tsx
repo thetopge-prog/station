@@ -23,6 +23,7 @@ import {
 } from "@/lib/cafe/prep-actions";
 import { sinceLabel } from "@/lib/cafe/time";
 import { READY_EXPIRE_MIN } from "@/lib/cafe/time";
+import { reloadIfStale } from "@/lib/cafe/stale-build";
 import { curbsideReadyLink, deliveryOnWayLink } from "@/lib/brand";
 import { useLiveOrders } from "./use-live-orders";
 import { parseScan, useBarcodeScanner } from "./use-barcode-scanner";
@@ -136,6 +137,7 @@ export function ExpediterClient({ name }: { name: string }) {
         if (patch) patchRow(id, patch);
         else await refresh();
       } catch (e) {
+        if (reloadIfStale(e)) return;
         setScan({
           kind: "err",
           text: e instanceof Error ? e.message : "تعذّر إتمام العملية",
@@ -188,6 +190,7 @@ export function ExpediterClient({ name }: { name: string }) {
       chimeReady();
       setScan({ kind: "ok", text: `${res.count} طلب → جاهز ✓` });
     } catch (e) {
+      if (reloadIfStale(e)) return;
       setScan({
         kind: "err",
         text: e instanceof Error ? e.message : "تعذّر التجهيز",

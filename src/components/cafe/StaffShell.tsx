@@ -1,5 +1,6 @@
 "use client";
 
+import { watchStaleBuild } from "@/lib/cafe/stale-build";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -86,6 +87,8 @@ export function StaffShell({
   // دقائق حتى نهاية الدوام، تُعاد كل دقيقة. الحساب من لحظة مطلقة أرسلها
   // الخادم، فلا استدعاء ولا استهلاك دوال — ودرسُ الاستطلاعات ما زال قريباً.
   const [now, setNow] = useState(() => Date.now());
+  // صفحة بقيت مفتوحة عبر نشر جديد تُعاد وحدها بدل خطأ أحمر بالإنجليزية
+  useEffect(() => watchStaleBuild(), []);
   useEffect(() => {
     if (!shiftEndsAt) return;
     const t = setInterval(() => setNow(Date.now()), 60_000);
