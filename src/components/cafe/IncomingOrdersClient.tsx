@@ -21,6 +21,7 @@ import {
   cancelOrder,
   type PendingOrder,
   readyExpiringSoon,
+  deviceStatus,
 } from "@/lib/cafe/cashier-actions";
 import { Receipt, type ReceiptData } from "./Receipt";
 import { PartnerLogo } from "./PartnerLogo";
@@ -80,6 +81,8 @@ export function IncomingOrdersClient() {
   const [pending, setPending] = useState<PendingOrder[]>([]);
   const [vanished, setVanished] = useState<string | null>(null);
   const [expiring, setExpiring] = useState<string | null>(null);
+  // جهاز توترز: صامت أكثر من نصف ساعة، أو قراءة الشاشة مطفأة — يُقال هنا لا يُكتشف من طلب ضائع
+  const [deviceWarn, setDeviceWarn] = useState<string | null>(null);
   const warnedSeq = useRef<Set<number>>(new Set());
   const acceptedHere = useRef<Set<string>>(new Set());
   const seenSeq = useRef<Map<string, number>>(new Map());
@@ -178,6 +181,25 @@ export function IncomingOrdersClient() {
               )
               .join(" · "),
           );
+        },
+        () => {},
+      );
+      void deviceStatus().then(
+        (d) => {
+          if (d.seenMinutesAgo === null) return setDeviceWarn(null); // لم يُحدَّث التطبيق بعد
+          if (d.seenMinutesAgo > 35)
+            return setDeviceWarn(
+              `📵 جهاز توترز/طلباتي لا يتصل بستيشن منذ ${d.seenMinutesAgo} دقيقة — افتح تطبيق ستيشن عليه وتأكد من الإنترنت`,
+            );
+          if (d.accEnabled === false)
+            return setDeviceWarn(
+              "⚠ قراءة شاشة توترز/طلباتي مطفأة على الجهاز — الإعدادات ← إمكانية الوصول ← ستيشن ← تشغيل",
+            );
+          if (d.notifEnabled === false)
+            return setDeviceWarn(
+              "⚠ وصول الإشعارات مطفأ على جهاز توترز — الإعدادات ← الوصول إلى الإشعارات ← ستيشن",
+            );
+          setDeviceWarn(null);
         },
         () => {},
       );
@@ -360,6 +382,11 @@ export function IncomingOrdersClient() {
       {expiring && (
         <p className="rounded-xl border-2 border-primary bg-primary/10 px-3 py-2 text-sm font-black text-primary">
           ⏳ {expiring}
+        </p>
+      )}
+      {deviceWarn && (
+        <p className="rounded-xl border-2 border-destructive bg-destructive/10 px-3 py-2 text-sm font-black text-destructive">
+          {deviceWarn}
         </p>
       )}
       {queueErr && <p className="text-sm text-destructive">{queueErr}</p>}

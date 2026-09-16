@@ -89,7 +89,6 @@ export async function POST(req: Request) {
     declared = s.declared;
   }
   // طلب ناقص أسوأ من لا طلب: المطبخ يطبخ نصفه والزبون يشتكي. يُنبَّه ولا يُنشأ.
-  const short = declared != null && items.length < declared;
   const source = parsed.source;
 
   // ── التكرار: نفس المرجع خلال نصف ساعة ─────────────────────────────────
@@ -100,7 +99,7 @@ export async function POST(req: Request) {
   if (ref) {
     const { data: dup } = await svc
       .from("external_order_alerts")
-      .select("id, order_id, title")
+      .select("id, order_id, title, items")
       .eq("source", source)
       .eq("ref", ref)
       .gte("created_at", new Date(Date.now() - 30 * 60_000).toISOString())
@@ -117,8 +116,24 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: true, duplicate: true, ref });
       }
       priorAlertId = prev.id; // شاشة بعد إشعار، أو شاشة أكمل: يُحاول الحلّ
+      // القراءة ترى ما على الشاشة فقط؛ الأصناف تحت الحافة تصل في قراءة تالية
+      // بعد التمرير (التطبيق يمرّر بنفسه). تُدمج القراءات: الطلب يكتمل بمجموعها.
+      if (isScreen && Array.isArray(prev.items)) {
+        const seen = new Set(items.map((i) => `${i.name}|${i.option ?? ""}|${i.qty}`));
+        for (const raw of prev.items as unknown[]) {
+          const it = raw as ScreenItem;
+          if (!it?.name) continue;
+          const key = `${it.name}|${it.option ?? ""}|${it.qty}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            items.push({ name: it.name, qty: it.qty, option: it.option ?? null });
+          }
+        }
+      }
     }
   }
+  // «short» يُعاد حسابه بعد الدمج
+  const complete = declared == null || items.length >= declared;
 
   // ── الأصناف: كلها معروفة أو لا طلب ────────────────────────────────────
   let orderId: string | null = null;
@@ -133,7 +148,7 @@ export async function POST(req: Request) {
     ]);
     const resolved = resolveLines(items, aliases ?? [], menu ?? []);
     unknown = resolved.unknown;
-    if (!unknown.length && resolved.lines.length && !short) {
+    if (!unknown.length && resolved.lines.length && complete) {
       const src = source === "other" ? "web" : source;
       const noteText = [`${src === "toters" ? "توترز" : src === "talabaty" ? "طلباتي" : src} #${ref ?? "?"}`, refLong, partnerTotal ? `مبلغهم ${partnerTotal.toLocaleString("en-US")}` : null]
         .filter(Boolean)
@@ -176,7 +191,7 @@ export async function POST(req: Request) {
     title: isScreen ? `شاشة${customerName ? ` · ${customerName}` : ""}` : (body.title ?? "").slice(0, 120) || null,
     body: isScreen
       ? [
-          short ? `⚠ الشاشة تقول ${declared} أصناف وقُرئ ${items.length} — مرّر شاشة توترز لأسفل ثم افتح الطلب ثانيةً` : null,
+          !complete ? `⚠ الشاشة تقول ${declared} أصناف وقُرئ ${items.length} — مرّر شاشة توترز لأسفل حتى آخر صنف` : null,
           ...items.map((i) => `${i.qty} × ${i.name}${i.option ? ` / ${i.option}` : ""}`),
         ]
           .filter(Boolean)
@@ -185,6 +200,7 @@ export async function POST(req: Request) {
       : (body.text ?? "").slice(0, 1000) || null,
     order_id: orderId,
     unknown_items: unknown.length ? unknown : null,
+    items: items as unknown as Json,
   };
   const { error: aErr } = priorAlertId
     ? await svc.from("external_order_alerts").update(alertRow).eq("id", priorAlertId)

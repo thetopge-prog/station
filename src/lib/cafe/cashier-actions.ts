@@ -47,6 +47,20 @@ export type PendingOrder = {
 };
 
 /** Self-orders (qr/kiosk) awaiting the counter, oldest first. */
+/** جهاز توترز/طلباتي: متى نبض آخر مرة وهل قراءة الشاشة مفعّلة — للتنبيه على شاشة الكاشير. */
+export type DeviceStatus = { seenMinutesAgo: number | null; accEnabled: boolean | null; notifEnabled: boolean | null };
+export async function deviceStatus(): Promise<DeviceStatus> {
+  await requireStaff();
+  const svc = createSupabaseServiceClient();
+  const { data } = await svc.from("device_status").select("seen_at, acc_enabled, notif_enabled").eq("id", "toters").maybeSingle();
+  if (!data) return { seenMinutesAgo: null, accEnabled: null, notifEnabled: null };
+  return {
+    seenMinutesAgo: Math.max(0, Math.round((Date.now() - new Date(data.seen_at).getTime()) / 60_000)),
+    accEnabled: data.acc_enabled,
+    notifEnabled: data.notif_enabled,
+  };
+}
+
 /** الطلبات الجاهزة التي تُرفع من الشاشة قريباً — يُنبَّه بها الكاشير قبل دقيقة. */
 export async function readyExpiringSoon(): Promise<{ order_seq: number; secondsLeft: number }[]> {
   await requireStaff();

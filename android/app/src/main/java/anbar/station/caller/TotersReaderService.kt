@@ -24,6 +24,23 @@ class TotersReaderService : AccessibilityService() {
   private val handler = Handler(Looper.getMainLooper())
   private var pending: Runnable? = null
   private var lastPkg: String = ""
+  // التمرير الآلي: الشاشة لا تحمل إلا ما يظهر منها، والأصناف تحت الحافة لا
+  // تدخل شجرة الوصول أصلاً. عند طلب جديد نمرّر القائمة بأنفسنا ثماني مرّات
+  // كحدّ أقصى، وكل قراءة مختلفة تُرسَل والخادم يدمجها.
+  private var scrollsLeft = 0
+  private var scrollRef = ""
+
+  override fun onServiceConnected() {
+    super.onServiceConnected()
+    // فور التفعيل: «قراءة الشاشة مفعّلة» تصل الكاشير في ثوانٍ
+    Thread { Heartbeat.send(this) }.start()
+  }
+
+  override fun onDestroy() {
+    // فور الإطفاء (أو قتل الخدمة): الكاشير يعرف قبل أن يضيع طلب
+    Thread { try { Heartbeat.send(applicationContext) } catch (_: Throwable) {} }.start()
+    super.onDestroy()
+  }
 
   override fun onAccessibilityEvent(event: AccessibilityEvent?) {
     // التطبيق الذي رُسمت شاشته — توترز أو طلباتي — يذهب مع النصّ ليعرف الخادم الشركة
@@ -32,7 +49,7 @@ class TotersReaderService : AccessibilityService() {
     pending?.let { handler.removeCallbacks(it) }
     val r = Runnable { readAndSend() }
     pending = r
-    handler.postDelayed(r, 1500)
+    handler.postDelayed(r, 900)
   }
 
   override fun onInterrupt() {}
@@ -47,14 +64,16 @@ class TotersReaderService : AccessibilityService() {
 
     val ref = lines.firstNotNullOfOrNull { REF.find(latin(it))?.groupValues?.get(1) } ?: return
 
-    // المرجع نفسه لا يُرسَل ثانيةً خلال نصف ساعة — إلا إن ظهرت أسطر أكثر
-    // (المجهّز مرّر الشاشة فظهرت بقية الأصناف)، فيُرسَل مع again=true
+    // المرجع نفسه خلال نصف ساعة: تُرسَل كل قراءة **مختلفة** (بعد التمرير تظهر
+    // أصناف أخرى بعدد أسطر مساوٍ أحياناً — العدّ لا يكفي، البصمة تكفي) مع
+    // again=true فيدمجها الخادم مع ما قبلها.
     val p = prefs(this)
     val now = System.currentTimeMillis()
     val sameRef = p.getString(SCREEN_REF, "") == ref && now - p.getLong(SCREEN_AT, 0L) < 30 * 60_000L
-    val lastCount = p.getInt(SCREEN_LINES, 0)
-    if (sameRef && lines.size <= lastCount) return
-    p.edit().putString(SCREEN_REF, ref).putLong(SCREEN_AT, now).putInt(SCREEN_LINES, lines.size).apply()
+    val hash = lines.joinToString("|").hashCode()
+    if (sameRef && hash == p.getInt(SCREEN_HASH, 0)) { scrollOn(root, ref); return }
+    p.edit().putString(SCREEN_REF, ref).putLong(SCREEN_AT, now).putInt(SCREEN_HASH, hash).apply()
+    if (!sameRef) { scrollsLeft = 8; scrollRef = ref }
 
     val arr = JSONArray()
     for (l in lines) arr.put(l)
@@ -69,6 +88,26 @@ class TotersReaderService : AccessibilityService() {
     val ctx = this
     val who = if (pkg.contains("talabat")) "طلباتي" else "توترز"
     Thread { post(ctx, body, "شاشة $who #$ref", ordersUrl(ctx)) }.start()
+    scrollOn(root, ref)
+  }
+
+  /** مرّر القائمة خطوة؛ التغيير يوقظ onAccessibilityEvent فتُقرأ الشاشة ثانيةً. */
+  private fun scrollOn(root: AccessibilityNodeInfo, ref: String) {
+    if (scrollsLeft <= 0 || scrollRef != ref) return
+    val list = findScrollable(root) ?: return
+    scrollsLeft--
+    handler.postDelayed({ list.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD) }, 350)
+  }
+
+  /** أكبر عنصر قابل للتمرير على الشاشة — قائمة الأصناف لا شريط أفقي صغير. */
+  private fun findScrollable(n: AccessibilityNodeInfo?, depth: Int = 0): AccessibilityNodeInfo? {
+    if (n == null || depth > 60) return null
+    var best: AccessibilityNodeInfo? = if (n.isScrollable && n.isVisibleToUser) n else null
+    for (i in 0 until n.childCount) {
+      val c = findScrollable(n.getChild(i), depth + 1) ?: continue
+      if (best == null || c.childCount > best.childCount) best = c
+    }
+    return best
   }
 
   /** النصوص المرئية بترتيب الشجرة — ترتيب القراءة على الشاشة */
@@ -95,7 +134,7 @@ class TotersReaderService : AccessibilityService() {
   companion object {
     private const val SCREEN_REF = "screen_ref"
     private const val SCREEN_AT = "screen_at"
-    private const val SCREEN_LINES = "screen_lines"
+    private const val SCREEN_HASH = "screen_hash"
     private const val ARABIC_DIGITS = "٠١٢٣٤٥٦٧٨٩"
     // «الطلب #٩٠٨» عند توترز؛ «طلب رقم 123» / «Order #123» احتياطاً لطلباتي — شكل شاشتها لم يُرَ بعد
     private val REF = Regex("""(?:الطلب|طلب|order)\s*(?:رقم|#|no\.?)?\s*[:#]?\s*(\d{2,9})""", RegexOption.IGNORE_CASE)

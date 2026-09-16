@@ -43,7 +43,10 @@ class MainActivity : Activity() {
         .apply()
       Toast.makeText(this, R.string.saved, Toast.LENGTH_SHORT).show()
       ask()
+      // نبضة فورية بالإعدادات الجديدة، ثم كل ربع ساعة
+      Thread { Heartbeat.send(this) }.start()
     }
+    Heartbeat.schedule(this)
 
     /*
      * «فحص» يرسل كلمة السر بلا رقم.

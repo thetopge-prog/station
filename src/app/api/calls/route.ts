@@ -129,6 +129,20 @@ export async function POST(req: Request) {
   // itself displayed the number correctly. Cheaper to accept four spellings
   // than to have somebody drive back to the shop.
   const b = body as Record<string, unknown>;
+
+  // ── نبضة الجهاز: التطبيق يقول كل ربع ساعة «أنا حيّ، وقراءة الشاشة مفعّلة/مطفأة» ──
+  // بلا رقم ولا طلب. الكاشير يرى غيابها على شاشته بدل أن يكتشفه من طلب لم يصل.
+  if (b.ping === true || b.ping === "1") {
+    const svc = createSupabaseServiceClient();
+    await svc.from("device_status").upsert({
+      id: typeof b.device === "string" && b.device ? b.device.slice(0, 40) : "toters",
+      seen_at: new Date().toISOString(),
+      acc_enabled: typeof b.acc === "boolean" ? b.acc : null,
+      notif_enabled: typeof b.notif === "boolean" ? b.notif : null,
+      app_version: typeof b.ver === "string" ? b.ver.slice(0, 20) : null,
+    });
+    return NextResponse.json({ ok: true, ping: true });
+  }
   // Also from the QUERY STRING, which is the fix for the fault that actually
   // happened: the shop's phone sent `"phone":"[number][sms_number]"` verbatim,
   // three times, because MacroDroid does not substitute magic text it does not

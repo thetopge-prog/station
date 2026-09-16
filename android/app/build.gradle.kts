@@ -41,6 +41,9 @@ android {
     }
   }
 
+  // رقم الإصدار يُرسل مع النبضة ليعرف الخادم أي نسخة على الجهاز
+  buildFeatures { buildConfig = true }
+
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17

@@ -381,7 +381,10 @@ async function viewDailyFinal() {
   const closure = (await rest(`register_closures?business_day=eq.${today}&select=remaining,note`))[0];
   // money the shop has earned but not received. Only positive balances: a
   // company that overpaid is holding credit, which is not a receivable.
-  const owed = ((await partnerBalances()) as Row[]).reduce((a, p) => a + Math.max(0, +p.balance), 0);
+  // بعد عمولة الشركات (طلباتي 20٪، توترز 15٪) — ما يصلنا فعلاً، لا ما بِيع
+  const pb = (await partnerBalances()) as Row[];
+  const owed = pb.reduce((a, p) => a + Math.max(0, +(p.net_balance ?? p.balance)), 0);
+  const commission = pb.reduce((a, p) => a + Math.max(0, +(p.commission_est ?? 0)), 0);
   const lines = [
     `🌙 <b>التقرير اليومي النهائي — ${today}</b>`, "",
     `🧾 عدد الطلبات: <b>${t.c}</b>`,
@@ -393,7 +396,7 @@ async function viewDailyFinal() {
     closure
       ? `🏦 المتبقي في الصندوق: <b>${fmt(closure.remaining)} د.ع</b>${closure.note ? ` — ${esc(closure.note)}` : ""}`
       : `🏦 المتبقي في الصندوق: لم يُسجَّل (يُدخل من صفحة المصروفات)`,
-    ...(owed ? [`🛵 مستحق على شركات التوصيل: <b>${fmt(owed)} د.ع</b>`] : []),
+    ...(owed ? [`🛵 مستحق على شركات التوصيل (بعد العمولة): <b>${fmt(owed)} د.ع</b>${commission ? ` — عمولتها ${fmt(commission)}` : ""}`] : []),
     "",
     `🍔 <b>الأصناف المباعة اليوم (${sold.reduce((s, [, q]) => s + q, 0)} قطعة):</b>`,
   ];

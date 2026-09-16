@@ -46,10 +46,16 @@ export type Database = {
         Update: Partial<{ state: Json; updated_at: string }>;
         Relationships: [];
       };
+      device_status: {
+        Row: { id: string; seen_at: string; acc_enabled: boolean | null; notif_enabled: boolean | null; app_version: string | null };
+        Insert: { id: string; seen_at?: string; acc_enabled?: boolean | null; notif_enabled?: boolean | null; app_version?: string | null };
+        Update: Partial<{ seen_at: string; acc_enabled: boolean | null; notif_enabled: boolean | null; app_version: string | null }>;
+        Relationships: [];
+      };
       external_order_alerts: {  // 0069 — إشعار «طلب جديد» من جهاز توترز/طلباتي · 0073 unknown_items
-        Row: { id: string; source: "toters" | "talabaty" | "other"; ref: string | null; title: string | null; body: string | null; order_id: string | null; handled_at: string | null; created_at: string; unknown_items: string[] | null };
-        Insert: { id?: string; source: "toters" | "talabaty" | "other"; ref?: string | null; title?: string | null; body?: string | null; order_id?: string | null; handled_at?: string | null; unknown_items?: string[] | null };
-        Update: Partial<{ source: "toters" | "talabaty" | "other"; ref: string | null; title: string | null; body: string | null; handled_at: string | null; order_id: string | null; unknown_items: string[] | null }>;
+        Row: { id: string; items?: Json | null; source: "toters" | "talabaty" | "other"; ref: string | null; title: string | null; body: string | null; order_id: string | null; handled_at: string | null; created_at: string; unknown_items: string[] | null };
+        Insert: { id?: string; source: "toters" | "talabaty" | "other"; ref?: string | null; title?: string | null; body?: string | null; order_id?: string | null; handled_at?: string | null; unknown_items?: string[] | null; items?: Json | null };
+        Update: Partial<{ source: "toters" | "talabaty" | "other"; ref: string | null; title: string | null; body: string | null; handled_at: string | null; order_id: string | null; unknown_items: string[] | null; items: Json | null }>;
         Relationships: [];
       };
       partner_item_aliases: {  // 0073 — اسم الصنف عند شركة التوصيل → صنفنا

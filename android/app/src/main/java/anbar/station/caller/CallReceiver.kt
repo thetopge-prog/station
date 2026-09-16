@@ -131,7 +131,7 @@ fun send(ctx: Context, numberRaw: String, how: String, async: Boolean = true) {
  * الخادم يقبل الاثنتين ويكتفي بأيّهما طابق. سطر واحد يزيل صنفاً كاملاً من
  * الأعطال التي أضاعت علينا ليلة.
  */
-fun post(ctx: Context, body: JSONObject, label: String, urlOverride: String? = null) {
+fun post(ctx: Context, body: JSONObject, label: String, urlOverride: String? = null, quiet: Boolean = false) {
   val p = prefs(ctx)
   val url = (urlOverride ?: p.getString(URL_KEY, "") ?: "").trim()
   if (url.isEmpty()) return status(ctx, "$label · لا يوجد عنوان")
@@ -162,7 +162,8 @@ fun post(ctx: Context, body: JSONObject, label: String, urlOverride: String? = n
   } catch (e: Throwable) {
     note = e.javaClass.simpleName
   }
-  status(ctx, "$label · $note" + if (code > 0) " ($code)" else "")
+  // quiet: النبضة الدورية لا تمحو آخر حدث حقيقي عن شاشة التطبيق
+  if (!quiet) status(ctx, "$label · $note" + if (code > 0) " ($code)" else "")
 }
 
 /** آخر ما جرى، بكلمات يقرأها صاحب المحل لا مبرمج. */

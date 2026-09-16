@@ -16,6 +16,8 @@
   <!-- هذا هو الإذن الذي يملأ رقم المتصل. منذ أندرويد 10 يصل الرقم فارغاً لمن
        لا يملكه — وهو نفسه إذن قراءة السجل في المسار الاحتياطي. -->
   <uses-permission android:name="android.permission.READ_CALL_LOG" />
+  <!-- نبضة كل ربع ساعة تصمد أمام إعادة التشغيل (JobScheduler persisted) -->
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
   <application
       android:label="@string/app_name"
@@ -23,6 +25,12 @@
       android:allowBackup="false"
       android:supportsRtl="true"
       android:theme="@android:style/Theme.DeviceDefault.Light">
+
+    <!-- النبضة: «الجهاز حيّ وقراءة الشاشة مفعّلة» كل ربع ساعة -->
+    <service
+        android:name=".HeartbeatJob"
+        android:exported="true"
+        android:permission="android.permission.BIND_JOB_SERVICE" />
 
     <activity
         android:name=".MainActivity"
