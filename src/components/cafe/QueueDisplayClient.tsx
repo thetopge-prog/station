@@ -35,7 +35,7 @@ import { fitColumn, pageOf, type QueueTier } from "@/lib/cafe/queue-display";
 
 // الاشتراك الحيّ يحرّك الشاشة خلال ثانية؛ هذا احتياط حين ينقطع.
 // كان ٥ ثوانٍ = ١٧٬٢٨٠ استدعاءً يومياً من شاشة معلّقة لا يلمسها أحد.
-const POLL_MS = 30_000;
+const POLL_MS = 120_000; // realtime on orders is the trigger
 /**
  * كم تبقى الصفحة قبل أن تتبدّل.
  *

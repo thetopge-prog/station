@@ -99,7 +99,7 @@ export function IncomingOrdersClient() {
         })
         .catch(() => {});
     const kick = setTimeout(tick, 0);
-    const iv = setInterval(tick, 30_000);
+    const iv = setInterval(tick, 90_000);
     return () => {
       live = false;
       clearTimeout(kick);
@@ -248,7 +248,7 @@ export function IncomingOrdersClient() {
     refreshPending();
     // خمس ثوانٍ كانت ١٧٬٢٨٠ استدعاءً يومياً. الطلب الجديد يصل عبر الزمن الحيّ
     // خلال ثانية؛ الاستطلاع لمن انقطع عنه الاشتراك.
-    const t = setInterval(refreshPending, 20_000);
+    const t = setInterval(refreshPending, 60_000); // realtime on orders is the trigger
     let channel: ReturnType<
       ReturnType<typeof createSupabaseBrowserClient>["channel"]
     > | null = null;

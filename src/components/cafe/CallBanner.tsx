@@ -24,7 +24,8 @@ import { CallerCard } from "./CallerCard";
  * order should not have the screen taken from them by a wrong number.
  */
 
-const POLL_MS = 4000;
+// realtime on incoming_calls is the trigger; this is the net. 4s was 21,600 paid invocations a day per tab
+const POLL_MS = 60_000;
 
 export function CallBanner({
   onUse,

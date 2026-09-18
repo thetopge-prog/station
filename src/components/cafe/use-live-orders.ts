@@ -18,7 +18,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
  */
 export function useLiveOrders<T>(
   fetcher: () => Promise<T[]>,
-  { pollMs = 5000, channelName = "station-orders" }: { pollMs?: number; channelName?: string } = {},
+  { pollMs = 45_000, channelName = "station-orders" }: { pollMs?: number; channelName?: string } = {},
 ) {
   const [rows, setRows] = useState<T[]>([]);
   const [loaded, setLoaded] = useState(false);
