@@ -16,12 +16,10 @@ import { kickDrawer, printJobs } from "@/lib/cafe/print-client";
 import { buildOrderJobs } from "@/lib/cafe/printer-actions";
 import { claimPrint, releasePrint } from "@/lib/cafe/print-spool-actions";
 import {
-  listPendingOrders,
   payPendingOrder,
   cancelOrder,
   type PendingOrder,
-  readyExpiringSoon,
-  deviceStatus,
+  incomingSnapshot,
 } from "@/lib/cafe/cashier-actions";
 import { Receipt, type ReceiptData } from "./Receipt";
 import { PartnerLogo } from "./PartnerLogo";
@@ -164,8 +162,10 @@ export function IncomingOrdersClient() {
   // ponytail: 5s poll — swap to Supabase realtime if volume grows.
   const refreshPending = useCallback(async () => {
     try {
+      // استدعاء واحد للشاشة كلها — كل استدعاء على نتلفاي يُحاسَب
+      const snap = await incomingSnapshot();
       // جاهز منذ ٤ دقائق: «سيُرفع من الشاشة بعد دقيقة» — بصوت مرّة واحدة لكل طلب
-      void readyExpiringSoon().then(
+      void Promise.resolve(snap.expiring).then(
         (soon) => {
           if (!soon.length) return setExpiring(null);
           const fresh = soon.filter((x) => !warnedSeq.current.has(x.order_seq));
@@ -184,7 +184,7 @@ export function IncomingOrdersClient() {
         },
         () => {},
       );
-      void deviceStatus().then(
+      void Promise.resolve(snap.device).then(
         (d) => {
           if (d.seenMinutesAgo === null) return setDeviceWarn(null); // لم يُحدَّث التطبيق بعد
           if (d.seenMinutesAgo > 35)
@@ -203,7 +203,7 @@ export function IncomingOrdersClient() {
         },
         () => {},
       );
-      const orders = await listPendingOrders();
+      const orders = snap.orders;
       // طلب اختفى من القائمة ولم يقبله هذا الجهاز: ألغاه الزبون من هاتفه (أو
       // جهاز آخر) — يُقال بصوت وسطر، حتى لا يُجهَّز طلب لم يعد موجوداً
       if (seenIds.current) {

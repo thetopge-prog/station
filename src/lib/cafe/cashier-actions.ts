@@ -79,6 +79,17 @@ export async function readyExpiringSoon(): Promise<{ order_seq: number; secondsL
   }));
 }
 
+/**
+ * ما تحتاجه شاشة الطلبات الواردة في سؤال واحد.
+ *
+ * كانت ثلاثة استدعاءات كل عشرين ثانية على كل شاشة مفتوحة — وكل استدعاء
+ * على نتلفاي يُحاسَب؛ الموقع توقّف مرّتين عند حدّ الاستهلاك. واحد يكفي.
+ */
+export async function incomingSnapshot(): Promise<{ orders: PendingOrder[]; expiring: { order_seq: number; secondsLeft: number }[]; device: DeviceStatus }> {
+  const [orders, expiring, device] = await Promise.all([listPendingOrders(), readyExpiringSoon(), deviceStatus()]);
+  return { orders, expiring, device };
+}
+
 export async function listPendingOrders(): Promise<PendingOrder[]> {
   await requireStaff();
   const supabase = await createSupabaseServerClient();

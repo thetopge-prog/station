@@ -1,0 +1,53 @@
+# Render — ستيشن كخادم يعمل دائماً (بديل نتلفاي بعد توقّفه عند حدّ الاستهلاك مرّتين).
+#
+# خدمة ويب واحدة على Node: لا استدعاءات تُحاسَب، لا تشغيل بارد، لا مهلة ١٠ ثوانٍ،
+# وسجلّ الأخطاء في صفحة واحدة. فرانكفورت لأنها أقرب نقطة للعراق.
+#
+# متغيّرات البيئة تُدخل من لوحة Render لا من هنا (sync: false = لا تُكتب في المستودع).
+services:
+  - type: web
+    name: station-anbar
+    runtime: node
+    region: frankfurt
+    plan: starter
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /sign-in
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: RENDER
+        value: "true"
+      - key: NEXT_PUBLIC_SITE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_DB_URL
+        sync: false
+      - key: STATION_WEBHOOK_SECRET
+        sync: false
+      - key: STATION_DISPLAY_KEY
+        sync: false
+      - key: WHATSAPP_TOKEN
+        sync: false
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+      - key: WHATSAPP_APP_SECRET
+        sync: false
+      - key: WHATSAPP_VERIFY_TOKEN
+        sync: false
+      - key: POINTS_PER_IQD
+        sync: false
+      - key: POINTS_PER_REWARD
+        sync: false
+      - key: REWARD_VALUE_IQD
+        sync: false
+      - key: WEB_PUSH_PUBLIC_KEY
+        sync: false
+      - key: WEB_PUSH_PRIVATE_KEY
+        sync: false
