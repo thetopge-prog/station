@@ -1,0 +1,8 @@
+node_modules
+.next
+.git
+android
+hub
+docs
+.env*
+*.log
