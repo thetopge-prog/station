@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
-import { parseExternalOrder, parseTotersScreen, resolveLines, type ScreenItem } from "@/lib/cafe/external-order";
+import { parseExternalOrder, parseTotersScreen, resolveLines, unitsOf, type ScreenItem } from "@/lib/cafe/external-order";
 import { partnerSlug, SOURCE_OF_SLUG } from "@/lib/cafe/partners";
 import type { Json } from "@/lib/types";
 
@@ -102,7 +102,8 @@ export async function POST(req: Request) {
       .select("id, order_id, title, items")
       .eq("source", source)
       .eq("ref", ref)
-      .gte("created_at", new Date(Date.now() - 30 * 60_000).toISOString())
+      // رقم توترز لا يتكرر في اليوم نفسه؛ نصف ساعة كانت تُنشئ الطلب مرتين حين تُعاد الشاشة بعد ٣٣ دقيقة
+      .gte("created_at", new Date(Date.now() - 12 * 3_600_000).toISOString())
       .order("created_at", { ascending: false })
       .limit(1);
     const prev = dup?.[0];
@@ -133,7 +134,7 @@ export async function POST(req: Request) {
     }
   }
   // «short» يُعاد حسابه بعد الدمج
-  const complete = declared == null || items.length >= declared;
+  const complete = declared == null || unitsOf(items) >= declared;
 
   // ── الأصناف: كلها معروفة أو لا طلب ────────────────────────────────────
   let orderId: string | null = null;
@@ -174,10 +175,16 @@ export async function POST(req: Request) {
           return slug && SOURCE_OF_SLUG[slug] === src;
         });
         // place_order تُرجع المصادر المجهولة إلى pos؛ يُكتب بعد الإدراج (كتليغرام)
-        await svc
+        const { error: uErr } = await svc
           .from("orders")
           .update({ order_source: src, partner_id: partner?.id ?? null, partner_ref: refLong ?? ref, partner_total: partnerTotal })
           .eq("id", orderId);
+        // شاشتان في الثانية نفسها: الفهرس الفريد (0093) يرفض الثانية — تُلغى ويُعاد الأول
+        if (uErr?.code === "23505") {
+          await svc.from("orders").update({ status: "cancelled", cancel_reason: "مكرّر تلقائياً — الشاشة قُرئت مرتين", cancelled_at: new Date().toISOString() }).eq("id", orderId);
+          await note(200, raw, `مكرّر ${source} #${ref} — سباق شاشتين، أُلغي ${orderNumber}`);
+          return NextResponse.json({ ok: true, duplicate: true, ref });
+        }
       } else if (error) {
         await note(500, raw, `place_order: ${error.message}`);
       }
@@ -191,7 +198,7 @@ export async function POST(req: Request) {
     title: isScreen ? `شاشة${customerName ? ` · ${customerName}` : ""}` : (body.title ?? "").slice(0, 120) || null,
     body: isScreen
       ? [
-          !complete ? `⚠ الشاشة تقول ${declared} أصناف وقُرئ ${items.length} — مرّر شاشة توترز لأسفل حتى آخر صنف` : null,
+          !complete ? `⚠ الشاشة تقول ${declared} عناصر وقُرئ ${unitsOf(items)} — مرّر شاشة توترز لأسفل حتى آخر صنف` : null,
           ...items.map((i) => `${i.qty} × ${i.name}${i.option ? ` / ${i.option}` : ""}`),
         ]
           .filter(Boolean)

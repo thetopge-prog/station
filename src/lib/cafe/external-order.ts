@@ -18,6 +18,13 @@ export type ParsedExternal = { source: ExternalSource; ref: string | null; lines
 export const normDigits = (s: string) => s.replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
 
 /**
+ * الشاشة تحمل علامات اتجاه خفية (‫ ‬ ‏) حول «٤ عناصر» و«هوية»؛ بدونها
+ * «٤ عناصر» لا يُطابق فيظنّ الخادم الطلب كاملاً ويُنشئه بصنف واحد.
+ */
+const BIDI = /[\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g;
+export const cleanLine = (raw: unknown) => normDigits(String(raw ?? "")).replace(BIDI, "").replace(/\s+/g, " ").trim();
+
+/**
  * طيّ عربي للمطابقة — نفس القواعد حرفاً بحرف في fold_ar (0073) كي يتّفق
  * ما يُكتب من التطبيق مع ما تبذره القاعدة: أرقام لاتينية، لا تشكيل ولا تطويل،
  * الهمزات ألفاً، التاء المربوطة هاءً، الألف المقصورة والهمزة على نبرة ياءً.
@@ -52,7 +59,7 @@ export type ParsedScreen = { ref: string | null; refLong: string | null; custome
  */
 export function declaredCount(rawLines: string[]): number | null {
   for (const raw of rawLines) {
-    const l = normDigits(String(raw ?? "")).replace(/\s+/g, " ").trim();
+    const l = cleanLine(raw);
     if (/^عنصر(?:ان|ين)$/.test(l)) return 2;
     if (/^عنصر$/.test(l)) return 1;
     const m = l.match(/^(\d{1,2})\s*(?:عناصر|عنصرًا|عنصراً|عنصرا|عنصر)$/);
@@ -62,11 +69,18 @@ export function declaredCount(rawLines: string[]): number | null {
 }
 
 const QTY_LINE = /^(?:(\d{1,2})\s*[x×]|[x×]\s*(\d{1,2}))$/i;
-const PRICE_LINE = /^([\d,.]+)\s*د\.?\s*ع\.?(?:\s*\/\s*(.+))?$/;
+// إضافة مدفوعة تحت الصنف: «اجعلها وجبة» · «تقدم مع فنكر وبيبسي» · «+٢٬٠٠٠ د.ع.»
+const ADDON_PRICE = /^\+\s*[\d,.٬٫]+\s*د/;
+const BLOCK_END = /^(?:لديك|الطلب جاهز|أكد الطلب|اكد الطلب|لقد تأخرت|متأخر)/;
+
+/** «عناصر» على شاشة توترز تعدّ الوحدات لا الأسطر: «٢x ريزو» = عنصران. */
+export const unitsOf = (items: { qty: number }[]) => items.reduce((a, i) => a + i.qty, 0);
+// «٦٬٧٥٠» — فاصل الآلاف العربي (٬) لا الفاصلة اللاتينية
+const PRICE_LINE = /^([\d,.٬٫]+)\s*د\.?\s*ع\.?(?:\s*\/\s*(.+))?$/;
 const NOISE = /^(?:تم|جديد|تحضير|جاهز|هوية|اليوم|لديك|الطلب جاهز|بإنتظار|بانتظار|نمنحك|عنصر|عنصران|\d+\s*عناصر)/;
 
 export function parseTotersScreen(rawLines: string[]): ParsedScreen {
-  const lines = rawLines.map((l) => normDigits(String(l ?? "")).replace(/\s+/g, " ").trim()).filter(Boolean);
+  const lines = rawLines.map(cleanLine).filter(Boolean);
   let ref: string | null = null;
   let refLong: string | null = null;
   let customerName: string | null = null;
@@ -95,14 +109,30 @@ export function parseTotersScreen(rawLines: string[]): ParsedScreen {
     const name = lines[i + 1];
     if (!name || qty < 1 || qty > 50 || PRICE_LINE.test(name) || NOISE.test(name)) continue;
     let option: string | null = null;
-    for (let j = i + 2; j < Math.min(i + 5, lines.length); j++) {
+    let j = i + 2;
+    for (; j < Math.min(i + 5, lines.length); j++) {
       const pm = lines[j].match(PRICE_LINE);
       if (pm) {
         const opt = (pm[2] ?? "").trim();
         if (opt && !/^عنصر$/.test(opt)) option = opt;
+        j += 1;
         break;
       }
     }
+    // الإضافات بعد السعر حتى الصنف التالي: أول سطر قبل كل «+سعر» هو اسمها
+    const addons: string[] = [];
+    let head: string | null = null;
+    for (; j < lines.length; j++) {
+      const l2 = lines[j];
+      if (QTY_LINE.test(l2) || BLOCK_END.test(l2)) break;
+      if (ADDON_PRICE.test(l2)) {
+        if (head) addons.push(head.replace(/^اجعلها\s+/, ""));
+        head = null;
+        continue;
+      }
+      if (!head && !PRICE_LINE.test(l2)) head = l2;
+    }
+    if (addons.length) option = [option, ...addons].filter(Boolean).join(" + ");
     items.push({ name: name.slice(0, 120), qty, option });
     i += 1;
   }

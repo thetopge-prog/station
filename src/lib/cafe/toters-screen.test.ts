@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { foldArabic, parseTotersScreen, resolveLines } from "./external-order";
+import { foldArabic, parseTotersScreen, resolveLines, unitsOf } from "./external-order";
 
 /**
  * شاشة الطلب #908 كما صُوّرت على جهاز SUNMI — الأسطر كما تجمعها خدمة
@@ -99,5 +99,34 @@ describe("resolveLines", () => {
     const r = resolveLines([{ name: "صلصة ستيشن", qty: 1, option: null }], aliases, menu);
     expect(r.lines).toEqual([]);
     expect(r.unknown).toEqual(["صلصة ستيشن"]);
+  });
+});
+
+describe("parseTotersScreen — real screens from 2026-09-20", () => {
+  // «٤ عناصر» wrapped in bidi marks used to be invisible to the parser, so the
+  // order was created from the first visible item alone
+  const SCREEN_111 = ["التنقل إلى أعلى", "٣", "تحضير", "الطلب #١١١", "٧٧١١١-١١١٤٨", "Meme.W .", "‫هوية‬ ٥٤٩٨٤٠٨٦٢٨١", "تم",
+    "‫٤ عناصر‬", "السندويشات", "٢x", "سندويش زنجر بافلو", "‏٦٬٧٥٠ د.ع.‏ / عنصر", "لديك ١٠:٠٩ ‫دقيقة‬ متبقية للإرسال.", "الطلب جاهز"];
+  it("reads the declared count through bidi marks and counts units, not lines", () => {
+    const t = parseTotersScreen(SCREEN_111);
+    expect(t.declared).toBe(4);
+    expect(t.items).toEqual([{ name: "سندويش زنجر بافلو", qty: 2, option: null }]);
+    expect(unitsOf(t.items)).toBe(2);
+    expect(t.customerName).toBe("Meme.W .");
+  });
+
+  it("carries a paid add-on («اجعلها وجبة») into the option so the alias can pick the meal", () => {
+    const t = parseTotersScreen(["الطلب #٢٩٨", "٥٣٢٩٨-٥٢٧٧٤", "حموشي .", "‫٣ عناصر‬", "السندويشات", "١x", "سندويش زنجر مدخن",
+      "‏٦٬٥٠٠ د.ع.‏ / عنصر", "اجعلها وجبة", "تقدم مع فنكر وبيبسي", "+٢٬٠٠٠ د.ع.‏", "لديك ١٣:٠١ دقيقة متبقية للإرسال.", "الطلب جاهز"]);
+    expect(t.items).toEqual([{ name: "سندويش زنجر مدخن", qty: 1, option: "وجبة" }]);
+    expect(t.declared).toBe(3);
+  });
+
+  it("does not mistake the next item for an add-on", () => {
+    const t = parseTotersScreen(["الطلب #٦٥٨", "عنصران", "١x", "فنكر بالدجاج", "٧٬٧٥٠ د.ع. / عنصر", "٧٬٧٥٠ د.ع.", "الريزو", "١x", "ريزو ستيشن", "٦٬٧٥٠ د.ع. / عنصر"]);
+    expect(t.items).toEqual([
+      { name: "فنكر بالدجاج", qty: 1, option: null },
+      { name: "ريزو ستيشن", qty: 1, option: null },
+    ]);
   });
 });
