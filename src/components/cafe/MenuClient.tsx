@@ -27,6 +27,7 @@ import { MenuIcon } from "./MenuIcon";
 import { MealExtras } from "./MealExtras";
 import { StationSmiley } from "./Logo";
 import { BRAND } from "@/lib/brand";
+import { lateCutoffState, type LateCutoffState } from "@/lib/cafe/time";
 
 /**
  * منيو الزبون.
@@ -104,6 +105,31 @@ export function MenuClient({
   const attention = useAttention();
 
   const [activeCat, setActiveCat] = useState(cats[0]?.name_ar ?? "");
+  // قسم يغلق 02:00 (0092): عدّاد من 01:00، تنبيه من 01:30، ممنوع 02:00→09:00
+  const [cut, setCut] = useState<LateCutoffState>({ phase: "open", minutesLeft: 0 });
+  useEffect(() => {
+    const tick = () => setCut(lateCutoffState());
+    tick();
+    const iv = setInterval(tick, 30_000);
+    return () => clearInterval(iv);
+  }, []);
+  const cutBanner = (cat: MenuCategoryView) => {
+    if (!cat.lateCutoff || cut.phase === "open") return null;
+    const text =
+      cut.phase === "closed"
+        ? "هذا القسم متوقف حتى الصباح — يعود الساعة 09:00"
+        : cut.phase === "notice"
+          ? `⏳ باقي ${cut.minutesLeft} دقيقة · سيتم التواصل معك في حال أغلق المطبخ لهذا القسم`
+          : `⏳ باقي ${cut.minutesLeft} دقيقة للطلب من هذا القسم — يغلق الساعة 02:00`;
+    return (
+      <p
+        className={`mb-2 rounded-xl border-2 px-3 py-2 text-xs font-black ${cut.phase === "closed" ? "border-destructive bg-destructive/10 text-destructive" : "border-primary bg-primary/10 text-primary"}`}
+      >
+        {text}
+      </p>
+    );
+  };
+  const catClosed = (cat: MenuCategoryView) => !!cat.lateCutoff && cut.phase === "closed";
   // «tiles»: الصفحة الأولى شبكة أقسام؛ القسم المختار يفتح القائمة كاملة عنده
   const [openCat, setOpenCat] = useState<string | null>(null);
   const sideNav = layout !== "rows";
@@ -854,6 +880,11 @@ export function MenuClient({
                         <span className="mt-2 block text-center text-sm font-black">
                           {c.name_ar}
                         </span>
+                        {c.lateCutoff && cut.phase !== "open" && (
+                          <span className={`block text-center text-[11px] font-black ${cut.phase === "closed" ? "text-destructive" : "text-primary"}`}>
+                            {cut.phase === "closed" ? "متوقف حتى 09:00" : `⏳ ${cut.minutesLeft} د`}
+                          </span>
+                        )}
                       </button>
                     </li>
                   );
@@ -880,7 +911,8 @@ export function MenuClient({
                 >
                   {cat.name_ar}
                 </h2>
-                <ul className={LIST_CLASS[layout]}>
+                {cutBanner(cat)}
+                <ul className={`${LIST_CLASS[layout]}${catClosed(cat) ? " pointer-events-none opacity-40" : ""}`}>
                   {cat.items.map((it) => renderItem(it, cat.name_ar))}
                 </ul>
               </section>

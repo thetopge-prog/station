@@ -60,13 +60,28 @@ export function useBarcodeScanner(
       // keypress onto a stale buffer
       if (gap > maxGapMs) buffer.current = "";
 
-      // printable characters only; modifiers and arrows are not part of a scan
-      if (e.key.length === 1) buffer.current += e.key;
+      const ch = charFromKey(e.code, e.key);
+      if (ch) buffer.current += ch;
     }
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [maxGapMs, minLength]);
+}
+
+/**
+ * The character a scan keystroke MEANT, regardless of the Windows keyboard
+ * language. A HID scanner presses physical keys; with the layout on Arabic the
+ * browser reports `G` as `ل`, so «030-78G» arrived as «030-78ل» and the ticket
+ * read «رمز غير معروف». `e.code` names the physical key, so letters, digits
+ * and the dash are recovered from it; anything else falls back to `e.key`.
+ */
+export function charFromKey(code: string, key: string): string {
+  if (/^Key[A-Z]$/.test(code)) return code[3];
+  if (/^(Digit|Numpad)\d$/.test(code)) return code[code.length - 1];
+  if (code === "Minus" || code === "NumpadSubtract") return "-";
+  // printable characters only; modifiers and arrows are not part of a scan
+  return key.length === 1 ? key : "";
 }
 
 /**

@@ -447,6 +447,7 @@ export type Database = {
           id: string; category_id: string; name_ar: string; description_ar: string | null; image_url: string | null;
           price: number; flavors: string[]; sort: number;
           category_name: string; category_image: string | null; category_sort: number;
+          category_late_cutoff: boolean;
         };
         Relationships: [];
       };

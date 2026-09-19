@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { orderIdFromScan, parseScan } from "@/components/cafe/use-barcode-scanner";
+import { charFromKey, orderIdFromScan, parseScan } from "@/components/cafe/use-barcode-scanner";
 
 describe("scan → short code", () => {
   it("reads the number-and-pickup-code the assembly ticket encodes", () => {
@@ -57,5 +57,18 @@ describe("scan → order id", () => {
     // a partial burst must fail loudly; silently matching a prefix would mark
     // the wrong order ready
     expect(orderIdFromScan(ID.slice(0, 20))).toBeNull();
+  });
+});
+
+describe("charFromKey — Arabic keyboard layout", () => {
+  it("recovers the physical key regardless of the reported character", () => {
+    expect(charFromKey("KeyG", "ل")).toBe("G");
+    expect(charFromKey("Digit7", "7")).toBe("7");
+    expect(charFromKey("Numpad3", "3")).toBe("3");
+    expect(charFromKey("Minus", "-")).toBe("-");
+  });
+  it("falls back to the character for other keys and drops modifiers", () => {
+    expect(charFromKey("Slash", "/")).toBe("/");
+    expect(charFromKey("ShiftLeft", "Shift")).toBe("");
   });
 });

@@ -14,6 +14,25 @@ export const DAY_CUT_HOURS = 4;
 /** «تم التجهيز» يبقى على الشاشة هذه الدقائق ثم يُرفع — والكاشير يُنبَّه قبلها بدقيقة (0090) */
 export const READY_EXPIRE_MIN = 5;
 
+/**
+ * قسم من المطبخ (برجر/زنجر…) يغلق 02:00 فجراً ويعود 09:00 — دقائق من منتصف ليل بغداد.
+ * من 01:00 عدّاد تنازلي، ومن 01:30 تنبيه «سيتم التواصل معك إن أغلق»، ومن 02:00 لا يُطلب.
+ * توأم فحص place_order في الترحيل 0092.
+ */
+export const LATE_CUTOFF = { countdownFrom: 60, noticeFrom: 90, closeAt: 120, reopenAt: 540 } as const;
+
+export type LateCutoffState = { phase: "open" | "countdown" | "notice" | "closed"; minutesLeft: number };
+
+export function lateCutoffState(now: Date = new Date(), tz: string = CAFE_TZ): LateCutoffState {
+  const [h, m] = formatInTimeZone(now, tz, "HH:mm").split(":").map(Number);
+  const min = h * 60 + m;
+  const left = LATE_CUTOFF.closeAt - min;
+  if (min >= LATE_CUTOFF.closeAt && min < LATE_CUTOFF.reopenAt) return { phase: "closed", minutesLeft: 0 };
+  if (min >= LATE_CUTOFF.noticeFrom && min < LATE_CUTOFF.closeAt) return { phase: "notice", minutesLeft: left };
+  if (min >= LATE_CUTOFF.countdownFrom && min < LATE_CUTOFF.closeAt) return { phase: "countdown", minutesLeft: left };
+  return { phase: "open", minutesLeft: 0 };
+}
+
 export function businessDay(date: Date = new Date(), tz: string = CAFE_TZ): string {
   return formatInTimeZone(new Date(date.getTime() - DAY_CUT_HOURS * 3_600_000), tz, "yyyy-MM-dd");
 }

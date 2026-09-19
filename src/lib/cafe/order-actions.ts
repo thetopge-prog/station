@@ -116,6 +116,9 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
       markCloudDown();
       return placeLocalOrder(input, (await getStaff())?.employeeId ?? null);
     }
+    if (error?.message?.includes("late cutoff")) {
+      return { ok: false, error: "قسم من المطبخ أغلق الساعة 02:00 — احذف الأصناف المتوقفة من السلة وأعد الإرسال." };
+    }
     return { ok: false, error: "تعذّر إرسال الطلب، حاول مجدداً." };
   }
 

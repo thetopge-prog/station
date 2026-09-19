@@ -236,7 +236,7 @@ export function ExpediterClient({ name }: { name: string }) {
   const onScan = useCallback(
     async (raw: string) => {
       const scan = parseScan(raw);
-      if (!scan) return setScan({ kind: "err", text: "رمز غير معروف" });
+      if (!scan) return setScan({ kind: "err", text: `رمز غير معروف: ${raw.trim().slice(0, 24)}` });
 
       // A ticket printed a second ago may not be in the last poll yet. The
       // scan is sent anyway — the server knows the order — and the row is

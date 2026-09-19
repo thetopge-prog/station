@@ -411,7 +411,7 @@ function buildTicket(s: Slip, ticket: Ticket, opts: RenderOptions): void {
   s.center();
   if (ticket.qr) {
     s.raw(...qrCode(ticket.qr));
-    s.line("تتبّع طلبك");
+    s.line(ticket.kind === "expediter" ? "امسح لتأكيد التجهيز" : "تتبّع طلبك");
   }
   if (ticket.kind === "receipt") {
     s.rule();

@@ -1,4 +1,5 @@
 "use client";
+import { lateCutoffState } from "@/lib/cafe/time";
 
 import { orderAcceptedLink } from "@/lib/brand";
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
@@ -664,6 +665,9 @@ export function CashierClient({
               }`}
             >
               {c.name_ar}
+              {c.lateCutoff && (
+                <span className="ms-1 text-[10px] opacity-80">{lateCutoffState().phase === "closed" ? "· متوقف" : "· يغلق 02:00"}</span>
+              )}
             </button>
           ))}
         </div>
