@@ -6,10 +6,10 @@ DNS، والأجهزة والـQR وواتساب لا تتغيّر أبداً.
 
 ```
 station-anbar.com  ──DNS──▶  Netlify (الأساسي)
-                    └──عند التوقّف──▶  Render (الاحتياطي، نفس الكود ونفس القاعدة)
+                    └──عند التوقّف──▶  Vercel (الاحتياطي، نفس الكود ونفس القاعدة)
 ```
 
-## التجهيز مرة واحدة (٣٠ دقيقة، كله بحساب thetop.ge@gmail.com)
+## التجهيز مرة واحدة (كله بحساب thetop.ge@gmail.com)
 
 ### ١. الدومين على Cloudflare (~10$ سنوياً)
 1. cloudflare.com ← حساب جديد ← **Domain Registration → Register** ← `station-anbar.com` (أو ما تختار).
@@ -20,11 +20,14 @@ station-anbar.com  ──DNS──▶  Netlify (الأساسي)
 Site configuration → **Domain management → Add a domain** ← `station-anbar.com` ← Netlify يتحقق ويصدر الشهادة.
 ثم Environment variables: `NEXT_PUBLIC_SITE_URL = https://station-anbar.com` ← Trigger deploy.
 
-### ٣. Render — النسخة الاحتياطية (0$ على الخطة المجانية)
-1. render.com ← Sign up with GitHub ← **New → Blueprint** ← مستودع `thetopge-prog/station` ← يقرأ `render.yaml`.
-2. الصق المتغيّرات نفسها من Netlify (Site configuration → Environment variables) في الخانات. `NEXT_PUBLIC_SITE_URL` = `https://station-anbar.com`.
-3. في `render.yaml` الخطة `starter` (7$)؛ للاحتياط المجاني غيّرها في لوحة Render إلى **Free** (تنام بعد 15 دقيقة خمول وتصحو خلال ~50 ثانية عند أول طلب — مقبول لاحتياط، لا لتشغيل دائم).
-4. Render → Settings → **Custom Domains → Add** ← `station-anbar.com` (يقول «لم يُتحقق» ما دام DNS على Netlify — طبيعي؛ يتحقق لحظة التحويل).
+### ٣. Vercel — النسخة الاحتياطية (0$، بلا بطاقة) ✅ منجَز
+- المشروع `station-anbar` على vercel.com (تسجيل الدخول بـ GitHub، حساب thetop.ge@gmail.com)، فريق `station` خطة Hobby.
+- يبني وحده عند كل دفعة إلى `main` (لا يحتاج `[deploy]` كنتلفاي) — الاحتياط دائماً بآخر كود.
+- العنوان: **https://station-anbar.vercel.app** — يعمل الآن على القاعدة نفسها.
+- Deployment Protection مطفأة (وإلا يطلب Vercel تسجيل دخول من كل زائر).
+- المتغيّرات نفسها من `.env.local` + `NEXT_PUBLIC_SITE_URL`. تعديلها: Settings → Environment Variables → ثم Redeploy.
+- Settings → **Domains → Add Existing** ← `station-anbar.com` (يقول «Invalid Configuration» ما دام DNS على Netlify — طبيعي؛ يصحّ لحظة التحويل).
+- ملاحظة: شروط Hobby تمنع الاستخدام التجاري الدائم؛ كاحتياط طوارئ مقبول، وإن صار هو الأساسي لأسابيع فالأصح الترقية (20$/شهر) أو Render ببطاقة.
 
 ### ٤. الأجهزة تعرف الدومين (مرة واحدة)
 - جهاز الكاشير والشاشات: افتح `https://station-anbar.com` بدل رابط نتلفاي.
@@ -34,9 +37,9 @@ Site configuration → **Domain management → Add a domain** ← `station-anbar
 - أعد طباعة QR الطاولات من `/qr`.
 
 ## يوم التوقّف — التحويل (٦٠ ثانية من الهاتف)
-1. Cloudflare ← DNS ← السجل `@` ← **Edit** ← الهدف من `station-anbar.netlify.app` إلى **`station-anbar.onrender.com`** ← Save. (وكذلك `www`.)
-2. افتح `https://station-anbar.com` — أول فتحة قد تأخذ دقيقة إن كانت خدمة Render نائمة، ثم يعمل كل شيء: الكاشير، الطباعة، توترز، واتساب — بلا لمس أي جهاز.
-3. حين يعود Netlify: أعد الهدف إلى `station-anbar.netlify.app`. (أو ابقَ على Render.)
+1. Cloudflare ← DNS ← السجل `@` ← **Edit** ← الهدف من `station-anbar.netlify.app` إلى **`cname.vercel-dns.com`** ← Save. (وكذلك `www`.)
+2. افتح `https://station-anbar.com` — يعمل فوراً (Vercel لا ينام): كل شيء: الكاشير، الطباعة، توترز، واتساب — بلا لمس أي جهاز.
+3. حين يعود Netlify: أعد الهدف إلى `station-anbar.netlify.app`. (أو ابقَ على Vercel.)
 
 ## تلقائياً بلا يد؟
 Cloudflare **Load Balancing** (5$/شهر): يفحص المضيفين كل دقيقة ويحوّل وحده حين يسقط الأساسي ويعيده حين يعود. يُضاف لاحقاً فوق ما سبق دون تغيير شيء آخر.
