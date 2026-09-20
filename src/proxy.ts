@@ -25,11 +25,16 @@ import { AUTH_STORAGE_KEY, parseSessionCookie } from "@/lib/supabase/constants";
 // of a 7-day staff cookie, because nobody can reach it to sign in again.
 // /order — the customer's first screen: pick delivery, pickup or curbside.
 // Public like /menu; a link sent on WhatsApp must not land on a login page.
+// /delivery, /pickup, /car — the three buttons on /order. They are redirects to
+// /menu in next.config, and locally that redirect runs first, so the gate never
+// sees them. On Netlify the edge gate runs BEFORE next.config redirects, so it
+// saw the raw /delivery and answered the customer with a login page. Listing
+// them here is correct on both hosts: the redirect to public /menu still runs.
 // /api/whatsapp — Meta's webhook. It authenticates itself twice over (a verify
 // token on the GET handshake, an HMAC of the body on every POST) and cannot
 // follow a redirect to /sign-in: Meta reads the 307 as a failed delivery and
 // eventually unsubscribes the whole webhook.
-const PUBLIC_PREFIXES = ["/sign-in", "/menu", "/kiosk", "/card", "/api/orders", "/api/calls", "/api/delivery", "/api/whatsapp", "/privacy", "/order", "/queue", "/tv"];
+const PUBLIC_PREFIXES = ["/sign-in", "/menu", "/kiosk", "/card", "/api/orders", "/api/calls", "/api/delivery", "/api/whatsapp", "/privacy", "/order", "/delivery", "/pickup", "/car", "/queue", "/tv"];
 const LOGIN_PATHS = new Set(["/", "/sign-in"]);
 
 function isPublic(pathname: string): boolean {
