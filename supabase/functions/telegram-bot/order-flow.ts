@@ -42,6 +42,8 @@ export type State = {
 
 export type Input =
   | { kind: "text"; text: string }
+  /** أسطر فُهمت من نصّ حرّ (قواعد أو نموذج لغوي) — تُضاف إلى السلّة للتأكيد */
+  | { kind: "lines"; lines: CartLine[] }
   | { kind: "button"; data: string }
   | { kind: "contact"; phone: string }
   | { kind: "voice" };
@@ -326,6 +328,10 @@ export function step(prev: State | null, input: Input, menu: Menu, known?: Known
 
   if (input.kind === "voice") {
     return { state, reply: { text: "🎤 الطلب بالصوت قريباً — الآن اختر من الأزرار.", buttons: [[{ text: "🍕 اطلب الآن", data: "o|cats" }]] } };
+  }
+
+  if (input.kind === "lines") {
+    return screenCart({ ...state, cart: [...state.cart, ...input.lines], draft: undefined });
   }
 
   if (input.kind === "contact") {

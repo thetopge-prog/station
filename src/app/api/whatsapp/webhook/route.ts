@@ -4,10 +4,11 @@ import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/types";
 import { renderMessage, renderReply, renderWelcome, type WaMessage } from "@/lib/bot/whatsapp-render";
+import { understandSmart } from "../../../../../supabase/functions/telegram-bot/llm";
 import {
   normalizeIraqiPhone,
   step,
-  understand,
+  type CartLine,
   type Button,
   type Input,
   type Known,
@@ -199,6 +200,7 @@ async function turn(msg: WaMsg): Promise<void> {
   // واتساب يعيد إرسال ما لم يُجَب عنه بسرعة — رسالة مرّتين تعني طلباً مرّتين
   if (msg.id && ui?.lastMsgId === msg.id) return;
 
+  let understood: CartLine[] | null = null;
   const raw = inputOf(msg);
 
   // نصّ: تحيّة أو «طلب» → الترحيب بزرّ المنيو؛ وإلا فسؤال لإنسان. الأزرار
@@ -211,13 +213,15 @@ async function turn(msg: WaMsg): Promise<void> {
       await send(waId, renderWelcome(menuLink(waId)));
       return;
     }
-    // «٢ زنجر بوفالو وجبة وبيبسي» → سلّة يؤكّدها بالأزرار؛ وما لم يُفهم → إنسان
+    // «٢ زنجر بوفالو وجبة وبيبسي» → سلّة يؤكّدها بالأزرار (قواعد ثم Gemini/Groq)؛ وما لم يُفهم → إنسان
     if (prev?.flow !== "order" || !prev.draft?.awaitingNote) {
       const menu = await loadMenu();
-      if (!understand(t, menu)) {
+      const got = await understandSmart(t, menu, { gemini: process.env.GEMINI_API_KEY, groq: process.env.GROQ_API_KEY });
+      if (!got || !("lines" in got)) {
         await handoff(waId, t, ui, msg.id);
         return;
       }
+      understood = got.lines;
     }
   }
 
@@ -234,7 +238,7 @@ async function turn(msg: WaMsg): Promise<void> {
   const phone = normalizeIraqiPhone(waId);
   const known = await knownCustomer(phone ?? state?.phone ?? null);
 
-  let out = step(state, raw, menu, known);
+  let out = step(state, understood ? { kind: "lines", lines: understood } : raw, menu, known);
   // لا «شارك رقمي» في واتساب — ولا حاجة: المرسِل هو الرقم
   if (out.reply.requestContact && phone) out = step(out.state, { kind: "contact", phone: waId }, menu, known);
   if (!out.state.name && known.name) out.state.name = known.name;

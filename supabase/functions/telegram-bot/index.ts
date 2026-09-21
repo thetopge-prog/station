@@ -1,3 +1,4 @@
+import { understandSmart } from "./llm.ts";
 import { step as orderStep, normalizeIraqiPhone, type Menu, type State as OrderState, type Input as OrderInput, type Reply as OrderReply } from "./order-flow.ts";
 // بوت ستيشن — Supabase Edge Function (Telegram webhook, يعمل 24/7).
 // نفس بوت الأزرار الكامل: تقارير، الطلبات الآن، الطاولات، الأكثر/الأقل مبيعاً،
@@ -1205,7 +1206,7 @@ async function submitOrder(chatId: number | string, order: OrderReply["order"]) 
 
 /** دورة واحدة: رسالة أو ضغطة من زبون → المحرّك → ردّ، وطلب إن اكتمل */
 async function customerTurn(chatId: number | string, msg: Row, prev: Row | null) {
-  const input: OrderInput = msg.callback
+  let input: OrderInput = msg.callback
     ? { kind: "button", data: msg.callback }
     : msg.contact
       ? { kind: "contact", phone: String(msg.contact.phone_number ?? "") }
@@ -1214,6 +1215,11 @@ async function customerTurn(chatId: number | string, msg: Row, prev: Row | null)
         : { kind: "text", text: String(msg.text ?? "") };
   const state = (prev?.flow === "order" ? prev : null) as OrderState | null;
   const menu = await loadMenu();
+  // نصّ حرّ خارج سؤال (ملاحظة/هاتف/عنوان): قواعد ثم Gemini/Groq إن وُجد مفتاح
+  if (input.kind === "text" && !/^\//.test(input.text) && !(state && (["phone", "address"].includes(state.step) || state.draft?.awaitingNote))) {
+    const got = await understandSmart(input.text, menu, { gemini: Deno.env.get("GEMINI_API_KEY"), groq: Deno.env.get("GROQ_API_KEY") });
+    if (got && "lines" in got) input = { kind: "lines", lines: got.lines };
+  }
   const phoneForLookup = input.kind === "contact" ? input.phone : state?.phone;
   const known = await knownCustomer(phoneForLookup ? normalizeIraqiPhone(phoneForLookup) : null);
   const out = orderStep(state, input, menu, known);
