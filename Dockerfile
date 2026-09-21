@@ -5,7 +5,9 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY . .
-ENV NEXT_TELEMETRY_DISABLED=1
+# رابط المشروع (عام، لا سرّ): next.config يبني إعادة توجيه /img/* → تخزين Supabase وقت البناء فقط
+ARG NEXT_PUBLIC_SUPABASE_URL
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
 FROM node:24-alpine
