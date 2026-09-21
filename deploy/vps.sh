@@ -11,8 +11,7 @@ git fetch -q origin main
 if [ "${1:-}" != "force" ] && [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ]; then exit 0; fi
 git reset -q --hard origin/main
 echo "== $(date -Is) deploying $(git log -1 --pretty='%h %s')"
-SUPA=$(grep "^NEXT_PUBLIC_SUPABASE_URL=" "$ROOT/.env" | cut -d= -f2- | tr -d "
-")
+SUPA=$(grep "^NEXT_PUBLIC_SUPABASE_URL=" "$ROOT/.env" | cut -d= -f2- | tr -d "\r")
 docker build -q --build-arg "NEXT_PUBLIC_SUPABASE_URL=$SUPA" -t station:latest .
 docker rm -f station >/dev/null 2>&1 || true
 docker run -d --name station --restart always --network coolify --env-file "$ROOT/.env" \
