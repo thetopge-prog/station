@@ -116,8 +116,94 @@ function cartText(cart: CartLine[]): string {
  * «نحن خمسة، ٣ برجر بلا بصل واثنان بصل» ويعيد عمليات على السلّة. التوقيع
  * مقصود: يأخذ النصّ والمنيو ويعيد سطوراً — لا يعرف تليغرام ولا الحالة.
  */
-export function understand(_text: string, _menu: Menu): CartLine[] | null {
-  return null;
+export function understand(text: string, menu: Menu): CartLine[] | null {
+  const lines: CartLine[] = [];
+  for (const seg of splitOrder(text)) lines.push(...parseSegment(seg, menu));
+  return lines.length ? lines : null;
+}
+
+// ── فهم النصّ الحرّ بلا نموذج لغوي: مطابقة كلمات على أسماء المنيو ───────────
+//
+// «٢ زنجر بوفالو وجبة بدون بصل وبيتزا سوبريم كبيرة» → سطران في السلّة.
+// كل مقطع (بين «،» و«+» والسطر) يحمل عدداً (رقم أو كلمة)، وأصنافاً، وحجماً،
+// وملاحظة. الصنف = أعلى تطابق كلمات مع أسماء المنيو (الكلمات الطويلة تُقارن
+// بهيكلها بلا حروف مدّ، فـ«بافلو» = «بوفالو» و«بيبسي» = «ببسي»). الزبون يرى
+// السلّة ويؤكّد — فخطأ المطابقة يظهر قبل أن يُطبخ، لا بعده.
+
+const GENERIC = new Set(["وجبه", "ساندويج", "ساندويش", "سندويش", "سندويج", "كبير", "كبيره", "وسط", "صغير", "صغيره", "عائلي", "قطع", "قطعه", "حبه", "حبات", "عدد", "اريد", "ابي", "ابغي", "لو", "سمحت", "من", "فضلك", "رجاء", "ممكن", "طلب", "اطلب", "مع", "بدون", "بلا", "زياده"]);
+const NUM_WORDS: Record<string, number> = { واحد: 1, وحده: 1, اثنين: 2, ثنين: 2, اثنان: 2, ثلاث: 3, ثلاثه: 3, اربع: 4, اربعه: 4, خمس: 5, خمسه: 5, ست: 6, سته: 6, سبع: 7, سبعه: 7, ثمان: 8, ثمانيه: 8, تسع: 9, تسعه: 9, عشر: 10, عشره: 10 };
+
+export function foldWord(w: string): string {
+  return normDigits(w)
+    .replace(/[ً-ْـ]/g, "")
+    .replace(/[أإآٱ]/g, "ا")
+    .replace(/ة/g, "ه")
+    .replace(/[ىئ]/g, "ي")
+    .replace(/ؤ/g, "و")
+    .replace(/چ/g, "ج")
+    .replace(/گ/g, "ك")
+    .replace(/^ال/, "")
+    .toLowerCase();
+}
+const tokens = (s: string) => s.split(/[\s,،.()\-]+/).map(foldWord).filter((w) => w.length >= 2);
+/** هيكل الكلمة بلا حروف المدّ — «بافلو» و«بوفالو» واحد */
+const skel = (w: string) => w.replace(/[اوي]/g, "");
+/** كلمة من النصّ (قد تبدأ بواو العطف) تساوي كلمة من المنيو؟ */
+function same(w: string, t: string): boolean {
+  const x = w.length > t.length && w.startsWith("و") ? w.slice(1) : w;
+  if (x === t) return true;
+  if (x.length >= 3 && (t.startsWith(x) || x.startsWith(t))) return true;
+  return x.length >= 4 && t.length >= 4 && skel(x) === skel(t) && skel(x).length >= 2;
+}
+
+function splitOrder(text: string): string[] {
+  return normDigits(text)
+    .replace(/[×x*]\s*(\d+)/gi, " $1 ")
+    .split(/\n|،|,|\+|\s+و\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function parseSegment(seg: string, menu: Menu): CartLine[] {
+  let qty = 1;
+  let rest = seg;
+  const num = rest.match(/(?:^|\s)(\d{1,2})(?:\s|$)/);
+  if (num) { qty = Number(num[1]); rest = rest.replace(num[0], " "); }
+  const noteM = rest.match(/(بدون|بلا|من غير|زياده|زيادة|اكثر)\s+\S+(?:\s+\S+)?/);
+  const note = noteM ? noteM[0].trim() : null;
+  if (noteM) rest = rest.replace(noteM[0], " ");
+  const words = tokens(rest);
+  for (const w of words) if (NUM_WORDS[w] && qty === 1) qty = NUM_WORDS[w];
+  let sig = words.filter((w) => !GENERIC.has(w) && !NUM_WORDS[w]);
+
+  const out: CartLine[] = [];
+  // أكثر من صنف في المقطع («زنجر وبيبسي»): الأفضل أولاً، ثم ما بقي من الكلمات
+  while (sig.length && out.length < 4) {
+    let best: { item: MenuItem; score: number; used: string[] } | null = null;
+    for (const item of menu.items) {
+      const it = tokens(item.name);
+      if (!it.length) continue;
+      const used = sig.filter((w) => it.some((t) => same(w, t)));
+      const hit = it.filter((t) => sig.some((w) => same(w, t))).length;
+      if (!hit) continue;
+      const score = hit / it.length + hit * 0.01;
+      if (!best || score > best.score) best = { item, score, used };
+    }
+    if (!best || best.score < 0.5) break;
+    const item = best.item;
+    const size = item.sizes.find((sz) => tokens(sz.name).some((t) => words.some((w) => same(w, t)))) ?? item.sizes[0] ?? null;
+    out.push({
+      itemId: item.id,
+      name: item.name,
+      sizeName: size?.name ?? null,
+      dough: item.doughs[0] ?? null,
+      qty: out.length ? 1 : Math.min(20, Math.max(1, qty)),
+      unitPrice: size ? size.price : item.price,
+      note: out.length ? null : note,
+    });
+    sig = sig.filter((w) => !best!.used.includes(w));
+  }
+  return out;
 }
 
 // ── الشاشات ──────────────────────────────────────────────────────────────────

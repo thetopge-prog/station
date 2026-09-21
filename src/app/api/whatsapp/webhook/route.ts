@@ -7,6 +7,7 @@ import { renderMessage, renderReply, renderWelcome, type WaMessage } from "@/lib
 import {
   normalizeIraqiPhone,
   step,
+  understand,
   type Button,
   type Input,
   type Known,
@@ -210,9 +211,13 @@ async function turn(msg: WaMsg): Promise<void> {
       await send(waId, renderWelcome(menuLink(waId)));
       return;
     }
+    // «٢ زنجر بوفالو وجبة وبيبسي» → سلّة يؤكّدها بالأزرار؛ وما لم يُفهم → إنسان
     if (prev?.flow !== "order" || !prev.draft?.awaitingNote) {
-      await handoff(waId, t, ui, msg.id);
-      return;
+      const menu = await loadMenu();
+      if (!understand(t, menu)) {
+        await handoff(waId, t, ui, msg.id);
+        return;
+      }
     }
   }
 

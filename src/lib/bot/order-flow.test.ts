@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { START, cartTotal, normalizeIraqiPhone, step, type Input, type Menu, type State } from "../../../supabase/functions/telegram-bot/order-flow";
+import { START, cartTotal, normalizeIraqiPhone, step, understand, type Input, type Menu, type State } from "../../../supabase/functions/telegram-bot/order-flow";
 
 /**
  * محرّك الطلب بلا تليغرام: الحوار كله كأزرار ونصوص، والمنيو وسيط.
@@ -129,5 +129,34 @@ describe("normalizeIraqiPhone", () => {
     expect(normalizeIraqiPhone("07701234567")).toBe("07701234567");
     expect(normalizeIraqiPhone("٠٧٧٠١٢٣٤٥٦٧")).toBe("07701234567");
     expect(normalizeIraqiPhone("1234")).toBeNull();
+  });
+});
+
+describe("understand — free text to cart, no LLM", () => {
+  const SHOP: Menu = {
+    categories: [{ id: "c1", name: "زنجر" }, { id: "c2", name: "بيتزا" }, { id: "c3", name: "مشروبات" }],
+    items: [
+      { id: "z1", categoryId: "c1", name: "كلاسيك زنجر", price: 5000, sizes: [{ id: "z1s", name: "ساندويچ", price: 5000 }, { id: "z1m", name: "وجبة", price: 7000 }], doughs: [] },
+      { id: "z2", categoryId: "c1", name: "زنجر بوفالو", price: 5000, sizes: [{ id: "z2s", name: "ساندويچ", price: 5000 }, { id: "z2m", name: "وجبة", price: 7000 }], doughs: [] },
+      { id: "p1", categoryId: "c2", name: "بيتزا سوبريم", price: 12000, sizes: [{ id: "pm", name: "وسط", price: 12000 }, { id: "pl", name: "كبير", price: 17000 }], doughs: [] },
+      { id: "d1", categoryId: "c3", name: "ببسي", price: 1000, sizes: [], doughs: [] },
+    ],
+  };
+  const names = (t: string) => (understand(t, SHOP) ?? []).map((l) => `${l.qty}×${l.name}${l.sizeName ? `/${l.sizeName}` : ""}${l.note ? ` (${l.note})` : ""}`);
+
+  it("reads quantity, item, size and a note from one line", () => {
+    expect(names("٢ زنجر بوفالو وجبة بدون بصل")).toEqual(["2×زنجر بوفالو/وجبة (بدون بصل)"]);
+  });
+  it("splits on «و» / «،» and understands number words and the Arabic ة/ي shapes", () => {
+    expect(names("اريد اثنين زنجر بافلو و بيتزا سوبريم كبيرة، ثلاث بيبسي")).toEqual(["2×زنجر بوفالو/ساندويچ", "1×بيتزا سوبريم/كبير", "3×ببسي"]);
+  });
+  it("prefers the item whose whole name matched, and defaults to the first size", () => {
+    expect(names("كلاسيك زنجر")).toEqual(["1×كلاسيك زنجر/ساندويچ"]);
+    expect(names("زنجر ×2")).toEqual(["2×كلاسيك زنجر/ساندويچ"]);
+  });
+  it("returns null for a question or a greeting — that goes to a human", () => {
+    expect(understand("هل عندكم توصيل للتأميم؟", SHOP)).toBeNull();
+    expect(understand("مرحبا", SHOP)).toBeNull();
+    expect(understand("وين المحل", SHOP)).toBeNull();
   });
 });
