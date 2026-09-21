@@ -71,16 +71,22 @@ async function writeState(chatId: string, state: unknown): Promise<void> {
 
 // ── الإرسال ────────────────────────────────────────────────────────────────
 async function send(to: string, message: WaMessage): Promise<void> {
-  if (!TOKEN() || !PHONE_ID()) return;
+  if (!TOKEN() || !PHONE_ID()) {
+    await note(503, "", "لا يُرسَل: WHATSAPP_TOKEN أو WHATSAPP_PHONE_NUMBER_ID ناقص");
+    return;
+  }
   try {
-    await fetch(`${GRAPH}/${PHONE_ID()}/messages`, {
+    const res = await fetch(`${GRAPH}/${PHONE_ID()}/messages`, {
       method: "POST",
       headers: { Authorization: `Bearer ${TOKEN()}`, "Content-Type": "application/json" },
       body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to, ...message }),
       signal: AbortSignal.timeout(8000),
     });
-  } catch {
-    /* رسالة ضاعت لا تُسقط المحادثة؛ الزبون يكتب ثانيةً */
+    // الفشل الصامت أخفى «البوت متوقف» أياماً: Meta يقول السبب (توكن منتهٍ، رقم غير مفعّل…) — يُسجَّل
+    if (!res.ok) await note(res.status, (await res.text()).slice(0, 600), "Meta رفض الإرسال");
+  } catch (e) {
+    // رسالة ضاعت لا تُسقط المحادثة؛ الزبون يكتب ثانيةً
+    await note(599, "", `تعذّر الوصول إلى Meta: ${e instanceof Error ? e.message.slice(0, 120) : "?"}`);
   }
 }
 const sendText = (to: string, body: string) => send(to, { type: "text", text: { body, preview_url: false } });
