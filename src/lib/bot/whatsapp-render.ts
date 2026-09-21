@@ -27,14 +27,31 @@ export type WaMessage =
  * الويب يفعلها بضغطتين وبالصور، والرقم يُملأ من واتساب نفسه. فالبوت يستقبل
  * ويدلّ — والطلب هناك.
  */
-export function renderWelcome(menuUrl: string): WaMessage {
+export function renderWelcome(): WaMessage {
+  return {
+    type: "interactive",
+    interactive: {
+      type: "button",
+      body: { text: "🍔 *ستيشن* — هلا بيك!\nشلون تحب تطلب؟" },
+      action: {
+        buttons: [
+          { type: "reply", reply: { id: "w|link", title: "🛵 اطلب هسة من المنيو" } },
+          { type: "reply", reply: { id: "w|here", title: "💬 اطلب هنا من الواتساب" } },
+        ],
+      },
+    },
+  };
+}
+
+/** زرّ يفتح المنيو على الويب بوضع التوصيل ورقم الزبون مملوءاً */
+export function renderMenuLink(menuUrl: string): WaMessage {
   return {
     type: "interactive",
     interactive: {
       type: "cta_url",
-      body: { text: "🍔 *ستيشن* — هلا بيك!\nاطلب من المنيو بكبسة، ويوصلك بدقايق.\n\nأو اكتب طلبك هنا مباشرة، وإذا عندك سؤال يجاوبك موظف." },
+      body: { text: "اكبس الزر وتفتح لك المنيو بالصور — تختار وترسل، ويوصلك بدقايق 🛵" },
       footer: { text: "الرمادي · 0783 155 1888" },
-      action: { name: "cta_url", parameters: { display_text: "🛵 اطلب الآن", url: menuUrl } },
+      action: { name: "cta_url", parameters: { display_text: "🛵 اطلب هسة من المنيو", url: menuUrl } },
     },
   };
 }

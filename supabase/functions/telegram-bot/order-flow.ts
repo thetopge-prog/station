@@ -16,6 +16,25 @@ export type MenuSize = { id: string; name: string; price: number };
 export type MenuItem = { id: string; categoryId: string; name: string; price: number; sizes: MenuSize[]; doughs: string[] };
 export type Menu = { categories: { id: string; name: string }[]; items: MenuItem[] };
 
+/**
+ * قسم يغلق 02:00 فجراً ويعود 09:00 (توأم LATE_CUTOFF في src/lib/cafe/time.ts
+ * وفحص place_order في 0092). البوتات تُسقط أصنافه من المنيو في هذه الساعات،
+ * فلا يُعرض ولا يُفهم ولا يُطلب — كالمنيو على الويب تماماً.
+ */
+export function isLateCutoffNow(now: Date = new Date()): boolean {
+  const h = Number(new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Baghdad", hour: "2-digit", hour12: false }).format(now));
+  return h >= 2 && h < 9;
+}
+
+/** المنيو بلا الأقسام المغلقة الآن — يُنادى عند التحميل في كلا البوتين */
+export function dropClosed(menu: Menu, closedCategoryIds: Set<string>, now: Date = new Date()): Menu {
+  if (!closedCategoryIds.size || !isLateCutoffNow(now)) return menu;
+  return {
+    categories: menu.categories.filter((c) => !closedCategoryIds.has(c.id)),
+    items: menu.items.filter((i) => !closedCategoryIds.has(i.categoryId)),
+  };
+}
+
 export type CartLine = {
   itemId: string;
   name: string;

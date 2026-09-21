@@ -1,5 +1,5 @@
 import { humanPause, transcribe, understandSmart, type Parsed, type PhraseMemory } from "./llm.ts";
-import { step as orderStep, normalizeIraqiPhone, type Menu, type State as OrderState, type Input as OrderInput, type Reply as OrderReply } from "./order-flow.ts";
+import { dropClosed, step as orderStep, normalizeIraqiPhone, type Menu, type State as OrderState, type Input as OrderInput, type Reply as OrderReply } from "./order-flow.ts";
 // بوت ستيشن — Supabase Edge Function (Telegram webhook, يعمل 24/7).
 // نفس بوت الأزرار الكامل: تقارير، الطلبات الآن، الطاولات، الأكثر/الأقل مبيعاً،
 // إدارة المنتجات (إضافة/حذف/تسعير/تفعيل) — والحالة الحوارية محفوظة في bot_state.
@@ -1157,12 +1157,16 @@ async function onCallback(cb: Row) {
 
 async function loadMenu(): Promise<Menu> {
   const [items, sizes] = await Promise.all([
-    rest("menu_public?select=id,category_id,name_ar,price,flavors,category_name,category_sort,sort&order=category_sort.asc,sort.asc"),
+    rest("menu_public?select=id,category_id,name_ar,price,flavors,category_name,category_sort,category_late_cutoff,sort&order=category_sort.asc,sort.asc"),
     rest("variant_public?select=id,item_id,kind,name_ar,price,sort&kind=eq.size&order=sort.asc"),
   ]);
   const cats = new Map<string, { id: string; name: string; sort: number }>();
-  for (const it of items as Row[]) if (!cats.has(it.category_id)) cats.set(it.category_id, { id: it.category_id, name: it.category_name, sort: it.category_sort });
-  return {
+  const closed = new Set<string>();
+  for (const it of items as Row[]) {
+    if (!cats.has(it.category_id)) cats.set(it.category_id, { id: it.category_id, name: it.category_name, sort: it.category_sort });
+    if (it.category_late_cutoff) closed.add(it.category_id);
+  }
+  return dropClosed({
     categories: [...cats.values()].sort((a, b) => a.sort - b.sort).map(({ id, name }) => ({ id, name })),
     items: (items as Row[]).map((it) => ({
       id: it.id,
@@ -1172,7 +1176,7 @@ async function loadMenu(): Promise<Menu> {
       sizes: (sizes as Row[]).filter((v) => v.item_id === it.id).map((v) => ({ id: v.id, name: v.name_ar, price: Number(v.price) || 0 })),
       doughs: Array.isArray(it.flavors) ? it.flavors : [],
     })),
-  };
+  }, closed);
 }
 
 /** ما يعرفه المحل عن هذا الهاتف — ليُعرض «نفس العنوان؟» بدل السؤال من جديد */

@@ -3,9 +3,10 @@ import { after } from "next/server";
 import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/types";
-import { renderMessage, renderReply, renderWelcome, type WaMessage } from "@/lib/bot/whatsapp-render";
+import { renderMenuLink, renderMessage, renderReply, renderWelcome, type WaMessage } from "@/lib/bot/whatsapp-render";
 import { humanPause, transcribe, understandSmart, type Parsed, type PhraseMemory } from "../../../../../supabase/functions/telegram-bot/llm";
 import {
+  dropClosed,
   normalizeIraqiPhone,
   step,
   type CartLine,
@@ -112,14 +113,18 @@ const phraseMemory: PhraseMemory = {
 async function loadMenu(): Promise<Menu> {
   const svc = createSupabaseServiceClient();
   const [{ data: items }, { data: vars }] = await Promise.all([
-    svc.from("menu_public").select("id, category_id, name_ar, price, flavors, category_name, category_sort, sort").order("category_sort").order("sort"),
+    svc.from("menu_public").select("id, category_id, name_ar, price, flavors, category_name, category_sort, category_late_cutoff, sort").order("category_sort").order("sort"),
     svc.from("variant_public").select("id, item_id, kind, name_ar, price, sort").eq("kind", "size").order("sort"),
   ]);
   const cats = new Map<string, { id: string; name: string }>();
-  const list = (items ?? []) as { id: string; category_id: string; name_ar: string; price: number; flavors: unknown; category_name: string }[];
-  for (const it of list) if (!cats.has(it.category_id)) cats.set(it.category_id, { id: it.category_id, name: it.category_name });
+  const list = (items ?? []) as { id: string; category_id: string; name_ar: string; price: number; flavors: unknown; category_name: string; category_late_cutoff?: boolean }[];
+  const closed = new Set<string>();
+  for (const it of list) {
+    if (!cats.has(it.category_id)) cats.set(it.category_id, { id: it.category_id, name: it.category_name });
+    if (it.category_late_cutoff) closed.add(it.category_id);
+  }
   const sizes = (vars ?? []) as { id: string; item_id: string; name_ar: string; price: number }[];
-  return {
+  return dropClosed({
     categories: [...cats.values()],
     items: list.map((it) => ({
       id: it.id,
@@ -129,7 +134,7 @@ async function loadMenu(): Promise<Menu> {
       sizes: sizes.filter((v) => v.item_id === it.id).map((v) => ({ id: v.id, name: v.name_ar, price: v.price })),
       doughs: Array.isArray(it.flavors) ? (it.flavors as string[]) : [],
     })),
-  };
+  }, closed);
 }
 
 async function knownCustomer(phone: string | null): Promise<Known> {
@@ -237,7 +242,7 @@ async function turn(msg: WaMsg): Promise<void> {
   if (msg.id && ui?.lastMsgId === msg.id) return;
 
   let understood: CartLine[] | null = null;
-  const raw = await inputOf(msg);
+  let raw = await inputOf(msg);
 
   // نصّ: تحيّة أو «طلب» → الترحيب بزرّ المنيو؛ وإلا فسؤال لإنسان. الأزرار
   // القديمة (من كان في وسط طلب) تكمل على المحرّك كما كانت.
@@ -247,7 +252,7 @@ async function turn(msg: WaMsg): Promise<void> {
     if (greeting) {
       await writeState(uiKey(waId), { ...(ui ?? { buttons: [], text: "" }), lastMsgId: msg.id });
       await humanPause();
-      await send(waId, renderWelcome(menuLink(waId)));
+      await send(waId, renderWelcome());
       return;
     }
     // «٢ زنجر بوفالو وجبة وبيبسي» → سلّة يؤكّدها بالأزرار (قواعد ثم Gemini/Groq)؛ وما لم يُفهم → إنسان
@@ -276,6 +281,19 @@ async function turn(msg: WaMsg): Promise<void> {
     return;
   }
 
+  // زرّا الترحيب: رابط المنيو، أو الطلب هنا بالكتابة أو من الأصناف
+  if (raw.kind === "button" && raw.data === "w|link") {
+    await writeState(uiKey(waId), { ...(ui ?? { buttons: [], text: "" }), lastMsgId: msg.id });
+    await humanPause();
+    await send(waId, renderMenuLink(menuLink(waId)));
+    return;
+  }
+  if (raw.kind === "button" && raw.data === "w|here") {
+    await humanPause();
+    await sendText(waId, "تكدر تكتب طلبك هنا (مثلاً: اثنين زنجر وجبة وبيبسي) أو تختار من الأصناف 👇");
+    raw = { kind: "button", data: "o|cats" };
+  }
+
   const menu = await loadMenu();
   const state = prev?.flow === "order" ? prev : null;
   const phone = normalizeIraqiPhone(waId);
@@ -286,10 +304,10 @@ async function turn(msg: WaMsg): Promise<void> {
   if (out.reply.requestContact && phone) out = step(out.state, { kind: "contact", phone: waId }, menu, known);
   if (!out.state.name && known.name) out.state.name = known.name;
 
-  // شاشة البداية من المحرّك (زرّ «إلغاء» أو «الرئيسية») → الترحيب بالرابط
+  // شاشة البداية من المحرّك (زرّ «إلغاء» أو «الرئيسية») → الترحيب
   if (out.state.step === "start" && !out.reply.order) {
     await Promise.all([writeState(key(waId), out.state), writeState(uiKey(waId), { buttons: [], text: "", lastMsgId: msg.id })]);
-    await send(waId, renderWelcome(menuLink(waId)));
+    await send(waId, renderWelcome());
     return;
   }
 
