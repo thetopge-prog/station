@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/types";
 import { renderMessage, renderReply, renderWelcome, type WaMessage } from "@/lib/bot/whatsapp-render";
-import { humanPause, understandSmart, type Parsed, type PhraseMemory } from "../../../../../supabase/functions/telegram-bot/llm";
+import { humanPause, transcribe, understandSmart, type Parsed, type PhraseMemory } from "../../../../../supabase/functions/telegram-bot/llm";
 import {
   normalizeIraqiPhone,
   step,
@@ -162,12 +162,30 @@ async function submitOrder(waId: string, order: OrderPayload): Promise<void> {
 }
 
 // ── دورة الرسالة ───────────────────────────────────────────────────────────
-type WaMsg = { from?: string; id?: string; type?: string; text?: { body?: string }; interactive?: { button_reply?: { id?: string }; list_reply?: { id?: string } } };
+type WaMsg = { from?: string; id?: string; type?: string; text?: { body?: string }; audio?: { id?: string; mime_type?: string }; interactive?: { button_reply?: { id?: string }; list_reply?: { id?: string } } };
 
-function inputOf(msg: WaMsg): Input {
+/** الرسالة الصوتية: تُنزَّل من Meta وتُحوَّل نصّاً؛ إن تعذّر تبقى «صوت» ويُجاب عليها كما كان */
+async function inputOf(msg: WaMsg): Promise<Input> {
   const id = msg.interactive?.button_reply?.id ?? msg.interactive?.list_reply?.id;
   if (id) return { kind: "button", data: id };
-  if (msg.type === "audio" || msg.type === "voice") return { kind: "voice" };
+  if (msg.type === "audio" || msg.type === "voice") {
+    const mediaId = msg.audio?.id;
+    const keys = { gemini: process.env.GEMINI_API_KEY, groq: process.env.GROQ_API_KEY };
+    if (mediaId && (keys.groq || keys.gemini)) {
+      try {
+        const meta = await fetch(`${GRAPH}/${mediaId}`, { headers: { Authorization: `Bearer ${TOKEN()}` }, signal: AbortSignal.timeout(8000) });
+        const { url, mime_type } = (await meta.json()) as { url?: string; mime_type?: string };
+        if (url) {
+          const file = await fetch(url, { headers: { Authorization: `Bearer ${TOKEN()}` }, signal: AbortSignal.timeout(15000) });
+          const text = await transcribe(await file.arrayBuffer(), mime_type ?? msg.audio?.mime_type ?? "audio/ogg", keys);
+          if (text) return { kind: "text", text };
+        }
+      } catch {
+        /* يبقى صوتاً */
+      }
+    }
+    return { kind: "voice" };
+  }
   return { kind: "text", text: String(msg.text?.body ?? "") };
 }
 
@@ -219,7 +237,7 @@ async function turn(msg: WaMsg): Promise<void> {
   if (msg.id && ui?.lastMsgId === msg.id) return;
 
   let understood: CartLine[] | null = null;
-  const raw = inputOf(msg);
+  const raw = await inputOf(msg);
 
   // نصّ: تحيّة أو «طلب» → الترحيب بزرّ المنيو؛ وإلا فسؤال لإنسان. الأزرار
   // القديمة (من كان في وسط طلب) تكمل على المحرّك كما كانت.

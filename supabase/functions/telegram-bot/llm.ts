@@ -104,7 +104,7 @@ function safeReply(r: string | undefined): string | null {
 }
 
 /** سؤال عن ذات البوت أو التقنية — يُجاب ثابتاً قبل أي نموذج */
-const ABOUT_SELF = /(ذكاء|اصطناعي|روبوت|بوت|برنامج|انت انسان|انت بشر|منو انت|من انت|شنو انت|مبني|تقنية|chatgpt|gpt|ai)/i;
+const ABOUT_SELF = /(ذكاء|اصطناعي|روبوت|\bبوت\b|برنامج|انت انسان|انت بشر|منو انت|من انت|شنو انت|مبني|تقنيه|\b(chatgpt|gpt|ai)\b)/i;
 
 export async function understandSmart(text: string, menu: Menu, keys: LlmKeys, memory?: PhraseMemory): Promise<Understood> {
   const key = text.split(/\s+/).map(foldWord).filter(Boolean).join(" ").slice(0, 200);
@@ -149,6 +149,49 @@ export async function understandSmart(text: string, menu: Menu, keys: LlmKeys, m
       return { intent: "other" };
     } catch {
       /* مهلة أو JSON مكسور — الطبقة التالية */
+    }
+  }
+  return null;
+}
+
+/**
+ * الصوت → نصّ. Groq (Whisper، مجاني) أولاً، وGemini يسمع الملف مباشرة احتياطاً.
+ * النصّ الناتج يمرّ على understandSmart كأنه كُتب — فالصوت لا يزيد قاعدة.
+ */
+export async function transcribe(audio: ArrayBuffer, mime: string, keys: LlmKeys): Promise<string | null> {
+  if (keys.groq) {
+    try {
+      const form = new FormData();
+      form.append("file", new Blob([audio], { type: mime }), "voice." + (mime.includes("ogg") ? "ogg" : mime.includes("mp4") ? "m4a" : "mp3"));
+      form.append("model", "whisper-large-v3");
+      form.append("language", "ar");
+      form.append("response_format", "json");
+      const res = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", { method: "POST", headers: { Authorization: `Bearer ${keys.groq}` }, body: form, signal: AbortSignal.timeout(15000) });
+      if (res.ok) {
+        const j = (await res.json()) as { text?: string };
+        const t = (j.text ?? "").trim();
+        if (t) return t;
+      }
+    } catch {
+      /* الطبقة التالية */
+    }
+  }
+  if (keys.gemini) {
+    try {
+      const b64 = btoa(String.fromCharCode(...new Uint8Array(audio)));
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${keys.gemini}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: [{ parts: [{ text: "اكتب ما قيل في هذا التسجيل بالعربية كما هو، بلا تعليق." }, { inlineData: { mimeType: mime, data: b64 } }] }] }),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (res.ok) {
+        const j = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+        const t = (j.candidates?.[0]?.content?.parts?.[0]?.text ?? "").trim();
+        if (t) return t;
+      }
+    } catch {
+      /* لا شيء */
     }
   }
   return null;

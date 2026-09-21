@@ -1,4 +1,4 @@
-import { humanPause, understandSmart, type Parsed, type PhraseMemory } from "./llm.ts";
+import { humanPause, transcribe, understandSmart, type Parsed, type PhraseMemory } from "./llm.ts";
 import { step as orderStep, normalizeIraqiPhone, type Menu, type State as OrderState, type Input as OrderInput, type Reply as OrderReply } from "./order-flow.ts";
 // بوت ستيشن — Supabase Edge Function (Telegram webhook, يعمل 24/7).
 // نفس بوت الأزرار الكامل: تقارير، الطلبات الآن، الطاولات، الأكثر/الأقل مبيعاً،
@@ -1228,6 +1228,20 @@ async function customerTurn(chatId: number | string, msg: Row, prev: Row | null)
       : msg.voice
         ? { kind: "voice" }
         : { kind: "text", text: String(msg.text ?? "") };
+  // صوت → نصّ (Groq Whisper / Gemini) ثم يُفهم كأي نصّ
+  if (input.kind === "voice" && msg.voice?.file_id) {
+    const keys = { gemini: Deno.env.get("GEMINI_API_KEY"), groq: Deno.env.get("GROQ_API_KEY") };
+    try {
+      const f = (await tg("getFile", { file_id: msg.voice.file_id })) as { result?: { file_path?: string } };
+      if (f.result?.file_path) {
+        const file = await fetch(`https://api.telegram.org/file/bot${TOKEN}/${f.result.file_path}`, { signal: AbortSignal.timeout(15000) });
+        const text = await transcribe(await file.arrayBuffer(), String(msg.voice.mime_type ?? "audio/ogg"), keys);
+        if (text) input = { kind: "text", text };
+      }
+    } catch {
+      /* يبقى صوتاً */
+    }
+  }
   const state = (prev?.flow === "order" ? prev : null) as OrderState | null;
   const menu = await loadMenu();
   // نصّ حرّ خارج سؤال (ملاحظة/هاتف/عنوان): قواعد ثم Gemini/Groq إن وُجد مفتاح
