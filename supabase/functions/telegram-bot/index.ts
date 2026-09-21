@@ -1,4 +1,4 @@
-import { understandSmart } from "./llm.ts";
+import { humanPause, understandSmart, type Parsed, type PhraseMemory } from "./llm.ts";
 import { step as orderStep, normalizeIraqiPhone, type Menu, type State as OrderState, type Input as OrderInput, type Reply as OrderReply } from "./order-flow.ts";
 // بوت ستيشن — Supabase Edge Function (Telegram webhook, يعمل 24/7).
 // نفس بوت الأزرار الكامل: تقارير، الطلبات الآن، الطاولات، الأكثر/الأقل مبيعاً،
@@ -127,6 +127,21 @@ async function getState(chatId: number | string) {
   const rows = await rest(`bot_state?chat_id=eq.${chatId}&select=state`);
   return rows[0]?.state ?? null;
 }
+/** ذاكرة العبارات (0094) عبر REST — الجدول نفسه الذي يكتبه واتساب */
+const phraseMemory: PhraseMemory = {
+  async get(key) {
+    const rows = (await rest(`bot_phrases?select=intent,parsed,hits&text_key=eq.${encodeURIComponent(key)}`)) as Row[];
+    const row = rows[0];
+    if (!row) return null;
+    void restWrite(`bot_phrases?text_key=eq.${encodeURIComponent(key)}`, "PATCH", { hits: Number(row.hits ?? 1) + 1, updated_at: new Date().toISOString() }).catch(() => {});
+    return { intent: String(row.intent), ...((row.parsed as Parsed | null) ?? {}) } as Parsed;
+  },
+  async put(key, text, intent, parsed, source) {
+    // on_conflict + merge-duplicates في restWrite: العبارة نفسها تُحدَّث لا تُكرَّر
+    await restWrite("bot_phrases?on_conflict=text_key", "POST", [{ text_key: key, text: text.slice(0, 400), intent, parsed, source }]);
+  },
+};
+
 async function setState(chatId: number | string, state: unknown) {
   await restWrite("bot_state?on_conflict=chat_id", "POST", [{ chat_id: String(chatId), state }]);
 }
@@ -1217,9 +1232,15 @@ async function customerTurn(chatId: number | string, msg: Row, prev: Row | null)
   const menu = await loadMenu();
   // نصّ حرّ خارج سؤال (ملاحظة/هاتف/عنوان): قواعد ثم Gemini/Groq إن وُجد مفتاح
   if (input.kind === "text" && !/^\//.test(input.text) && !(state && (["phone", "address"].includes(state.step) || state.draft?.awaitingNote))) {
-    const got = await understandSmart(input.text, menu, { gemini: Deno.env.get("GEMINI_API_KEY"), groq: Deno.env.get("GROQ_API_KEY") });
+    const got = await understandSmart(input.text, menu, { gemini: Deno.env.get("GEMINI_API_KEY"), groq: Deno.env.get("GROQ_API_KEY") }, phraseMemory);
     if (got && "lines" in got) input = { kind: "lines", lines: got.lines };
+    else if (got && "intent" in got && got.intent === "menu") {
+      await humanPause();
+      await say(chatId, esc(got.reply), [[{ text: "🍕 اطلب الآن", callback_data: "o|cats" }]]);
+      return;
+    }
   }
+  await humanPause();
   const phoneForLookup = input.kind === "contact" ? input.phone : state?.phone;
   const known = await knownCustomer(phoneForLookup ? normalizeIraqiPhone(phoneForLookup) : null);
   const out = orderStep(state, input, menu, known);

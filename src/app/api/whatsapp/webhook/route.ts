@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/types";
 import { renderMessage, renderReply, renderWelcome, type WaMessage } from "@/lib/bot/whatsapp-render";
-import { understandSmart } from "../../../../../supabase/functions/telegram-bot/llm";
+import { humanPause, understandSmart, type Parsed, type PhraseMemory } from "../../../../../supabase/functions/telegram-bot/llm";
 import {
   normalizeIraqiPhone,
   step,
@@ -93,6 +93,21 @@ async function send(to: string, message: WaMessage): Promise<void> {
 }
 const sendText = (to: string, body: string) => send(to, { type: "text", text: { body, preview_url: false } });
 
+/** ذاكرة العبارات (0094): supabase-js هنا، REST في تيليغرام — الجدول واحد */
+const phraseMemory: PhraseMemory = {
+  async get(key) {
+    const svc = createSupabaseServiceClient();
+    const { data } = await svc.from("bot_phrases").select("intent, parsed, hits").eq("text_key", key).maybeSingle();
+    if (!data) return null;
+    void svc.from("bot_phrases").update({ hits: (data.hits ?? 1) + 1, updated_at: new Date().toISOString() }).eq("text_key", key);
+    return { intent: data.intent, ...((data.parsed as Parsed | null) ?? {}) };
+  },
+  async put(key, text, intent, parsed, source) {
+    const svc = createSupabaseServiceClient();
+    await svc.from("bot_phrases").upsert({ text_key: key, text: text.slice(0, 400), intent, parsed: parsed as unknown as Json, source }, { onConflict: "text_key", ignoreDuplicates: true });
+  },
+};
+
 // ── المنيو: نفس المنظورين العامّين اللذين يقرؤهما بوت تليغرام ──────────────
 async function loadMenu(): Promise<Menu> {
   const svc = createSupabaseServiceClient();
@@ -140,7 +155,7 @@ async function submitOrder(waId: string, order: OrderPayload): Promise<void> {
     });
     const j = (await r.json().catch(() => ({}))) as { ok?: boolean; order_number?: string };
     if (!r.ok || !j.ok) return void sendText(waId, "تعذّر إرسال الطلب — أعد المحاولة أو اتصل بالمطعم.");
-    await sendText(waId, `✅ وصل طلبك — رقمه *${j.order_number}*\nسنخبرك حين يُقبل ويجهز.`);
+    await sendText(waId, `✅ وصل طلبك — رقمه *${j.order_number}*\nنخبرك لمن يتقبل ويجهز.`);
   } catch {
     await sendText(waId, "تعذّر إرسال الطلب — أعد المحاولة أو اتصل بالمطعم.");
   }
@@ -189,7 +204,10 @@ async function handoff(waId: string, text: string, ui: Ui | null, msgId: string 
   }
   const recently = ui?.humanAt && Date.now() - Date.parse(ui.humanAt) < 60 * 60_000;
   await writeState(uiKey(waId), { ...(ui ?? { buttons: [], text: "" }), lastMsgId: msgId, humanAt: recently ? ui!.humanAt : new Date().toISOString() });
-  if (!recently) await sendText(waId, "وصلتنا رسالتك ✅ سيردّ عليك موظف خلال دقائق.\nوللطلب مباشرة: " + menuLink(waId));
+  if (!recently) {
+    await humanPause();
+    await sendText(waId, "وصلتنا رسالتك ✅ راح يجاوبك موظف بعد شوية.\nوإذا تحب تطلب هسة: " + menuLink(waId));
+  }
 }
 
 async function turn(msg: WaMsg): Promise<void> {
@@ -210,13 +228,20 @@ async function turn(msg: WaMsg): Promise<void> {
     const greeting = !t || /^\/?(start|order)\b/i.test(t) || /^(مرحبا|مرحباً|هلا|هلو|السلام|سلام|hi|hello|hey|طلب|اطلب|منيو|المنيو|قائمة|القائمة|اريد اطلب|أريد أطلب)\b/i.test(t) || t.length <= 2;
     if (greeting) {
       await writeState(uiKey(waId), { ...(ui ?? { buttons: [], text: "" }), lastMsgId: msg.id });
+      await humanPause();
       await send(waId, renderWelcome(menuLink(waId)));
       return;
     }
     // «٢ زنجر بوفالو وجبة وبيبسي» → سلّة يؤكّدها بالأزرار (قواعد ثم Gemini/Groq)؛ وما لم يُفهم → إنسان
     if (prev?.flow !== "order" || !prev.draft?.awaitingNote) {
       const menu = await loadMenu();
-      const got = await understandSmart(t, menu, { gemini: process.env.GEMINI_API_KEY, groq: process.env.GROQ_API_KEY });
+      const got = await understandSmart(t, menu, { gemini: process.env.GEMINI_API_KEY, groq: process.env.GROQ_API_KEY }, phraseMemory);
+      if (got && "intent" in got && got.intent === "menu") {
+        await writeState(uiKey(waId), { ...(ui ?? { buttons: [], text: "" }), lastMsgId: msg.id });
+        await humanPause();
+        await sendText(waId, got.reply + "\nللطلب: " + menuLink(waId));
+        return;
+      }
       if (!got || !("lines" in got)) {
         await handoff(waId, t, ui, msg.id);
         return;
@@ -255,6 +280,7 @@ async function turn(msg: WaMsg): Promise<void> {
     writeState(key(waId), out.state),
     writeState(uiKey(waId), { buttons: view.buttons, text: view.text, lastMsgId: msg.id } satisfies Ui),
   ]);
+  await humanPause();
   await send(waId, view.message);
   if (out.reply.order) await submitOrder(waId, out.reply.order);
 }

@@ -215,7 +215,7 @@ function screenStart(state: State): { state: State; reply: Reply } {
   return {
     state: { ...state, step: "start", draft: undefined },
     reply: {
-      text: "🍔 <b>ستيشن</b>\nاطلب من القائمة وسيصلك خلال دقائق.",
+      text: "🍔 <b>ستيشن</b>\nهلا بيك — اطلب من القائمة ويوصلك بدقايق.",
       buttons: [[{ text: "🍕 اطلب الآن", data: "o|cats" }], ...(n ? [[BTN_CART(n)]] : [])],
     },
   };
@@ -229,7 +229,7 @@ function screenCats(state: State, menu: Menu): { state: State; reply: Reply } {
   }
   const n = state.cart.reduce((s, l) => s + l.qty, 0);
   rows.push([BTN_CART(n), BTN_HOME]);
-  return { state: { ...state, step: "cats", draft: undefined }, reply: { text: "اختر القسم:", buttons: rows } };
+  return { state: { ...state, step: "cats", draft: undefined }, reply: { text: "شنو تحب تطلب؟ اختار القسم:", buttons: rows } };
 }
 
 function screenItems(state: State, menu: Menu, catId: string): { state: State; reply: Reply } {
@@ -275,7 +275,7 @@ function screenChannel(state: State): { state: State; reply: Reply } {
   return {
     state: { ...state, step: "channel" },
     reply: {
-      text: "كيف تستلم طلبك؟",
+      text: "شلون تستلم طلبك؟",
       buttons: [[{ text: "🛵 توصيل", data: "o|ch|delivery" }, { text: "🏪 استلام من المحل", data: "o|ch|pickup" }], [{ text: "⬅️ السلّة", data: "o|cart" }]],
     },
   };
@@ -292,7 +292,7 @@ function screenAddress(state: State, known?: Known): { state: State; reply: Repl
   const rows: Button[][] = [];
   if (known?.address) rows.push([{ text: `📍 نفس العنوان: ${known.address.slice(0, 40)}`, data: "o|addr|same" }]);
   rows.push([{ text: "⬅️ السلّة", data: "o|cart" }]);
-  return { state: { ...state, step: "address" }, reply: { text: "📍 اكتب عنوان التوصيل (المنطقة، الشارع، أقرب معلم):", buttons: rows } };
+  return { state: { ...state, step: "address" }, reply: { text: "📍 دزلنا العنوان (المنطقة، الشارع، أقرب معلم):", buttons: rows } };
 }
 
 function screenConfirm(state: State): { state: State; reply: Reply } {
@@ -380,7 +380,7 @@ export function step(prev: State | null, input: Input, menu: Menu, known?: Known
     case "dough": if (state.draft) return screenItem({ ...state, draft: { ...state.draft, dough: arg } }, menu); break;
     case "qty": if (state.draft) return screenItem({ ...state, draft: { ...state.draft, qty: Math.min(20, Math.max(1, state.draft.qty + (arg === "+" ? 1 : -1))) } }, menu); break;
     case "note":
-      if (state.draft) return { state: { ...state, draft: { ...state.draft, awaitingNote: true } }, reply: { text: "📝 اكتب الملاحظة (مثل: بلا بصل). أرسل <code>-</code> لحذفها." } };
+      if (state.draft) return { state: { ...state, draft: { ...state.draft, awaitingNote: true } }, reply: { text: "📝 اكتب الملاحظة (مثل: بلا بصل). دز <code>-</code> إذا ما تريد." } };
       break;
     case "add": {
       const d = state.draft;

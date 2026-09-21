@@ -1,30 +1,56 @@
 /**
- * فهم الطلب المكتوب: القواعد أولاً (مجانية، فورية)، ثم نموذج لغوي إن توفّر مفتاح.
+ * فهم ما يكتبه الزبون: الذاكرة، ثم القواعد، ثم نموذج لغوي إن توفّر مفتاح.
  *
- * Gemini (المجاني) ثم Groq احتياطاً. النموذج لا يخترع أصنافاً: يعيد معرّفات
- * من المنيو الذي أُعطي له فقط، ويُتحقّق من كل معرّف قبل أن يدخل السلّة.
- * بلا مفتاح، أو عند أي خطأ أو بطء — يعود null ويكمل النظام بالقواعد.
+ *   ١. الذاكرة (bot_phrases): نفس العبارة كُتبت من قبل → نفس الفهم فوراً، بلا نموذج.
+ *   ٢. القواعد (understand): مطابقة كلمات على أسماء المنيو — مجانية وفورية.
+ *   ٣. Gemini ثم Groq: للجمل الغريبة. النموذج مقيَّد: يعيد معرّفات من المنيو
+ *      المعطى فقط ويُتحقّق من كلّ معرّف، وردّه القصير (بالعراقي) محصور في المنيو
+ *      والأسعار والطلب — لا يذكر تقنية ولا نماذج ولا ما بُني عليه النظام.
+ *
+ * كل فهم ناجح يُحفظ في الذاكرة — «يتعلم مما يطلبون». بلا مفتاح أو عند أي خطأ
+ * أو بطء: null، ويكمل النظام كما كان.
  *
  * يعمل في Deno (تليغرام) وNode (واتساب): fetch فقط، لا مكتبات.
  */
-import { understand, type CartLine, type Menu } from "./order-flow.ts";
+import { foldWord, understand, type CartLine, type Menu } from "./order-flow.ts";
 
 export type LlmKeys = { gemini?: string; groq?: string };
-export type Understood = { lines: CartLine[] } | { intent: "other" } | null;
+export type Parsed = { intent?: string; reply?: string; lines?: { item_id?: string; size?: string; qty?: number; note?: string }[] };
+export type Understood = { lines: CartLine[] } | { intent: "menu"; reply: string } | { intent: "other" } | null;
+/** الذاكرة: يوفّرها المنادي بحسب بيئته (supabase-js أو REST) */
+export type PhraseMemory = {
+  get(key: string): Promise<Parsed | null>;
+  put(key: string, text: string, intent: "order" | "menu" | "other", parsed: Parsed, source: "rules" | "llm"): Promise<void>;
+};
 
-type Parsed = { intent?: string; lines?: { item_id?: string; size?: string; qty?: number; note?: string }[] };
-
-function prompt(text: string, menu: Menu): string {
-  const rows = menu.items
-    .map((i) => `${i.id} | ${i.name}${i.sizes.length ? " | أحجام: " + i.sizes.map((s) => s.name).join("/") : ""}`)
+/** ما يُعرَض للنموذج: المعرّف والاسم والأحجام بأسعارها — لا شيء غير المنيو */
+function menuRows(menu: Menu): string {
+  const fmt = (n: number) => new Intl.NumberFormat("en-US").format(Math.round(n));
+  return menu.items
+    .map((i) => `${i.id} | ${i.name} | ${i.sizes.length ? i.sizes.map((s) => `${s.name} ${fmt(s.price)}`).join(" / ") : fmt(i.price)} د.ع`)
     .join("\n");
+}
+
+/** ما يُقال حين يُسأل البوت عن نفسه أو عن التقنية — ثابت، لا يكتبه النموذج */
+export const SELF_REPLY = "آني مساعد ستيشن للطلبات 😊 شتحب تطلب؟";
+
+export function prompt(text: string, menu: Menu): string {
   return [
-    "أنت تقرأ رسالة زبون لمطعم وجبات سريعة عراقي وتحوّلها إلى JSON فقط.",
-    "المنيو (معرّف | الاسم | الأحجام):",
-    rows,
+    "أنت موظّف طلبات في مطعم «ستيشن» بالرمادي. تكلّم باللهجة العراقية، بجمل قصيرة وودّية.",
+    "قواعد صارمة:",
+    "- موضوعك الوحيد: المنيو أدناه، أسعاره، والطلب. أي شيء آخر (سياسة، دين، برمجة، تقنية، أسئلة شخصية) → intent=other وreply فارغ.",
+    "- لا تقل أبداً إنك ذكاء اصطناعي أو نموذج أو برنامج، ولا تذكر أي شركة تقنية أو على ماذا بُني النظام. إن سُئلت عن ذلك → intent=other.",
+    "- لا تخترع صنفاً ولا سعراً ولا عرضاً غير موجود في المنيو. لا تعِد بوقت توصيل محدّد.",
+    "- الأسعار والأصناف من القائمة أدناه فقط.",
     "",
-    "أعد JSON بهذا الشكل حصراً: {\"intent\":\"order\"|\"other\",\"lines\":[{\"item_id\":\"<معرّف من المنيو>\",\"size\":\"<اسم الحجم أو فارغ>\",\"qty\":<عدد>,\"note\":\"<ملاحظة أو فارغ>\"}]}",
-    "intent=order إن كانت الرسالة طلب أكل، وإلا other مع lines فارغة. لا تخترع أصنافاً غير موجودة. اللهجة العراقية مقبولة (اثنين، ثلاث، وحدة).",
+    "المنيو (المعرّف | الاسم | الأحجام والأسعار):",
+    menuRows(menu),
+    "",
+    "أعد JSON فقط بهذا الشكل: {\"intent\":\"order\"|\"menu\"|\"other\",\"lines\":[{\"item_id\":\"<معرّف من المنيو>\",\"size\":\"<اسم الحجم أو فارغ>\",\"qty\":<عدد>,\"note\":\"<ملاحظة أو فارغ>\"}],\"reply\":\"<ردّ قصير بالعراقي>\"}",
+    "- intent=order: الرسالة طلب أكل → lines بالأصناف، وreply فارغ.",
+    "- intent=menu: سؤال عن المنيو أو الأسعار أو الأحجام → lines فارغة، وreply جواب من المنيو فقط (سطر أو سطران) ينتهي بدعوة للطلب.",
+    "- intent=other: كل ما عدا ذلك → lines فارغة وreply فارغ.",
+    "اللهجة العراقية مقبولة في الأعداد (اثنين، ثلاث، وحدة، جوز).",
     "",
     "رسالة الزبون: «" + text.slice(0, 400) + "»",
   ].join("\n");
@@ -69,20 +95,64 @@ export function toLines(parsed: Parsed, menu: Menu): CartLine[] {
   return out;
 }
 
-export async function understandSmart(text: string, menu: Menu, keys: LlmKeys): Promise<Understood> {
+/** ردّ النموذج يُصفّى مرّة أخيرة: لا حديث عن التقنية مهما قال */
+const LEAK = /(ذكاء|اصطناعي|نموذج|روبوت|بوت|برنامج|gemini|groq|openai|gpt|claude|llama|ai\b|model|supabase|next\.?js|javascript|كود|برمج|خوارزم)/i;
+function safeReply(r: string | undefined): string | null {
+  const t = (r ?? "").trim().slice(0, 400);
+  if (!t || LEAK.test(t)) return null;
+  return t;
+}
+
+/** سؤال عن ذات البوت أو التقنية — يُجاب ثابتاً قبل أي نموذج */
+const ABOUT_SELF = /(ذكاء|اصطناعي|روبوت|بوت|برنامج|انت انسان|انت بشر|منو انت|من انت|شنو انت|مبني|تقنية|chatgpt|gpt|ai)/i;
+
+export async function understandSmart(text: string, menu: Menu, keys: LlmKeys, memory?: PhraseMemory): Promise<Understood> {
+  const key = text.split(/\s+/).map(foldWord).filter(Boolean).join(" ").slice(0, 200);
+  if (!key) return null;
+
+  if (ABOUT_SELF.test(foldWord(text)) && !understand(text, menu)) return { intent: "menu", reply: SELF_REPLY };
+
+  // ١. الذاكرة
+  const remembered = memory ? await memory.get(key).catch(() => null) : null;
+  if (remembered) {
+    const lines = toLines(remembered, menu);
+    if (lines.length) return { lines };
+    const reply = safeReply(remembered.reply);
+    if (remembered.intent === "menu" && reply) return { intent: "menu", reply };
+    if (remembered.intent === "other") return { intent: "other" };
+  }
+
+  // ٢. القواعد
   const rules = understand(text, menu);
-  if (rules) return { lines: rules };
+  if (rules) {
+    await memory?.put(key, text, "order", { intent: "order", lines: rules.map((l) => ({ item_id: l.itemId, size: l.sizeName ?? "", qty: l.qty, note: l.note ?? "" })) }, "rules").catch(() => {});
+    return { lines: rules };
+  }
+
+  // ٣. النموذج
   for (const call of [keys.gemini ? () => gemini(keys.gemini!, text, menu) : null, keys.groq ? () => groq(keys.groq!, text, menu) : null]) {
     if (!call) continue;
     try {
       const parsed = await call();
       if (!parsed) continue;
       const lines = toLines(parsed, menu);
-      if (lines.length) return { lines };
-      if (parsed.intent === "other") return { intent: "other" };
+      if (lines.length) {
+        await memory?.put(key, text, "order", parsed, "llm").catch(() => {});
+        return { lines };
+      }
+      const reply = safeReply(parsed.reply);
+      if (parsed.intent === "menu" && reply) {
+        await memory?.put(key, text, "menu", { intent: "menu", reply }, "llm").catch(() => {});
+        return { intent: "menu", reply };
+      }
+      await memory?.put(key, text, "other", { intent: "other" }, "llm").catch(() => {});
+      return { intent: "other" };
     } catch {
       /* مهلة أو JSON مكسور — الطبقة التالية */
     }
   }
   return null;
 }
+
+/** تأخير بسيط قبل الردّ — ردٌّ في جزء من الثانية يُشعر الزبون بأنه يكلّم آلة */
+export const humanPause = (ms = 1200 + Math.random() * 1300) => new Promise<void>((r) => setTimeout(r, ms));

@@ -46,6 +46,12 @@ export type Database = {
         Update: Partial<{ state: Json; updated_at: string }>;
         Relationships: [];
       };
+      bot_phrases: {  // 0094 — ذاكرة عبارات الزبائن: ما كُتب وما فُهم منه
+        Row: { text_key: string; text: string; intent: string; parsed: Json | null; source: string; hits: number; updated_at: string };
+        Insert: { text_key: string; text: string; intent: string; parsed?: Json | null; source?: string; hits?: number; updated_at?: string };
+        Update: Partial<{ text: string; intent: string; parsed: Json | null; source: string; hits: number; updated_at: string }>;
+        Relationships: [];
+      };
       device_status: {
         Row: { id: string; seen_at: string; acc_enabled: boolean | null; notif_enabled: boolean | null; app_version: string | null };
         Insert: { id: string; seen_at?: string; acc_enabled?: boolean | null; notif_enabled?: boolean | null; app_version?: string | null };

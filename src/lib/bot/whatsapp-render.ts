@@ -32,7 +32,7 @@ export function renderWelcome(menuUrl: string): WaMessage {
     type: "interactive",
     interactive: {
       type: "cta_url",
-      body: { text: "🍔 *ستيشن* — أهلاً بك!\nاطلب من المنيو بضغطة، ويصلك خلال دقائق.\n\nاكتب أي سؤال هنا ويردّ عليك موظف." },
+      body: { text: "🍔 *ستيشن* — هلا بيك!\nاطلب من المنيو بكبسة، ويوصلك بدقايق.\n\nأو اكتب طلبك هنا مباشرة، وإذا عندك سؤال يجاوبك موظف." },
       footer: { text: "الرمادي · 0783 155 1888" },
       action: { name: "cta_url", parameters: { display_text: "🛵 اطلب الآن", url: menuUrl } },
     },
