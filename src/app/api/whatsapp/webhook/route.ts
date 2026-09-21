@@ -225,7 +225,9 @@ async function handoff(waId: string, text: string, ui: Ui | null, msgId: string 
   } else {
     await svc.from("external_order_alerts").insert({ source: "other", ref: waId, title: "💬 زبون على واتساب يريد موظفاً", body: line });
   }
-  const recently = ui?.humanAt && Date.now() - Date.parse(ui.humanAt) < 60 * 60_000;
+  // يُطمأن كل ربع ساعة لا مع كل رسالة — ولا يُترك بلا جواب ساعة كاملة
+  const recently = ui?.humanAt && Date.now() - Date.parse(ui.humanAt) < 15 * 60_000;
+  await note(200, "", `تحويل لموظف — مفاتيح: gemini=${!!process.env.GEMINI_API_KEY} groq=${!!process.env.GROQ_API_KEY}`);
   await writeState(uiKey(waId), { ...(ui ?? { buttons: [], text: "" }), lastMsgId: msgId, humanAt: recently ? ui!.humanAt : new Date().toISOString() });
   if (!recently) {
     await humanPause();
@@ -246,30 +248,38 @@ async function turn(msg: WaMsg): Promise<void> {
 
   // نصّ: تحيّة أو «طلب» → الترحيب بزرّ المنيو؛ وإلا فسؤال لإنسان. الأزرار
   // القديمة (من كان في وسط طلب) تكمل على المحرّك كما كانت.
-  if (raw.kind === "text" && !(prev?.flow === "order" && ["phone", "address"].includes(prev.step) )) {
+  if (raw.kind === "text" && !(prev?.flow === "order" && ["phone", "address"].includes(prev.step))) {
     const t = raw.text.trim();
-    const greeting = !t || /^\/?(start|order)\b/i.test(t) || /^(مرحبا|مرحباً|هلا|هلو|السلام|سلام|hi|hello|hey|طلب|اطلب|منيو|المنيو|قائمة|القائمة|اريد اطلب|أريد أطلب)\b/i.test(t) || t.length <= 2;
-    if (greeting) {
+    const welcome = async () => {
       await writeState(uiKey(waId), { ...(ui ?? { buttons: [], text: "" }), lastMsgId: msg.id });
       await humanPause();
       await send(waId, renderWelcome());
+    };
+    // تحيّة صِرفة → الترحيب. أما «أريد أطلب ٢ زنجر» فليست تحيّة: تُفهم أولاً
+    const pureGreeting = !t || t.length <= 2 || /^\/?(start|order)\b/i.test(t) || /^(مرحبا|مرحباً|هلا|هلو|السلام عليكم|السلام|سلام|hi|hello|hey|صباح الخير|مساء الخير)\s*[!.؟?]*$/i.test(t);
+    if (pureGreeting) {
+      await welcome();
       return;
     }
-    // «٢ زنجر بوفالو وجبة وبيبسي» → سلّة يؤكّدها بالأزرار (قواعد ثم Gemini/Groq)؛ وما لم يُفهم → إنسان
+    // «٢ زنجر بوفالو وجبة وبيبسي» → سلّة يؤكّدها بالأزرار (ذاكرة ثم قواعد ثم Gemini/Groq)
     if (prev?.flow !== "order" || !prev.draft?.awaitingNote) {
       const menu = await loadMenu();
       const got = await understandSmart(t, menu, { gemini: process.env.GEMINI_API_KEY, groq: process.env.GROQ_API_KEY }, phraseMemory);
-      if (got && "intent" in got && got.intent === "menu") {
+      if (got && "lines" in got) {
+        understood = got.lines;
+      } else if (got && "intent" in got && got.intent === "menu") {
         await writeState(uiKey(waId), { ...(ui ?? { buttons: [], text: "" }), lastMsgId: msg.id });
         await humanPause();
         await sendText(waId, got.reply + "\nللطلب: " + menuLink(waId));
         return;
-      }
-      if (!got || !("lines" in got)) {
+      } else if (/(طلب|اطلب|منيو|المنيو|قائمة|القائمة|اكل|أكل)/.test(t)) {
+        // «أريد أطلب» بلا أصناف → الترحيب بزرّيه، لا موظف
+        await welcome();
+        return;
+      } else {
         await handoff(waId, t, ui, msg.id);
         return;
       }
-      understood = got.lines;
     }
   }
 
