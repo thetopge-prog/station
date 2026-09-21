@@ -3,7 +3,7 @@ import { after } from "next/server";
 import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/types";
-import { renderMessage, renderReply, type WaMessage } from "@/lib/bot/whatsapp-render";
+import { renderMessage, renderReply, renderWelcome, type WaMessage } from "@/lib/bot/whatsapp-render";
 import {
   normalizeIraqiPhone,
   step,
@@ -55,7 +55,7 @@ async function note(status: number, body: string, why: string) {
 const SITE = () => (process.env.STATION_SITE_URL ?? "https://station-anbar.netlify.app").replace(/\/$/, "");
 
 // ── حالة المحادثة: نفس جدول بوت تليغرام، بمفتاح مسبوق بـ wa: فلا يتصادمان ──
-type Ui = { buttons: Button[]; text: string; lastMsgId?: string };
+type Ui = { buttons: Button[]; text: string; lastMsgId?: string; humanAt?: string };
 const key = (waId: string) => `wa:${waId}`;
 const uiKey = (waId: string) => `wa:${waId}:ui`;
 
@@ -154,6 +154,42 @@ function inputOf(msg: WaMsg): Input {
   return { kind: "text", text: String(msg.text?.body ?? "") };
 }
 
+/** رابط المنيو بوضع التوصيل والرقم مملوءاً — الزبون لا يكتب رقمه مرتين */
+function menuLink(waId: string): string {
+  const phone = normalizeIraqiPhone(waId);
+  return `${SITE()}/menu?mode=delivery${phone ? `&phone=${phone}` : ""}`;
+}
+
+/**
+ * الزبون كتب نصّاً: سؤال، شكوى، «أريد موظفاً» — الجواب عند إنسان لا عند
+ * الآلة. تُرفع بطاقة على شاشة الطلبات الواردة (كما طلبات توترز) برقمه ونصّه،
+ * وزرّ واتساب عليها يفتح محادثته من جهاز الكاشير. الرسائل التالية خلال ساعة
+ * تُلحق بالبطاقة نفسها، ويُطمأن الزبون مرّة لا مع كل رسالة.
+ */
+async function handoff(waId: string, text: string, ui: Ui | null, msgId: string | undefined): Promise<void> {
+  const svc = createSupabaseServiceClient();
+  const since = new Date(Date.now() - 60 * 60_000).toISOString();
+  const { data: open } = await svc
+    .from("external_order_alerts")
+    .select("id, body")
+    .eq("source", "other")
+    .eq("ref", waId)
+    .is("handled_at", null)
+    .gte("created_at", since)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  const line = `«${text.slice(0, 300)}»`;
+  const prev = open?.[0];
+  if (prev) {
+    await svc.from("external_order_alerts").update({ body: `${prev.body ?? ""}\n${line}`.slice(-1000) }).eq("id", prev.id);
+  } else {
+    await svc.from("external_order_alerts").insert({ source: "other", ref: waId, title: "💬 زبون على واتساب يريد موظفاً", body: line });
+  }
+  const recently = ui?.humanAt && Date.now() - Date.parse(ui.humanAt) < 60 * 60_000;
+  await writeState(uiKey(waId), { ...(ui ?? { buttons: [], text: "" }), lastMsgId: msgId, humanAt: recently ? ui!.humanAt : new Date().toISOString() });
+  if (!recently) await sendText(waId, "وصلتنا رسالتك ✅ سيردّ عليك موظف خلال دقائق.\nوللطلب مباشرة: " + menuLink(waId));
+}
+
 async function turn(msg: WaMsg): Promise<void> {
   const waId = String(msg.from ?? "");
   if (!waId) return;
@@ -163,6 +199,22 @@ async function turn(msg: WaMsg): Promise<void> {
   if (msg.id && ui?.lastMsgId === msg.id) return;
 
   const raw = inputOf(msg);
+
+  // نصّ: تحيّة أو «طلب» → الترحيب بزرّ المنيو؛ وإلا فسؤال لإنسان. الأزرار
+  // القديمة (من كان في وسط طلب) تكمل على المحرّك كما كانت.
+  if (raw.kind === "text" && !(prev?.flow === "order" && ["phone", "address"].includes(prev.step) )) {
+    const t = raw.text.trim();
+    const greeting = !t || /^\/?(start|order)\b/i.test(t) || /^(مرحبا|مرحباً|هلا|هلو|السلام|سلام|hi|hello|hey|طلب|اطلب|منيو|المنيو|قائمة|القائمة|اريد اطلب|أريد أطلب)\b/i.test(t) || t.length <= 2;
+    if (greeting) {
+      await writeState(uiKey(waId), { ...(ui ?? { buttons: [], text: "" }), lastMsgId: msg.id });
+      await send(waId, renderWelcome(menuLink(waId)));
+      return;
+    }
+    if (prev?.flow !== "order" || !prev.draft?.awaitingNote) {
+      await handoff(waId, t, ui, msg.id);
+      return;
+    }
+  }
 
   // تصفيح القائمة: شأن العرض وحده، لا يمسّ المحرّك
   const pageAt = raw.kind === "button" && raw.data.startsWith("w|page|") ? Number(raw.data.split("|")[2]) : null;
@@ -181,6 +233,13 @@ async function turn(msg: WaMsg): Promise<void> {
   // لا «شارك رقمي» في واتساب — ولا حاجة: المرسِل هو الرقم
   if (out.reply.requestContact && phone) out = step(out.state, { kind: "contact", phone: waId }, menu, known);
   if (!out.state.name && known.name) out.state.name = known.name;
+
+  // شاشة البداية من المحرّك (زرّ «إلغاء» أو «الرئيسية») → الترحيب بالرابط
+  if (out.state.step === "start" && !out.reply.order) {
+    await Promise.all([writeState(key(waId), out.state), writeState(uiKey(waId), { buttons: [], text: "", lastMsgId: msg.id })]);
+    await send(waId, renderWelcome(menuLink(waId)));
+    return;
+  }
 
   const view = renderReply(out.reply);
   await Promise.all([

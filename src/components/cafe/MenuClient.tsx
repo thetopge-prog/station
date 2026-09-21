@@ -88,6 +88,7 @@ export function MenuClient({
   channel = "qr",
   offers = {},
   initialMode = null,
+  initialPhone = null,
   layout = "rows",
 }: {
   menu: MenuCategoryView[];
@@ -98,6 +99,8 @@ export function MenuClient({
   offers?: Record<string, number>;
   /** من روابط /delivery و/pickup و/car: الطريقة محدَّدة سلفاً */
   initialMode?: FulfilmentMode | null;
+  /** من رابط بوت واتساب: رقم الزبون مملوء سلفاً */
+  initialPhone?: string | null;
 }) {
   const scanned = !!table;
   const cats = useMemo(() => menu.filter((c) => c.items.length > 0), [menu]);
@@ -155,7 +158,7 @@ export function MenuClient({
     scanned ? "dinein" : initialMode,
   );
   const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState(initialPhone ?? "");
   const [address, setAddress] = useState("");
   const [carNote, setCarNote] = useState("");
   const [guests, setGuests] = useState(2);

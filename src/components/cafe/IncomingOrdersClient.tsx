@@ -308,7 +308,10 @@ export function IncomingOrdersClient() {
       void (async () => {
         try {
           // the claim decides who prints: one atomic update, whoever wins prints
-          const [mine, { jobs }] = await Promise.all([claimPrint(id), buildOrderJobs(id)]);
+          const [mine, { jobs }] = await Promise.all([
+            claimPrint(id),
+            buildOrderJobs(id),
+          ]);
           if (!mine) return;
           const out = jobs.length ? await printJobs(jobs) : { sent: 0 };
           if (out.sent === 0 && jobs.length) await releasePrint(id);
@@ -409,9 +412,28 @@ export function IncomingOrdersClient() {
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="flex items-center gap-2 text-lg font-black text-primary">
-                  <PartnerLogo name={a.source} className="h-7" />
-                  🛵 طلب {SOURCE_AR[a.source] ?? a.source}
-                  {a.ref ? ` #${a.ref}` : ""}
+                  {a.source === "other" && a.title?.startsWith("💬") ? (
+                    // زبون كتب لبوت واتساب — الجواب عند إنسان: يُفتح واتساب ويب على رقمه
+                    <>
+                      <MessageCircle className="size-6" />
+                      رسالة واتساب ·{" "}
+                      <a
+                        href={`https://wa.me/${a.ref ?? ""}`}
+                        target="_blank"
+                        rel="noopener"
+                        className="tabular-nums underline"
+                        dir="ltr"
+                      >
+                        +{a.ref}
+                      </a>
+                    </>
+                  ) : (
+                    <>
+                      <PartnerLogo name={a.source} className="h-7" />
+                      🛵 طلب {SOURCE_AR[a.source] ?? a.source}
+                      {a.ref ? ` #${a.ref}` : ""}
+                    </>
+                  )}
                 </span>
                 <span className="text-xs font-bold text-muted-foreground">
                   {sinceLabel(ageMinutes(a.created_at))}
@@ -430,11 +452,13 @@ export function IncomingOrdersClient() {
               ) : null}
               <div className="mt-2 flex items-center justify-between gap-2 text-sm">
                 <span className="font-bold text-muted-foreground">
-                  {a.order_id
-                    ? "أُنشئ طلباً أدناه — اقبله"
-                    : a.unknown_items?.length
-                      ? "لم يُنشأ طلب — أدخله من الكاشير هذه المرّة"
-                      : "الأصناف لم تُطابَق — أدخلها من الكاشير كطلب توصيل"}
+                  {a.source === "other" && a.title?.startsWith("💬")
+                    ? "ردّ عليه من واتساب ويب (الزر أعلاه) أو اتصل به، ثم «تمّ»"
+                    : a.order_id
+                      ? "أُنشئ طلباً أدناه — اقبله"
+                      : a.unknown_items?.length
+                        ? "لم يُنشأ طلب — أدخله من الكاشير هذه المرّة"
+                        : "الأصناف لم تُطابَق — أدخلها من الكاشير كطلب توصيل"}
                 </span>
                 <button
                   onClick={() => void dismissAlert(a.id)}

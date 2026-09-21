@@ -16,7 +16,28 @@ export type WaRow = { id: string; title: string; description?: string };
 export type WaMessage =
   | { type: "text"; text: { body: string; preview_url: false } }
   | { type: "interactive"; interactive: { type: "button"; body: { text: string }; action: { buttons: { type: "reply"; reply: { id: string; title: string } }[] } } }
-  | { type: "interactive"; interactive: { type: "list"; body: { text: string }; action: { button: string; sections: { rows: WaRow[] }[] } } };
+  | { type: "interactive"; interactive: { type: "list"; body: { text: string }; action: { button: string; sections: { rows: WaRow[] }[] } } }
+  | { type: "interactive"; interactive: { type: "cta_url"; body: { text: string }; footer?: { text: string }; action: { name: "cta_url"; parameters: { display_text: string; url: string } } } };
+
+/**
+ * الترحيب: زرّ واحد يفتح المنيو على الويب.
+ *
+ * الطلب من داخل الدردشة كان ثماني خطوات لصنف واحد (قسم ← صنف ← حجم ← عدد ←
+ * سلّة ← توصيل ← عنوان ← تأكيد) على أزرار ثلاثة وقوائم مصفَّحة. المنيو على
+ * الويب يفعلها بضغطتين وبالصور، والرقم يُملأ من واتساب نفسه. فالبوت يستقبل
+ * ويدلّ — والطلب هناك.
+ */
+export function renderWelcome(menuUrl: string): WaMessage {
+  return {
+    type: "interactive",
+    interactive: {
+      type: "cta_url",
+      body: { text: "🍔 *ستيشن* — أهلاً بك!\nاطلب من المنيو بضغطة، ويصلك خلال دقائق.\n\nاكتب أي سؤال هنا ويردّ عليك موظف." },
+      footer: { text: "الرمادي · 0783 155 1888" },
+      action: { name: "cta_url", parameters: { display_text: "🛵 اطلب الآن", url: menuUrl } },
+    },
+  };
+}
 
 /** ٨ صفوف + «السابق» + «المزيد» = ١٠، وهو سقف واتساب */
 const PAGE = 8;

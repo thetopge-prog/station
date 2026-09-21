@@ -31,9 +31,9 @@ export const metadata: Metadata = {
  * من روابط ‎/delivery‎ و‎/pickup‎ و‎/car‎ (شاشة ‎/order‎ وواتساب) يفتحه على طريقة
  * الاستلام وما تطلبه: العنوان للتوصيل، وصف السيارة لمن ينتظر فيها.
  */
-export default async function MenuPage({ searchParams }: { searchParams: Promise<{ t?: string; mode?: string }> }) {
+export default async function MenuPage({ searchParams }: { searchParams: Promise<{ t?: string; mode?: string; phone?: string }> }) {
   const sp = await searchParams;
   if (!(await isShopOpen())) return <ShopClosed />;
   const [menu, offers] = await Promise.all([getPublicMenu(), getActiveItemOffers().catch(() => ({}))]);
-  return <MenuClient menu={menu} table={sp.t ?? null} channel="qr" offers={offers} initialMode={toFulfilmentMode(sp.mode)} layout="tiles" />;
+  return <MenuClient menu={menu} table={sp.t ?? null} channel="qr" offers={offers} initialMode={toFulfilmentMode(sp.mode)} initialPhone={sp.phone ?? null} layout="tiles" />;
 }
