@@ -8,7 +8,8 @@
   # كل نشرة ≈ ١٥ رصيداً: ٣٩ نشرة أكلت ٥٨٥ من ١٬١٠١ رصيداً في دورة واحدة. البناء
   # فقط حين تحمل رسالة الـcommit كلمة [deploy] — الدفعات تُجمع وتُنشر مرة.
   # exit 0 = تجاهل، exit 1 = ابنِ.
-  ignore = "git log -1 --pretty=%B | grep -q '\[deploy\]' && exit 1 || exit 0"
+  # (سلسلة TOML حرفية بعلامات مفردة — الشرطة المائلة في "\[" كانت تُفشل قراءة الملف)
+  ignore = 'git log -1 --pretty=%B | grep -q "\[deploy\]" && exit 1 || exit 0'
 
 # Product images proxied through the site CDN — cached at edge PoPs far closer
 # to Iraq than the storage origin (Supabase, ap-southeast-2).
