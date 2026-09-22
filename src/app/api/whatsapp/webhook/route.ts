@@ -315,13 +315,15 @@ async function turn(msg: WaMsg): Promise<void> {
     await writeState(key(waId), { ...START });
   }
 
-  // المطعم مغلق (لا وردية مفتوحة): جواب واحد كل ساعة، ولا منيو
+  // المطعم مغلق (لا وردية مفتوحة): يُجاب على كل رسالة (الصمت يبدو عطلاً)،
+  // إلا رشقة رسائل خلال دقيقتين فتُجاب مرّة
   if (!(await isShopOpen())) {
-    const said = ui?.closedAt && Date.now() - Date.parse(ui.closedAt) < 60 * 60_000;
+    const said = ui?.closedAt && Date.now() - Date.parse(ui.closedAt) < 2 * 60_000;
     await writeState(uiKey(waId), { ...(ui ?? { buttons: [], text: "" }), lastMsgId: msg.id, closedAt: said ? ui!.closedAt : new Date().toISOString() });
     if (!said) {
       await humanPause();
-      await sendText(waId, CLOSED_TEXT);
+      const looksLikeOrder = raw.kind === "text" && raw.text.length > 6 && !!understand(raw.text, await loadMenu());
+      await sendText(waId, looksLikeOrder ? "طلبك ما ينحفظ هسة 🌙 المطعم مسدود — دزه من ٩ الصبح ونجهزه فوراً 🧡" : CLOSED_TEXT);
     }
     return;
   }
