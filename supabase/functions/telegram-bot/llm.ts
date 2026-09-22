@@ -158,14 +158,17 @@ export async function understandSmart(text: string, menu: Menu, keys: LlmKeys, m
  * الصوت → نصّ. Groq (Whisper، مجاني) أولاً، وGemini يسمع الملف مباشرة احتياطاً.
  * النصّ الناتج يمرّ على understandSmart كأنه كُتب — فالصوت لا يزيد قاعدة.
  */
-export async function transcribe(audio: ArrayBuffer, mime: string, keys: LlmKeys): Promise<string | null> {
+export async function transcribe(audio: ArrayBuffer, mime: string, keys: LlmKeys, menu?: Menu): Promise<string | null> {
   if (keys.groq) {
     try {
       const form = new FormData();
       form.append("file", new Blob([audio], { type: mime }), "voice." + (mime.includes("ogg") ? "ogg" : mime.includes("mp4") ? "m4a" : "mp3"));
       form.append("model", "whisper-large-v3");
       form.append("language", "ar");
+      form.append("temperature", "0");
       form.append("response_format", "json");
+      // أسماء المنيو تُعطى للنموذج كمفردات: الكلام السريع «زنجر بوفالو وجبة» يُكتب كما نكتبه
+      if (menu) form.append("prompt", "طلب من مطعم ستيشن: " + menu.items.map((i) => i.name).join("، ") + ". وجبة، ساندويچ، بدون بصل، توصيل.");
       const res = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", { method: "POST", headers: { Authorization: `Bearer ${keys.groq}` }, body: form, signal: AbortSignal.timeout(15000) });
       if (res.ok) {
         const j = (await res.json()) as { text?: string };
@@ -196,6 +199,48 @@ export async function transcribe(audio: ArrayBuffer, mime: string, keys: LlmKeys
   }
   return null;
 }
+
+/**
+ * الصوت مباشرة إلى الفهم: Gemini يسمع التسجيل مع المنيو نفسه والقواعد نفسها
+ * ويعيد JSON الطلب — أدقّ من «نصّ ثم فهم» مع المتكلّم السريع واللهجة. إن لم
+ * ينجح: Whisper بمفردات المنيو ثم مسار النصّ المعتاد.
+ */
+export async function understandAudio(audio: ArrayBuffer, mime: string, menu: Menu, keys: LlmKeys, memory?: PhraseMemory): Promise<Understood> {
+  if (keys.gemini) {
+    try {
+      const b64 = btoa(String.fromCharCode(...new Uint8Array(audio)));
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${keys.gemini}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt("(رسالة صوتية مرفقة — اسمعها بدقة، المتكلّم قد يكون سريعاً وبلهجة عراقية)", menu) }, { inlineData: { mimeType: mime, data: b64 } }] }],
+          generationConfig: { responseMimeType: "application/json", temperature: 0 },
+        }),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (res.ok) {
+        const j = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+        const raw = j.candidates?.[0]?.content?.parts?.[0]?.text;
+        const parsed = raw ? (JSON.parse(raw) as Parsed) : null;
+        if (parsed) {
+          const lines = toLines(parsed, menu);
+          if (lines.length) return { lines };
+          const reply = safeReply(parsed.reply);
+          if (parsed.intent === "menu" && reply) return { intent: "menu", reply };
+        }
+      }
+    } catch {
+      /* الطبقة التالية */
+    }
+  }
+  const text = await transcribe(audio, mime, keys, menu);
+  return text ? understandSmart(text, menu, keys, memory) : null;
+}
+
+/** ما يُقال حين لا يُفهم الصوت — لا تحويل لموظف من أول محاولة */
+export const VOICE_UNCLEAR = "العفو بس ما فهمت رسالتك الصوتية، تكدر تكتب؟ 🙏";
+/** ما يُقال حين لا يُفهم النصّ أول مرّة — الثانية تذهب لموظف */
+export const TEXT_UNCLEAR = "العفو بس ما فهمت، تكدر تكتبها بشكل ثاني؟ مثلاً: «اثنين زنجر وجبة وبيبسي» 🙏";
 
 /** تأخير بسيط قبل الردّ — ردٌّ في جزء من الثانية يُشعر الزبون بأنه يكلّم آلة */
 export const humanPause = (ms = 1200 + Math.random() * 1300) => new Promise<void>((r) => setTimeout(r, ms));

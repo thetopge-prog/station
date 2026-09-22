@@ -346,7 +346,7 @@ export function step(prev: State | null, input: Input, menu: Menu, known?: Known
   const state: State = prev?.flow === "order" ? prev : { ...START };
 
   if (input.kind === "voice") {
-    return { state, reply: { text: "🎤 الطلب بالصوت قريباً — الآن اختر من الأزرار.", buttons: [[{ text: "🍕 اطلب الآن", data: "o|cats" }]] } };
+    return { state, reply: { text: "العفو بس ما فهمت رسالتك الصوتية، تكدر تكتب؟ 🙏", buttons: [[{ text: "🍕 اطلب الآن", data: "o|cats" }]] } };
   }
 
   if (input.kind === "lines") {

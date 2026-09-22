@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/types";
 import { renderMenuLink, renderMessage, renderReply, renderWelcome, type WaMessage } from "@/lib/bot/whatsapp-render";
-import { humanPause, transcribe, understandSmart, type Parsed, type PhraseMemory } from "../../../../../supabase/functions/telegram-bot/llm";
+import { humanPause, TEXT_UNCLEAR, VOICE_UNCLEAR, understandAudio, understandSmart, type Parsed, type PhraseMemory } from "../../../../../supabase/functions/telegram-bot/llm";
 import {
   dropClosed,
   normalizeIraqiPhone,
@@ -58,7 +58,7 @@ async function note(status: number, body: string, why: string) {
 const SITE = () => (process.env.STATION_SITE_URL ?? "https://station-anbar.netlify.app").replace(/\/$/, "");
 
 // ── حالة المحادثة: نفس جدول بوت تليغرام، بمفتاح مسبوق بـ wa: فلا يتصادمان ──
-type Ui = { buttons: Button[]; text: string; lastMsgId?: string; humanAt?: string };
+type Ui = { buttons: Button[]; text: string; lastMsgId?: string; humanAt?: string; unclearAt?: string };
 const key = (waId: string) => `wa:${waId}`;
 const uiKey = (waId: string) => `wa:${waId}:ui`;
 
@@ -169,29 +169,26 @@ async function submitOrder(waId: string, order: OrderPayload): Promise<void> {
 // ── دورة الرسالة ───────────────────────────────────────────────────────────
 type WaMsg = { from?: string; id?: string; type?: string; text?: { body?: string }; audio?: { id?: string; mime_type?: string }; interactive?: { button_reply?: { id?: string }; list_reply?: { id?: string } } };
 
-/** الرسالة الصوتية: تُنزَّل من Meta وتُحوَّل نصّاً؛ إن تعذّر تبقى «صوت» ويُجاب عليها كما كان */
-async function inputOf(msg: WaMsg): Promise<Input> {
+function inputOf(msg: WaMsg): Input {
   const id = msg.interactive?.button_reply?.id ?? msg.interactive?.list_reply?.id;
   if (id) return { kind: "button", data: id };
-  if (msg.type === "audio" || msg.type === "voice") {
-    const mediaId = msg.audio?.id;
-    const keys = { gemini: process.env.GEMINI_API_KEY, groq: process.env.GROQ_API_KEY };
-    if (mediaId && (keys.groq || keys.gemini)) {
-      try {
-        const meta = await fetch(`${GRAPH}/${mediaId}`, { headers: { Authorization: `Bearer ${TOKEN()}` }, signal: AbortSignal.timeout(8000) });
-        const { url, mime_type } = (await meta.json()) as { url?: string; mime_type?: string };
-        if (url) {
-          const file = await fetch(url, { headers: { Authorization: `Bearer ${TOKEN()}` }, signal: AbortSignal.timeout(15000) });
-          const text = await transcribe(await file.arrayBuffer(), mime_type ?? msg.audio?.mime_type ?? "audio/ogg", keys);
-          if (text) return { kind: "text", text };
-        }
-      } catch {
-        /* يبقى صوتاً */
-      }
-    }
-    return { kind: "voice" };
-  }
+  if (msg.type === "audio" || msg.type === "voice") return { kind: "voice" };
   return { kind: "text", text: String(msg.text?.body ?? "") };
+}
+
+/** الرسالة الصوتية تُنزَّل من Meta كما هي — الفهم في understandAudio */
+async function fetchAudio(msg: WaMsg): Promise<{ audio: ArrayBuffer; mime: string } | null> {
+  const mediaId = msg.audio?.id;
+  if (!mediaId) return null;
+  try {
+    const meta = await fetch(`${GRAPH}/${mediaId}`, { headers: { Authorization: `Bearer ${TOKEN()}` }, signal: AbortSignal.timeout(8000) });
+    const { url, mime_type } = (await meta.json()) as { url?: string; mime_type?: string };
+    if (!url) return null;
+    const file = await fetch(url, { headers: { Authorization: `Bearer ${TOKEN()}` }, signal: AbortSignal.timeout(15000) });
+    return { audio: await file.arrayBuffer(), mime: (mime_type ?? msg.audio?.mime_type ?? "audio/ogg").split(";")[0] };
+  } catch {
+    return null;
+  }
 }
 
 /** رابط المنيو بوضع التوصيل والرقم مملوءاً — الزبون لا يكتب رقمه مرتين */
@@ -244,7 +241,22 @@ async function turn(msg: WaMsg): Promise<void> {
   if (msg.id && ui?.lastMsgId === msg.id) return;
 
   let understood: CartLine[] | null = null;
-  let raw = await inputOf(msg);
+  let raw = inputOf(msg);
+
+  // صوت: يُفهم مباشرة (Gemini يسمع) أو يُكتب ثم يُفهم؛ وإن لم يُفهم يُطلب الكتابة — لا موظف
+  // (الطلب بالصوت لا يُعلَن في أي نصّ؛ يعمل لمن يعرفه)
+  if (raw.kind === "voice") {
+    const keys = { gemini: process.env.GEMINI_API_KEY, groq: process.env.GROQ_API_KEY };
+    const got = (keys.gemini || keys.groq) ? await (async () => { const a = await fetchAudio(msg); return a ? understandAudio(a.audio, a.mime, await loadMenu(), keys, phraseMemory) : null; })() : null;
+    await writeState(uiKey(waId), { ...(ui ?? { buttons: [], text: "" }), lastMsgId: msg.id });
+    if (got && "lines" in got) {
+      understood = got.lines;
+    } else {
+      await humanPause();
+      await sendText(waId, got && "intent" in got && got.intent === "menu" ? got.reply + "\nللطلب: " + menuLink(waId) : VOICE_UNCLEAR);
+      return;
+    }
+  }
 
   // نصّ: تحيّة أو «طلب» → الترحيب بزرّ المنيو؛ وإلا فسؤال لإنسان. الأزرار
   // القديمة (من كان في وسط طلب) تكمل على المحرّك كما كانت.
@@ -275,6 +287,12 @@ async function turn(msg: WaMsg): Promise<void> {
       } else if (/(طلب|اطلب|منيو|المنيو|قائمة|القائمة|اكل|أكل)/.test(t)) {
         // «أريد أطلب» بلا أصناف → الترحيب بزرّيه، لا موظف
         await welcome();
+        return;
+      } else if (!(ui?.unclearAt && Date.now() - Date.parse(ui.unclearAt) < 10 * 60_000)) {
+        // أول مرّة لا تُفهم: اطلب إعادة الكتابة؛ الثانية خلال عشر دقائق → موظف
+        await writeState(uiKey(waId), { ...(ui ?? { buttons: [], text: "" }), lastMsgId: msg.id, unclearAt: new Date().toISOString() });
+        await humanPause();
+        await sendText(waId, TEXT_UNCLEAR);
         return;
       } else {
         await handoff(waId, t, ui, msg.id);
