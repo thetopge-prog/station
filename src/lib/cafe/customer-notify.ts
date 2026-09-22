@@ -10,14 +10,16 @@ import { createSupabaseServiceClient } from "@/lib/supabase/server";
  * لا ترمي أبداً: إشعارٌ فشل لا يجوز أن يُفشل قبول طلب أو تجهيزه. مهلة ٣ ثوانٍ
  * لأن الفعل ينتظرها — على Netlify ما لا يُنتظر قد لا يُرسل.
  */
-export type OrderEvent = "accepted" | "ready" | "cancelled";
+export type OrderEvent = "accepted" | "ready" | "handed" | "cancelled";
 
-const TEXT: Record<OrderEvent, (n: string, pickup: boolean) => string> = {
+const TEXT: Record<OrderEvent, (n: string, pickup: boolean) => string | null> = {
   accepted: (n, pickup) =>
-    `✅ قُبل طلبك رقم <b>${n}</b> وبدأ تحضيره.` + (pickup ? "\nسنخبرك حين يجهز للاستلام." : "\nسنخبرك حين يخرج للتوصيل."),
+    `✅ طلبك رقم <b>${n}</b> انقبل وبدينا بيه.` + (pickup ? "\nنخبرك لمن يجهز للاستلام." : "\nنخبرك لمن يطلع للتوصيل."),
   ready: (n, pickup) =>
-    pickup ? `🍔 طلبك رقم <b>${n}</b> جاهز — تفضّل باستلامه من الكاونتر.` : `🛵 طلبك رقم <b>${n}</b> جاهز وفي طريقه إليك.`,
-  cancelled: (n) => `❌ عذراً — أُلغي طلبك رقم <b>${n}</b>. راسلنا إن كان ذلك خطأً.`,
+    pickup ? `🍔 طلبك رقم <b>${n}</b> جاهز — تفضّل استلمه من الكاونتر.` : `✅ طلبك رقم <b>${n}</b> تم تجهيزه.`,
+  // «سلّم للسائق» — للتوصيل فقط؛ الاستلام يكفيه «جاهز»
+  handed: (n, pickup) => (pickup ? null : `🛵 طلبك رقم <b>${n}</b> استلمه موظف التوصيل — يوصلك بدقايق.`),
+  cancelled: (n) => `❌ عذراً — أُلغي طلبك رقم <b>${n}</b>. راسلنا إذا كان بالغلط.`,
 };
 
 /** واتساب لا يعرف HTML: العريض نجمتان */
@@ -39,6 +41,7 @@ export async function notifyCustomerOrder(orderId: string, event: OrderEvent): P
 
     const n = String(o.order_seq).padStart(3, "0");
     const html = TEXT[event](n, o.channel === "pickup");
+    if (!html) return;
 
     if (o.telegram_chat_id && tg) {
       await fetch(`https://api.telegram.org/bot${tg}/sendMessage`, {

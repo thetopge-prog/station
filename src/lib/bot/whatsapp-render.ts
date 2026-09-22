@@ -27,7 +27,7 @@ export type WaMessage =
  * الويب يفعلها بضغطتين وبالصور، والرقم يُملأ من واتساب نفسه. فالبوت يستقبل
  * ويدلّ — والطلب هناك.
  */
-export function renderWelcome(): WaMessage {
+export function renderWelcome(hasSaved = false): WaMessage {
   return {
     type: "interactive",
     interactive: {
@@ -37,9 +37,20 @@ export function renderWelcome(): WaMessage {
         buttons: [
           { type: "reply", reply: { id: "w|link", title: "🛵 اطلب هسة من المنيو" } },
           { type: "reply", reply: { id: "w|here", title: "💬 اطلب هنا من الواتساب" } },
+          // الزرّ الثالث لمن قيّم طلباً سابقاً فوق ٨ — واتساب يسمح بثلاثة بالضبط
+          ...(hasSaved ? [{ type: "reply" as const, reply: { id: "w|saved", title: "🔁 طلباتي السابقة" } }] : []),
         ],
       },
     },
+  };
+}
+
+/** طلباتي السابقة: قائمة بآخر خمسة طلبات محفوظة */
+export function renderSavedOrders(orders: { id: string; order_seq: number; label: string }[]): WaMessage {
+  const rows: WaRow[] = orders.slice(0, 10).map((o) => ({ id: `w|re|${o.id}`, title: cut(`#${String(o.order_seq).padStart(3, "0")} · ${o.label}`, 24), description: cut(o.label, 72) }));
+  return {
+    type: "interactive",
+    interactive: { type: "list", body: { text: "🔁 طلباتك المحفوظة — اختار واحد ويصير بالسلّة:" }, action: { button: "طلباتي", sections: [{ rows }] } },
   };
 }
 
@@ -117,4 +128,16 @@ export function renderReply(reply: Reply): { message: WaMessage; buttons: Button
   const { buttons, qty } = flatten(reply);
   const text = qty ? `${reply.text}\nالعدد: ${qty}` : reply.text;
   return { message: renderMessage(text, buttons, 0), buttons, text };
+}
+
+/** سؤال تقييم بقائمة من ١٠ إلى ١ — واتساب يقبل عشرة صفوف بالضبط */
+export function renderRateScale(text: string): WaMessage {
+  const rows: WaRow[] = Array.from({ length: 10 }, (_, i) => 10 - i).map((n) => ({
+    id: `r|${n}`,
+    title: n === 10 ? "10 — ممتاز 🌟" : n >= 8 ? `${n} — حلو` : n >= 5 ? `${n} — مقبول` : n === 1 ? "1 — سيّئ" : String(n),
+  }));
+  return {
+    type: "interactive",
+    interactive: { type: "list", body: { text: cut(toWhatsAppText(text), 1000) }, action: { button: "اختار الدرجة", sections: [{ rows }] } },
+  };
 }

@@ -46,6 +46,12 @@ export type Database = {
         Update: Partial<{ state: Json; updated_at: string }>;
         Relationships: [];
       };
+      order_ratings: {  // 0095 — تقييم الزبون بعد التسليم
+        Row: { order_id: string; food: number | null; service: number | null; ordering: number | null; advice: string | null; score: number | null; source: string | null; created_at: string };
+        Insert: { order_id: string; food?: number | null; service?: number | null; ordering?: number | null; advice?: string | null; score?: number | null; source?: string | null; created_at?: string };
+        Update: Partial<{ food: number | null; service: number | null; ordering: number | null; advice: string | null; score: number | null; source: string | null }>;
+        Relationships: [];
+      };
       bot_phrases: {  // 0094 — ذاكرة عبارات الزبائن: ما كُتب وما فُهم منه
         Row: { text_key: string; text: string; intent: string; parsed: Json | null; source: string; hits: number; updated_at: string };
         Insert: { text_key: string; text: string; intent: string; parsed?: Json | null; source?: string; hits?: number; updated_at?: string };
@@ -394,6 +400,7 @@ export type Database = {
           printed_at: string | null;  // 0074 — الطابعة تتبع الطلب
           cancel_reason: string | null; cancelled_at: string | null; cancelled_by: string | null;  // 0090 — إلغاء طلب مدفوع
           whatsapp_wa_id: string | null;  // 0075 — زبون بوت واتساب، ليُبلَّغ
+          handed_at: string | null; rating_asked_at: string | null; saved_for_customer: boolean;  // 0095 — التقييم وطلباتي السابقة
         };
         Insert: {
           id?: string; business_day?: string; order_seq: number; channel: OrderChannel; status?: OrderStatus;
@@ -415,6 +422,7 @@ export type Database = {
           partner_cash_received: number | null; partner_commission: number | null;
           partner_ref: string | null; partner_total: number | null; printed_at: string | null; whatsapp_wa_id: string | null;
           cashier_id: string | null;  // من قبض الطلب — يُختم عند الدفع ويُطبع على الإيصال
+          handed_at: string | null; rating_asked_at: string | null; saved_for_customer: boolean;
         }>;
         Relationships: [];
       };

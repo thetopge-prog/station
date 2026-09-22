@@ -57,6 +57,8 @@ export type State = {
   phone?: string | null;
   address?: string | null;
   name?: string | null;
+  /** لهذا الزبون طلبات محفوظة (قيّمها فوق ٨) — يُملأ من المنادي، يُظهر زرّ «طلباتي السابقة» */
+  hasSaved?: boolean;
 };
 
 export type Input =
@@ -235,7 +237,7 @@ function screenStart(state: State): { state: State; reply: Reply } {
     state: { ...state, step: "start", draft: undefined },
     reply: {
       text: "🍔 <b>ستيشن</b>\nهلا بيك — اطلب من القائمة ويوصلك بدقايق.",
-      buttons: [[{ text: "🍕 اطلب الآن", data: "o|cats" }], ...(n ? [[BTN_CART(n)]] : [])],
+      buttons: [[{ text: "🍕 اطلب الآن", data: "o|cats" }], ...(state.hasSaved ? [[{ text: "🔁 طلباتي السابقة", data: "w|saved" }]] : []), ...(n ? [[BTN_CART(n)]] : [])],
     },
   };
 }

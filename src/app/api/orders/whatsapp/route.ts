@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
+import { isShopOpen } from "@/lib/cafe/shop-open";
 import type { Json } from "@/lib/types";
 
 /**
@@ -118,6 +119,9 @@ export async function POST(req: Request) {
   }
 
   const channel = body.channel === "pickup" ? "pickup" : "delivery";
+  // لا وردية مفتوحة = لا أحد يطبخ: يُرفض هنا كما يُرفض على المنيو، والبوت يقول «مسدود»
+  if (!(await isShopOpen())) return NextResponse.json({ ok: false, error: "closed" }, { status: 409 });
+
   const { data, error } = await svc.rpc("place_order", {
     p_channel: channel,
     p_lines: lines as unknown as Json,

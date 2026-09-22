@@ -306,6 +306,8 @@ export async function markOrderHanded(orderId: string) {
   if (error) return { ok: false as const, error: error.message };
   revalidatePath("/queue");
   revalidatePath("/expediter");
+  // «استلمه موظف التوصيل» — من هذا الزرّ فقط، لا من الإزالة التلقائية بعد ٥ دقائق
+  after(() => notifyCustomerOrder(orderId, "handed"));
   return { ok: true as const };
 }
 

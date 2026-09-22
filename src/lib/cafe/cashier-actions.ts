@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/lib/types";
@@ -432,6 +433,8 @@ export async function payPendingOrder(
   const stampErr = await stampPayment(orderId, staff.employeeId, payMethod, partnerId, partnerCashReceived);
   revalidatePath("/cashier");
   revalidatePath("/dashboard");
+  // القبول الحقيقي: زبون البوت يقرأ «طلبك انقبل» هنا لا عند الإلغاء
+  after(() => notifyCustomerOrder(orderId, "accepted"));
   return {
     ok: true as const,
     awarded: paid.awarded,
@@ -468,7 +471,6 @@ export async function cancelOrder(orderId: string, reason: string | null = null)
     .update({ cancel_reason: reason?.trim() || null, cancelled_at: new Date().toISOString(), cancelled_by: staff.employeeId })
     .eq("id", orderId);
   revalidatePath("/cashier");
-  await notifyCustomerOrder(orderId, "accepted");
   await notifyCustomerOrder(orderId, "cancelled");
   return { ok: true as const };
 }

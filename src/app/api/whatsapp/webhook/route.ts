@@ -3,12 +3,17 @@ import { after } from "next/server";
 import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/types";
-import { renderMenuLink, renderMessage, renderReply, renderWelcome, type WaMessage } from "@/lib/bot/whatsapp-render";
+import { renderMenuLink, renderMessage, renderRateScale, renderReply, renderSavedOrders, renderWelcome, type WaMessage } from "@/lib/bot/whatsapp-render";
+import { isShopOpen } from "@/lib/cafe/shop-open";
+import { rateStep, type RateState } from "../../../../../supabase/functions/telegram-bot/rating-flow";
+import { savedOrderLabel, savedOrderToLines, type SavedOrder } from "../../../../../supabase/functions/telegram-bot/reorder";
 import { humanPause, TEXT_UNCLEAR, VOICE_UNCLEAR, understandAudio, understandSmart, type Parsed, type PhraseMemory } from "../../../../../supabase/functions/telegram-bot/llm";
 import {
   dropClosed,
   normalizeIraqiPhone,
+  START,
   step,
+  understand,
   type CartLine,
   type Button,
   type Input,
@@ -58,7 +63,7 @@ async function note(status: number, body: string, why: string) {
 const SITE = () => (process.env.STATION_SITE_URL ?? "https://station-anbar.netlify.app").replace(/\/$/, "");
 
 // ── حالة المحادثة: نفس جدول بوت تليغرام، بمفتاح مسبوق بـ wa: فلا يتصادمان ──
-type Ui = { buttons: Button[]; text: string; lastMsgId?: string; humanAt?: string; unclearAt?: string };
+type Ui = { buttons: Button[]; text: string; lastMsgId?: string; humanAt?: string; unclearAt?: string; closedAt?: string };
 const key = (waId: string) => `wa:${waId}`;
 const uiKey = (waId: string) => `wa:${waId}:ui`;
 
@@ -158,7 +163,8 @@ async function submitOrder(waId: string, order: OrderPayload): Promise<void> {
       body: JSON.stringify({ ...order, source: "whatsapp", whatsapp_wa_id: waId }),
       signal: AbortSignal.timeout(9000),
     });
-    const j = (await r.json().catch(() => ({}))) as { ok?: boolean; order_number?: string };
+    const j = (await r.json().catch(() => ({}))) as { ok?: boolean; order_number?: string; error?: string };
+    if (j.error === "closed") return void sendText(waId, CLOSED_TEXT);
     if (!r.ok || !j.ok) return void sendText(waId, "تعذّر إرسال الطلب — أعد المحاولة أو اتصل بالمطعم.");
     await sendText(waId, `✅ وصل طلبك — رقمه *${j.order_number}*\nنخبرك لمن يتقبل ويجهز.`);
   } catch {
@@ -189,6 +195,43 @@ async function fetchAudio(msg: WaMsg): Promise<{ audio: ArrayBuffer; mime: strin
   } catch {
     return null;
   }
+}
+
+const CLOSED_TEXT = "المطعم مسدود هسة 🌙 نستقبل الطلبات من ٩ الصبح لـ٣ الفجر — دزلنا طلبك بعدين ونكون بخدمتك 🧡";
+
+/** الطلبات المحفوظة لهذا الرقم (قيّمها فوق ٨) — آخر خمسة */
+async function savedOrders(waId: string): Promise<SavedOrder[]> {
+  const svc = createSupabaseServiceClient();
+  const { data: orders } = await svc
+    .from("orders")
+    .select("id, order_seq, subtotal, created_at")
+    .eq("whatsapp_wa_id", waId)
+    .eq("saved_for_customer", true)
+    .order("created_at", { ascending: false })
+    .limit(5);
+  if (!orders?.length) return [];
+  const { data: items } = await svc.from("order_items").select("order_id, item_id, variant_id, name_ar, flavor_ar, qty, note").in("order_id", orders.map((o) => o.id));
+  return orders.map((o) => ({ ...o, items: (items ?? []).filter((i) => i.order_id === o.id) }));
+}
+
+/** إجابة تقييم (زرّ r|N أو نصّ) — تكمل الأسئلة وتحفظ النتيجة */
+async function rateTurn(waId: string, state: RateState, input: Input, msgId: string | undefined, ui: Ui | null): Promise<void> {
+  const rin = input.kind === "button" && input.data.startsWith("r|") ? { kind: "score" as const, value: Number(input.data.split("|")[1]) } : input.kind === "text" ? { kind: "text" as const, text: input.text } : null;
+  if (!rin) return;
+  const out = rateStep(state, rin);
+  const svc = createSupabaseServiceClient();
+  await Promise.all([
+    writeState(key(waId), out.state),
+    writeState(uiKey(waId), { ...(ui ?? { buttons: [], text: "" }), lastMsgId: msgId }),
+  ]);
+  if (out.reply.done) {
+    const s = out.state;
+    await svc.from("order_ratings").upsert({ order_id: s.orderId, food: s.food ?? null, service: s.service ?? null, ordering: s.ordering ?? null, advice: out.reply.done.advice, score: out.reply.done.score, source: "whatsapp" }, { onConflict: "order_id" });
+    if (out.reply.done.save) await svc.from("orders").update({ saved_for_customer: true }).eq("id", s.orderId);
+    await writeState(key(waId), { ...START });
+  }
+  await humanPause();
+  await send(waId, out.reply.scale ? renderRateScale(out.reply.text) : { type: "text", text: { body: out.reply.text.replace(/\*/g, "*"), preview_url: false } });
 }
 
 /** رابط المنيو بوضع التوصيل والرقم مملوءاً — الزبون لا يكتب رقمه مرتين */
@@ -243,6 +286,28 @@ async function turn(msg: WaMsg): Promise<void> {
   let understood: CartLine[] | null = null;
   let raw = inputOf(msg);
 
+  // تقييم جارٍ: أي جواب يكمله — إلا طلباً جديداً واضحاً فيقطعه
+  if ((prev as unknown as RateState | null)?.flow === "rate") {
+    const rs = prev as unknown as RateState;
+    const wantsOrder = raw.kind === "button" ? !raw.data.startsWith("r|") : raw.kind === "text" && !!understand(raw.text, await loadMenu());
+    if (!wantsOrder) {
+      await rateTurn(waId, rs, raw, msg.id, ui);
+      return;
+    }
+    await writeState(key(waId), { ...START });
+  }
+
+  // المطعم مغلق (لا وردية مفتوحة): جواب واحد كل ساعة، ولا منيو
+  if (!(await isShopOpen())) {
+    const said = ui?.closedAt && Date.now() - Date.parse(ui.closedAt) < 60 * 60_000;
+    await writeState(uiKey(waId), { ...(ui ?? { buttons: [], text: "" }), lastMsgId: msg.id, closedAt: said ? ui!.closedAt : new Date().toISOString() });
+    if (!said) {
+      await humanPause();
+      await sendText(waId, CLOSED_TEXT);
+    }
+    return;
+  }
+
   // صوت: يُفهم مباشرة (Gemini يسمع) أو يُكتب ثم يُفهم؛ وإن لم يُفهم يُطلب الكتابة — لا موظف
   // (الطلب بالصوت لا يُعلَن في أي نصّ؛ يعمل لمن يعرفه)
   if (raw.kind === "voice") {
@@ -265,7 +330,7 @@ async function turn(msg: WaMsg): Promise<void> {
     const welcome = async () => {
       await writeState(uiKey(waId), { ...(ui ?? { buttons: [], text: "" }), lastMsgId: msg.id });
       await humanPause();
-      await send(waId, renderWelcome());
+      await send(waId, renderWelcome((await savedOrders(waId)).length > 0));
     };
     // تحيّة صِرفة → الترحيب. أما «أريد أطلب ٢ زنجر» فليست تحيّة: تُفهم أولاً
     const pureGreeting = !t || t.length <= 2 || /^\/?(start|order)\b/i.test(t) || /^(مرحبا|مرحباً|هلا|هلو|السلام عليكم|السلام|سلام|hi|hello|hey|صباح الخير|مساء الخير)\s*[!.؟?]*$/i.test(t);
@@ -316,6 +381,25 @@ async function turn(msg: WaMsg): Promise<void> {
     await send(waId, renderMenuLink(menuLink(waId)));
     return;
   }
+  if (raw.kind === "button" && raw.data === "w|saved") {
+    const list = await savedOrders(waId);
+    await writeState(uiKey(waId), { ...(ui ?? { buttons: [], text: "" }), lastMsgId: msg.id });
+    await humanPause();
+    await send(waId, list.length ? renderSavedOrders(list.map((o) => ({ id: o.id, order_seq: o.order_seq, label: savedOrderLabel(o) }))) : renderWelcome(false));
+    return;
+  }
+  if (raw.kind === "button" && raw.data.startsWith("w|re|")) {
+    const chosenId = raw.data.slice(5);
+    const chosen = (await savedOrders(waId)).find((o) => o.id === chosenId);
+    const lines = chosen ? savedOrderToLines(chosen, await loadMenu()) : [];
+    if (!lines.length) {
+      await humanPause();
+      await sendText(waId, "هذا الطلب ما عاد متوفر بأصنافه — اختار من المنيو 🙏");
+      raw = { kind: "button", data: "o|cats" };
+    } else {
+      understood = lines;
+    }
+  }
   if (raw.kind === "button" && raw.data === "w|here") {
     await humanPause();
     await sendText(waId, "تكدر تكتب طلبك هنا (مثلاً: اثنين زنجر وجبة وبيبسي) أو تختار من الأصناف 👇");
@@ -335,7 +419,7 @@ async function turn(msg: WaMsg): Promise<void> {
   // شاشة البداية من المحرّك (زرّ «إلغاء» أو «الرئيسية») → الترحيب
   if (out.state.step === "start" && !out.reply.order) {
     await Promise.all([writeState(key(waId), out.state), writeState(uiKey(waId), { buttons: [], text: "", lastMsgId: msg.id })]);
-    await send(waId, renderWelcome());
+    await send(waId, renderWelcome((await savedOrders(waId)).length > 0));
     return;
   }
 

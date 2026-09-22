@@ -1,5 +1,7 @@
 import { humanPause, understandAudio, understandSmart, VOICE_UNCLEAR, type Parsed, type PhraseMemory } from "./llm.ts";
-import { dropClosed, step as orderStep, normalizeIraqiPhone, type Menu, type State as OrderState, type Input as OrderInput, type Reply as OrderReply } from "./order-flow.ts";
+import { rateStep, type RateState } from "./rating-flow.ts";
+import { savedOrderLabel, savedOrderToLines, type SavedOrder } from "./reorder.ts";
+import { dropClosed, START as ORDER_START, understand, step as orderStep, normalizeIraqiPhone, type Menu, type State as OrderState, type Input as OrderInput, type Reply as OrderReply } from "./order-flow.ts";
 // بوت ستيشن — Supabase Edge Function (Telegram webhook, يعمل 24/7).
 // نفس بوت الأزرار الكامل: تقارير، الطلبات الآن، الطاولات، الأكثر/الأقل مبيعاً،
 // إدارة المنتجات (إضافة/حذف/تسعير/تفعيل) — والحالة الحوارية محفوظة في bot_state.
@@ -127,6 +129,26 @@ async function getState(chatId: number | string) {
   const rows = await rest(`bot_state?chat_id=eq.${chatId}&select=state`);
   return rows[0]?.state ?? null;
 }
+const CLOSED_TEXT = "المطعم مسدود هسة 🌙 نستقبل الطلبات من ٩ الصبح لـ٣ الفجر — دزلنا طلبك بعدين ونكون بخدمتك 🧡";
+
+/** وردية كاشير مفتوحة = المطعم يستقبل (كما isShopOpen على الموقع) */
+async function shopOpen(): Promise<boolean> {
+  try {
+    const rows = (await rest("cashier_sessions?select=id&closed_at=is.null&limit=1")) as Row[];
+    return rows.length > 0;
+  } catch {
+    return true;
+  }
+}
+
+/** الطلبات المحفوظة لهذه المحادثة (قيّمها صاحبها فوق ٨) — آخر خمسة */
+async function savedOrders(chatId: number | string): Promise<SavedOrder[]> {
+  const orders = (await rest(`orders?select=id,order_seq,subtotal,created_at&telegram_chat_id=eq.${chatId}&saved_for_customer=eq.true&order=created_at.desc&limit=5`)) as Row[];
+  if (!orders.length) return [];
+  const items = (await rest(`order_items?select=order_id,item_id,variant_id,name_ar,flavor_ar,qty,note&order_id=in.(${orders.map((o) => o.id).join(",")})`)) as Row[];
+  return orders.map((o) => ({ id: o.id, order_seq: Number(o.order_seq), subtotal: Number(o.subtotal) || 0, created_at: String(o.created_at), items: items.filter((i) => i.order_id === o.id) as SavedOrder["items"] }));
+}
+
 /** ذاكرة العبارات (0094) عبر REST — الجدول نفسه الذي يكتبه واتساب */
 const phraseMemory: PhraseMemory = {
   async get(key) {
@@ -828,7 +850,7 @@ async function onMessage(msg: Row) {
   const state = await getState(chatId);
   // الزبائن: كل من ليس مالكاً، ومالكٌ كتب /order ليجرّب ما يراه الزبون
   const isOwner = await authorized(chatId);
-  if (!isOwner || state?.flow === "order" || msg.text === "/order") {
+  if (!isOwner || state?.flow === "order" || state?.flow === "rate" || msg.text === "/order") {
     await customerTurn(chatId, msg, state);
     return;
   }
@@ -1007,7 +1029,7 @@ async function onCallback(cb: Row) {
   const chatId = cb.message.chat.id;
   const mid = cb.message.message_id;
   await tg("answerCallbackQuery", { callback_query_id: cb.id });
-  if (String(cb.data).startsWith("o|") || !(await authorized(chatId))) {
+  if (String(cb.data).startsWith("o|") || String(cb.data).startsWith("r|") || String(cb.data).startsWith("w|") || !(await authorized(chatId))) {
     await customerTurn(chatId, { callback: String(cb.data), message_id: mid, from: cb.from }, await getState(chatId));
     return;
   }
@@ -1211,6 +1233,7 @@ async function submitOrder(chatId: number | string, order: OrderReply["order"]) 
       body: JSON.stringify({ ...order, source: "telegram", telegram_chat_id: String(chatId) }),
     });
     const j = await r.json().catch(() => ({}));
+    if (j.error === "closed") { await say(chatId, CLOSED_TEXT); return; }
     if (!r.ok || !j.ok) {
       console.error("intake failed", r.status, JSON.stringify(j).slice(0, 200));
       await say(chatId, "⚠️ تعذّر إرسال الطلب الآن. حاول بعد قليل أو اتصل بالمطعم.", [[{ text: "🔄 حاول ثانية", callback_data: "o|cart" }]]);
@@ -1232,8 +1255,56 @@ async function customerTurn(chatId: number | string, msg: Row, prev: Row | null)
       : msg.voice
         ? { kind: "voice" }
         : { kind: "text", text: String(msg.text ?? "") };
-  const state = (prev?.flow === "order" ? prev : null) as OrderState | null;
   const menu = await loadMenu();
+
+  // تقييم جارٍ: أي جواب يكمله — إلا طلباً جديداً واضحاً فيقطعه
+  if (prev?.flow === "rate") {
+    const rs = prev as unknown as RateState;
+    const wantsOrder = input.kind === "button" ? !input.data.startsWith("r|") : input.kind === "text" && !!understand(input.text, menu);
+    if (!wantsOrder) {
+      const rin = input.kind === "button" ? { kind: "score" as const, value: Number(input.data.split("|")[1]) } : input.kind === "text" ? { kind: "text" as const, text: input.text } : null;
+      if (!rin) return;
+      const out = rateStep(rs, rin);
+      await setState(chatId, out.state);
+      if (out.reply.done) {
+        const s = out.state;
+        await restWrite("order_ratings?on_conflict=order_id", "POST", [{ order_id: s.orderId, food: s.food ?? null, service: s.service ?? null, ordering: s.ordering ?? null, advice: out.reply.done.advice, score: out.reply.done.score, source: "telegram" }]);
+        if (out.reply.done.save) await restWrite(`orders?id=eq.${s.orderId}`, "PATCH", { saved_for_customer: true });
+        await setState(chatId, { ...ORDER_START });
+      }
+      await humanPause();
+      const row = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => ({ text: String(from + i), callback_data: `r|${from + i}` }));
+      await say(chatId, out.reply.text.replace(/\*([^*]+)\*/g, "<b>$1</b>"), out.reply.scale ? [row(1, 5), row(6, 10)] : undefined);
+      return;
+    }
+    await setState(chatId, { ...ORDER_START });
+    prev = null;
+  }
+
+  // المطعم مغلق (لا وردية مفتوحة): لا منيو
+  if (!(await shopOpen())) {
+    await humanPause();
+    await say(chatId, CLOSED_TEXT);
+    return;
+  }
+
+  // طلباتي السابقة: زرّ في البداية لمن قيّم طلباً فوق ٨
+  if (input.kind === "button" && input.data === "w|saved") {
+    const saved = await savedOrders(chatId);
+    if (!saved.length) { input = { kind: "button", data: "o|start" }; }
+    else {
+      await say(chatId, "🔁 <b>طلباتك المحفوظة</b> — اختر واحداً ويصير بالسلّة:", saved.map((o) => [{ text: `#${String(o.order_seq).padStart(3, "0")} · ${savedOrderLabel(o)}`.slice(0, 60), callback_data: `w|re|${o.id}` }]));
+      return;
+    }
+  }
+  if (input.kind === "button" && input.data.startsWith("w|re|")) {
+    const id = input.data.slice(5);
+    const chosen = (await savedOrders(chatId)).find((o) => o.id === id);
+    const lines = chosen ? savedOrderToLines(chosen, menu) : [];
+    input = lines.length ? { kind: "lines", lines } : { kind: "button", data: "o|cats" };
+  }
+
+  const state = (prev?.flow === "order" ? prev : null) as OrderState | null;
   // صوت: يُفهم مباشرة (Gemini يسمع مع المنيو) أو يُكتب ثم يُفهم؛ وإلا يُطلب الكتابة
   if (input.kind === "voice" && msg.voice?.file_id) {
     const keys = { gemini: Deno.env.get("GEMINI_API_KEY"), groq: Deno.env.get("GROQ_API_KEY") };
@@ -1267,7 +1338,9 @@ async function customerTurn(chatId: number | string, msg: Row, prev: Row | null)
   await humanPause();
   const phoneForLookup = input.kind === "contact" ? input.phone : state?.phone;
   const known = await knownCustomer(phoneForLookup ? normalizeIraqiPhone(phoneForLookup) : null);
-  const out = orderStep(state, input, menu, known);
+  // زرّ «طلباتي السابقة» يظهر في شاشة البداية لمن له طلبات محفوظة
+  const hasSaved = (!state || state.step === "start" || (input.kind === "button" && input.data === "o|start")) && (await savedOrders(chatId)).length > 0;
+  const out = orderStep(state ? { ...state, hasSaved } : hasSaved ? { ...ORDER_START, hasSaved } : null, input, menu, known);
   // اسم تليغرام حين لا يعرف المحل الزبون بعد
   if (!out.state.name && msg.from?.first_name) out.state.name = String(msg.from.first_name).slice(0, 60);
   await setState(chatId, out.state);
