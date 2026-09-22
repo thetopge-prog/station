@@ -25,7 +25,7 @@ const pacifico = Pacifico({
 
 export const metadata: Metadata = {
   // og:image لا بدّ أن يكون رابطاً كاملاً وإلا تجاهله واتساب
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://station-anbar.netlify.app"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://station.187.124.112.104.sslip.io"),
   title: BRAND_TITLE,
   description: `منيو ${BRAND.nameAr} ونظام الطلبات — ${BRAND.cityAr}.`,
   manifest: "/manifest.webmanifest",
