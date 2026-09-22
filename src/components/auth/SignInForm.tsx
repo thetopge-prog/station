@@ -69,7 +69,17 @@ export function SignInForm({ redirectTo, stale = false }: { redirectTo: string; 
       const supabase = createSupabaseBrowserClient();
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password: realPassword });
       if (signInError) {
-        setError(t("auth.error"));
+        // السبب الحقيقي لا رسالة عامة: كلمة مرور خاطئة ≠ حظر مؤقت ≠ انقطاع
+        const m = signInError.message || "";
+        setError(
+          /invalid login credentials/i.test(m)
+            ? "كلمة المرور غير صحيحة لهذا الرقم — تأكد من اللغة الإنجليزية وCaps Lock، وامسح ما ملأه المتصفح واكتبها يدوياً."
+            : /rate limit|too many/i.test(m)
+              ? "محاولات كثيرة — انتظر ٥ دقائق ثم أعد المحاولة."
+              : /fetch|network/i.test(m)
+                ? "تعذّر الوصول إلى الخادم — تحقق من الإنترنت."
+                : `${t("auth.error")} (${m.slice(0, 80)})`,
+        );
         return;
       }
       sessionStorage.removeItem(STALE_KEY);
