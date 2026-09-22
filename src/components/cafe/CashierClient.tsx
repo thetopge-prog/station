@@ -12,7 +12,7 @@ import {
   Printer,
   Trash2,
 } from "lucide-react";
-import type { MenuCategoryView, MenuItemView } from "@/lib/cafe/menu-data";
+import { cheapestVariant, type MenuCategoryView, type MenuItemView } from "@/lib/cafe/menu-data";
 import { formatIqdLabel } from "@/lib/cafe/money";
 import { cashierCheckout, type PayMethod } from "@/lib/cafe/cashier-actions";
 import type { Partner } from "@/lib/cafe/partner-actions";
@@ -1311,7 +1311,7 @@ function CashierItem({
   onAdd: (line: Omit<Line, "qty">) => void;
 }) {
   const [variantId, setVariantId] = useState<string | null>(
-    item.variants[0]?.id ?? null,
+    cheapestVariant(item)?.id ?? null,
   );
   const [flavor, setFlavor] = useState<string | null>(item.flavors[0] ?? null);
   const variant = item.variants.find((v) => v.id === variantId) ?? null;

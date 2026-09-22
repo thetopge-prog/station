@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AtSign, Check, Globe, LogIn, MessageCircle, Minus, Plus, ReceiptText, RefreshCw, ShoppingCart, X } from "lucide-react";
-import type { MenuCategoryView, MenuItemView } from "@/lib/cafe/menu-data";
+import { cheapestVariant, type MenuCategoryView, type MenuItemView } from "@/lib/cafe/menu-data";
 import { formatIqdLabel } from "@/lib/cafe/money";
 import { getMyOrders, submitOrder, type OrderLineInput, type PublicOrder } from "@/lib/cafe/order-actions";
 import { useCart, type CartLine } from "./use-cart";
@@ -529,7 +529,7 @@ function ModernCard({
   index: number;
   onAdd: (line: Omit<CartLine, "qty">) => void;
 }) {
-  const [variantId, setVariantId] = useState<string | null>(item.variants[0]?.id ?? null);
+  const [variantId, setVariantId] = useState<string | null>(cheapestVariant(item)?.id ?? null);
   const [flavor, setFlavor] = useState<string | null>(item.flavors[0] ?? null);
   const variant = item.variants.find((v) => v.id === variantId) ?? null;
   const unitPrice = variant?.price ?? item.price;

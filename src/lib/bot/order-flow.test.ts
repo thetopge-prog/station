@@ -197,3 +197,19 @@ describe("dough is read from the message, not assumed", () => {
     expect(understand("بيتزا سوبريم وسط", PIZZA)![0].dough).toBe("كلاسيك");
   });
 });
+
+describe("default size is the cheapest, not the first row", () => {
+  // في القاعدة خمسة أصناف حجماها بترتيب واحد فكان أوّلها «وجبة» — والزبون يدفع الفرق
+  const BURGER: Menu = {
+    categories: [{ id: "c", name: "برجر" }],
+    items: [{ id: "b", categoryId: "c", name: "بركر دجاج بالجبن", price: 4750, sizes: [{ id: "meal", name: "وجبة", price: 6750 }, { id: "sand", name: "ساندويچ", price: 4750 }], doughs: [] }],
+  };
+  it("«بركر دجاج بالجبن» alone is a sandwich", () => {
+    const l = understand("بركر دجاج بالجبن", BURGER)![0];
+    expect([l.sizeName, l.unitPrice]).toEqual(["ساندويچ", 4750]);
+  });
+  it("«وجبة» in the message still wins", () => {
+    const l = understand("بركر دجاج بالجبن وجبة", BURGER)![0];
+    expect([l.sizeName, l.unitPrice]).toEqual(["وجبة", 6750]);
+  });
+});

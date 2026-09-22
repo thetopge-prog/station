@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronRight, Minus, Plus, ShoppingBag, X } from "lucide-react";
-import type { MenuCategoryView, MenuItemView } from "@/lib/cafe/menu-data";
+import { cheapestVariant, type MenuCategoryView, type MenuItemView } from "@/lib/cafe/menu-data";
 import { formatIqdLabel } from "@/lib/cafe/money";
 import {
   cancelMyOrder,
@@ -282,7 +282,7 @@ export function MenuClient({
     lastTrigger.current = trigger;
     setSheet({
       item: it,
-      variantId: it.variants[0]?.id ?? null,
+      variantId: cheapestVariant(it)?.id ?? null,
       flavor: it.flavors[0] ?? null,
     });
   }

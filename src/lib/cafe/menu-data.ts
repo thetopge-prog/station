@@ -15,6 +15,15 @@ export type MenuItemView = {
   flavors: string[];
   variants: MenuVariantView[];
 };
+/**
+ * الحجم المختار سلفاً: الأرخص لا أوّل صفّ — ترتيب الأحجام في القاعدة ليس
+ * مضموناً (خمسة أصناف sort=0)، وأوّلها كان «وجبة» فيُسجَّل سعر أعلى بلا طلب.
+ */
+export function cheapestVariant(item: { variants: MenuVariantView[] }): MenuVariantView | null {
+  if (!item.variants.length) return null;
+  return item.variants.reduce((a, b) => (b.price < a.price ? b : a));
+}
+
 export type MenuCategoryView = {
   name_ar: string;
   image_url: string | null;

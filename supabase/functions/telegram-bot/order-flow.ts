@@ -17,6 +17,18 @@ export type MenuItem = { id: string; categoryId: string; name: string; price: nu
 export type Menu = { categories: { id: string; name: string }[]; items: MenuItem[] };
 
 /**
+ * الحجم الافتراضي حين لا يذكره الزبون: **الأرخص**، لا أوّل صفّ.
+ *
+ * خمسة أصناف في القاعدة سِعتُها بترتيب واحد (sort=0) فكان «أوّل صفّ» هو
+ * «وجبة» — فمن طلب «بركر دجاج بالجبن» وحده سُجّل له وجبة بألفي دينار زيادة.
+ * الأرخص هو الافتراض الأمين: الزبون يرى السلّة ويزيد إن أراد.
+ */
+export function defaultSize(item: MenuItem): MenuSize | null {
+  if (!item.sizes.length) return null;
+  return item.sizes.reduce((a, b) => (b.price < a.price ? b : a));
+}
+
+/**
  * قسم يغلق 02:00 فجراً ويعود 09:00 (توأم LATE_CUTOFF في src/lib/cafe/time.ts
  * وفحص place_order في 0092). البوتات تُسقط أصنافه من المنيو في هذه الساعات،
  * فلا يُعرض ولا يُفهم ولا يُطلب — كالمنيو على الويب تماماً.
@@ -241,7 +253,7 @@ function parseSegment(seg: string, menu: Menu): CartLine[] {
     }
     if (!best || best.score < 0.5) break;
     const item = best.item;
-    const size = item.sizes.find((sz) => tokens(sz.name).some((t) => words.some((w) => same(w, t)))) ?? item.sizes[0] ?? null;
+    const size = item.sizes.find((sz) => tokens(sz.name).some((t) => words.some((w) => same(w, t)))) ?? defaultSize(item);
     out.push({
       itemId: item.id,
       name: item.name,
@@ -424,7 +436,7 @@ export function step(prev: State | null, input: Input, menu: Menu, known?: Known
     case "item": {
       const item = menu.items.find((i) => i.id === arg);
       if (!item) return screenCats(state, menu);
-      return screenItem({ ...state, draft: { itemId: item.id, sizeId: item.sizes[0]?.id ?? null, dough: item.doughs[0] ?? null, qty: 1, note: null } }, menu);
+      return screenItem({ ...state, draft: { itemId: item.id, sizeId: defaultSize(item)?.id ?? null, dough: item.doughs[0] ?? null, qty: 1, note: null } }, menu);
     }
     case "size": if (state.draft) return screenItem({ ...state, draft: { ...state.draft, sizeId: arg } }, menu); break;
     case "dough": if (state.draft) return screenItem({ ...state, draft: { ...state.draft, dough: arg } }, menu); break;

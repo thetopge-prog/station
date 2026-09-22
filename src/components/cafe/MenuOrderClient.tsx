@@ -3,7 +3,7 @@
 import { useMemo, useReducer, useState } from "react";
 import Link from "next/link";
 import { Minus, Plus, ShoppingCart, X, Check, Sparkles } from "lucide-react";
-import type { MenuCategoryView, MenuItemView } from "@/lib/cafe/menu-data";
+import { cheapestVariant, type MenuCategoryView, type MenuItemView } from "@/lib/cafe/menu-data";
 import { MenuIcon } from "./MenuIcon";
 import { StationMark } from "./Logo";
 import { formatIqdLabel } from "@/lib/cafe/money";
@@ -277,7 +277,7 @@ export function MenuOrderClient({
 }
 
 function ItemCard({ item, category, onAdd }: { item: MenuItemView; category?: string; onAdd: (line: Omit<Line, "qty">) => void }) {
-  const [variantId, setVariantId] = useState<string | null>(item.variants[0]?.id ?? null);
+  const [variantId, setVariantId] = useState<string | null>(cheapestVariant(item)?.id ?? null);
   const [flavor, setFlavor] = useState<string | null>(item.flavors[0] ?? null);
 
   const variant = item.variants.find((v) => v.id === variantId) ?? null;

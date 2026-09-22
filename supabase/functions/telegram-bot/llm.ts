@@ -12,7 +12,7 @@
  *
  * يعمل في Deno (تليغرام) وNode (واتساب): fetch فقط، لا مكتبات.
  */
-import { foldWord, understand, type CartLine, type Menu } from "./order-flow.ts";
+import { defaultSize, foldWord, understand, type CartLine, type Menu } from "./order-flow.ts";
 
 export type LlmKeys = { gemini?: string; groq?: string };
 export type Parsed = { intent?: string; reply?: string; lines?: { item_id?: string; size?: string; qty?: number; note?: string }[] };
@@ -88,7 +88,7 @@ export function toLines(parsed: Parsed, menu: Menu): CartLine[] {
   for (const l of parsed.lines ?? []) {
     const item = menu.items.find((i) => i.id === l.item_id);
     if (!item) continue;
-    const size = item.sizes.find((s) => s.name === (l.size ?? "").trim()) ?? item.sizes[0] ?? null;
+    const size = item.sizes.find((s) => s.name === (l.size ?? "").trim()) ?? defaultSize(item);
     const qty = Math.min(20, Math.max(1, Math.round(Number(l.qty) || 1)));
     out.push({ itemId: item.id, name: item.name, sizeName: size?.name ?? null, dough: item.doughs[0] ?? null, qty, unitPrice: size ? size.price : item.price, note: (l.note ?? "").trim().slice(0, 80) || null });
   }
