@@ -27,7 +27,9 @@ export async function submitFranchiseLead(input: {
 
   if (name.length < 2) return { ok: false, field: "name", error: "name" };
   if (city.length < 2) return { ok: false, field: "city", error: "city" };
-  if (!phone) return { ok: false, field: "phone", error: "phone" };
+  // normaliseIraqiPhone يُنسّق للواتساب ولا يتحقّق: «123» يرجع «123». والنموذج
+  // مفتوح على الإنترنت، فالرقم الذي لا يُتّصل به يُفرغ الصندوق من فائدته.
+  if (!/^9647\d{9}$/.test(phone)) return { ok: false, field: "phone", error: "phone" };
 
   try {
     const svc = createSupabaseServiceClient();

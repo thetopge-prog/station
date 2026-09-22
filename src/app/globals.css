@@ -251,6 +251,35 @@ body {
 .st-drift { animation: st-drift 46s linear infinite; }
 .st-drift-rev { animation: st-drift-rev 58s linear infinite; }
 
+/* ── الصفحة التعريفية (stationiraq.com) ───────────────────────────────────
+   ثلاث حركات لا أكثر: القرص الذي يحمل صورة البركر يطفو، وحلقة الاسم حوله
+   تدور، والأقسام تظهر من الأسفل مرّة واحدة عند الوصول إليها. البطء مقصود —
+   موقع مطعم يفتح الشهية لا يُدوّخ. وكلها تتوقف مع prefers-reduced-motion. */
+@keyframes st-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-14px); }
+}
+@keyframes st-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes st-fade-up {
+  from { opacity: 0; transform: translateY(28px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.st-float { animation: st-float 6s ease-in-out infinite; }
+.st-spin { animation: st-spin 26s linear infinite; }
+/* يدور عكس الحاوية بالقدر نفسه: الصورة تدور حول القرص وتبقى معتدلة */
+.st-spin-rev { animation: st-spin 26s linear infinite reverse; }
+.st-spin-slow { animation: st-spin 40s linear infinite; }
+
+/* يظهر عند الوصول: Reveal.tsx يضيف .st-in حين تدخل البطاقة الشاشة */
+.st-reveal { opacity: 0; }
+.st-reveal.st-in { animation: st-fade-up 0.7s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .st-reveal { opacity: 1; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

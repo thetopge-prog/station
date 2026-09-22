@@ -24,12 +24,23 @@ export const LANG_LABEL: Record<SiteLang, string> = {
 };
 
 export type Card = { title: string; body: string };
+export type Qa = { q: string; a: string };
 
 export type SiteCopy = {
   metaTitle: string;
   metaDescription: string;
   tagline: string;
   heroLead: string;
+  heroTitle: string;
+  scrollCue: string;
+  nav: { about: string; why: string; menu: string; franchise: string; contact: string };
+  ticker: string[];
+  badge: string;
+  deliveryTitle: string;
+  deliveryLead: string;
+  deliveryPoints: string[];
+  faqTitle: string;
+  faq: Qa[];
   order: string;
   learnMore: string;
   aboutTitle: string;
@@ -78,6 +89,22 @@ const ar: SiteCopy = {
   metaDescription: "دجاج مقرمش وبيتزا وبرجر في الرمادي، وطلبٌ من هاتفك يصل المطبخ في ثانية. ستيشن — المحطة تفزع لك.",
   tagline: "المحطة تفزع لك",
   heroLead: "دجاج مقرمش بوصفتنا، بيتزا بعجين يومي، وتسعة صوصات تُحضَّر عندنا — في الرمادي، ومن هاتفك.",
+  heroTitle: "دجاج مقرمش وبيتزا حارّة",
+  scrollCue: "انزل لتشوف",
+  nav: { about: "من نحن", why: "لماذا نحن", menu: "المنيو", franchise: "الوكالات", contact: "تواصل" },
+  ticker: ["دجاج مقرمش", "بيتزا بعجين يومي", "تسعة صوصات", "برجر لحم طازج", "توصيل ساخن", "من ٩ صباحاً لـ٣ فجراً"],
+  badge: "أول مطعم تقني في الأنبار",
+  deliveryTitle: "نوصلك وهو حار",
+  deliveryLead: "الطلب يخرج من المقلاة إلى الباب — لا يُحضَّر قبل أوانه ولا ينتظر على الرف.",
+  deliveryPoints: ["يُقلى عند الطلب لا قبله", "علب تحفظ الحرارة والقرمشة", "تتبّع طلبك برسالة واتساب"],
+  faqTitle: "أسئلة يسألها الناس",
+  faq: [
+    { q: "شنو أوقات الدوام؟", a: "كل يوم من ٩:٠٠ صباحاً حتى ٣:٠٠ فجراً، والطلب من الموقع متاح طوال هذه الساعات." },
+    { q: "تجهزون توصيل؟", a: "نعم، داخل الرمادي — اطلب من الموقع أو واتساب ويصلك الطلب مع تنبيه بكل مرحلة." },
+    { q: "أكدر أحجز طاولة؟", a: "الطاولات بالأسبقية، وللمناسبات والعزائم اتصل بنا وننظّمها لك." },
+    { q: "شلون أفتح فرع ستيشن؟", a: "املأ نموذج الوكالة في هذه الصفحة ونتواصل معك لشرح الشروط والتكاليف." },
+    { q: "اللحم والدجاج حلال؟", a: "نعم، كل لحومنا حلال ومن موردين معروفين، وتصلنا طازجة يومياً." },
+  ],
   order: "اطلب الآن",
   learnMore: "تعرّف علينا",
   aboutTitle: "من نحن",
@@ -145,6 +172,22 @@ const en: SiteCopy = {
   metaDescription: "Crispy chicken, pizza and burgers in Ramadi — ordered from your phone and in the kitchen a second later.",
   tagline: "Station has your back",
   heroLead: "Our own crispy chicken recipe, dough made every morning, nine sauces cooked in-house — in Ramadi, and on your phone.",
+  heroTitle: "Crispy chicken, hot pizza",
+  scrollCue: "Scroll to see",
+  nav: { about: "About", why: "Why us", menu: "Menu", franchise: "Franchise", contact: "Contact" },
+  ticker: ["Crispy chicken", "Dough made daily", "Nine sauces", "Fresh beef burgers", "Delivered hot", "9:00 to 03:00"],
+  badge: "Anbar's first tech-run restaurant",
+  deliveryTitle: "It reaches you hot",
+  deliveryLead: "Your order goes from the fryer to your door — never cooked early, never waiting on a shelf.",
+  deliveryPoints: ["Fried when you order, not before", "Boxes that hold heat and crunch", "Track it by WhatsApp message"],
+  faqTitle: "What people ask",
+  faq: [
+    { q: "What are your hours?", a: "Every day from 9:00 in the morning until 03:00 at night, and the website takes orders the whole time." },
+    { q: "Do you deliver?", a: "Yes, across Ramadi — order from the site or on WhatsApp and you get a message at every step." },
+    { q: "Can I book a table?", a: "Tables are first come, first served; for gatherings call us and we will arrange it." },
+    { q: "How do I open a Station branch?", a: "Fill in the franchise form on this page and we will contact you with the terms and costs." },
+    { q: "Is the meat halal?", a: "Yes — all our meat is halal, from known suppliers, delivered fresh every day." },
+  ],
   order: "Order now",
   learnMore: "About us",
   aboutTitle: "Who we are",
@@ -212,6 +255,22 @@ const tr: SiteCopy = {
   metaDescription: "Ramadi'de çıtır tavuk, pizza ve burger — telefonunuzdan sipariş, bir saniyede mutfakta.",
   tagline: "Station yanınızda",
   heroLead: "Kendi tarifimizle çıtır tavuk, her sabah yoğrulan hamur ve mutfağımızda hazırlanan dokuz sos — Ramadi'de ve telefonunuzda.",
+  heroTitle: "Çıtır tavuk, sıcak pizza",
+  scrollCue: "Aşağı kaydırın",
+  nav: { about: "Hakkımızda", why: "Neden biz", menu: "Menü", franchise: "Bayilik", contact: "İletişim" },
+  ticker: ["Çıtır tavuk", "Her gün yoğrulan hamur", "Dokuz sos", "Taze dana burger", "Sıcak teslimat", "09:00 – 03:00"],
+  badge: "Anbar'ın ilk teknoloji restoranı",
+  deliveryTitle: "Size sıcak ulaşır",
+  deliveryLead: "Siparişiniz fritözden kapınıza gider — erken pişirilmez, rafta beklemez.",
+  deliveryPoints: ["Sipariş verilince kızartılır", "Isıyı ve çıtırlığı koruyan kutular", "WhatsApp mesajıyla takip"],
+  faqTitle: "Sık sorulanlar",
+  faq: [
+    { q: "Çalışma saatleriniz nedir?", a: "Her gün 09:00'dan gece 03:00'e kadar; site bu saatler boyunca sipariş alır." },
+    { q: "Teslimat yapıyor musunuz?", a: "Evet, Ramadi içinde — siteden ya da WhatsApp'tan sipariş verin, her aşamada mesaj alın." },
+    { q: "Masa ayırtabilir miyim?", a: "Masalar geliş sırasına göredir; davetler için bizi arayın, biz ayarlayalım." },
+    { q: "Nasıl Station şubesi açarım?", a: "Bu sayfadaki bayilik formunu doldurun; koşulları ve maliyetleri paylaşmak için sizi arayalım." },
+    { q: "Etler helal mi?", a: "Evet, tüm etlerimiz helaldir, bilinen tedarikçilerden ve her gün taze gelir." },
+  ],
   order: "Hemen sipariş ver",
   learnMore: "Hakkımızda",
   aboutTitle: "Biz kimiz",
@@ -279,6 +338,22 @@ const it: SiteCopy = {
   metaDescription: "Pollo croccante, pizza e burger a Ramadi: ordini dal telefono e un secondo dopo è in cucina.",
   tagline: "Station c'è per te",
   heroLead: "Pollo croccante con la nostra ricetta, impasto fatto ogni mattina e nove salse preparate in casa — a Ramadi e sul tuo telefono.",
+  heroTitle: "Pollo croccante, pizza calda",
+  scrollCue: "Scorri per vedere",
+  nav: { about: "Chi siamo", why: "Perché noi", menu: "Menu", franchise: "Franchising", contact: "Contatti" },
+  ticker: ["Pollo croccante", "Impasto fatto ogni giorno", "Nove salse", "Burger di manzo fresco", "Consegna calda", "9:00 – 03:00"],
+  badge: "Il primo ristorante tecnologico dell'Anbar",
+  deliveryTitle: "Ti arriva caldo",
+  deliveryLead: "L'ordine va dalla friggitrice alla tua porta: mai cucinato in anticipo, mai fermo su uno scaffale.",
+  deliveryPoints: ["Fritto quando ordini, non prima", "Scatole che tengono calore e croccantezza", "Lo segui con un messaggio WhatsApp"],
+  faqTitle: "Le domande più frequenti",
+  faq: [
+    { q: "Quali sono gli orari?", a: "Tutti i giorni dalle 9:00 alle 03:00, e il sito prende ordini per tutto questo tempo." },
+    { q: "Fate consegne?", a: "Sì, in tutta Ramadi: ordina dal sito o su WhatsApp e ricevi un messaggio a ogni passaggio." },
+    { q: "Posso prenotare un tavolo?", a: "I tavoli sono in ordine di arrivo; per le occasioni chiamaci e organizziamo noi." },
+    { q: "Come apro una sede Station?", a: "Compila il modulo di franchising in questa pagina e ti contattiamo con condizioni e costi." },
+    { q: "La carne è halal?", a: "Sì: tutta la nostra carne è halal, da fornitori noti, consegnata fresca ogni giorno." },
+  ],
   order: "Ordina ora",
   learnMore: "Chi siamo",
   aboutTitle: "Chi siamo",
@@ -346,6 +421,22 @@ const ku: SiteCopy = {
   metaDescription: "مریشکی برژاو، پیتزا و بەرگەر لە ڕەمادی — داواکاری لە مۆبایلەکەت و لە چرکەیەکدا لە چێشتخانە.",
   tagline: "ستیشن لەگەڵتە",
   heroLead: "مریشکی برژاو بە ڕێسەتی خۆمان، هەویری ڕۆژانە، و نۆ جۆر سۆس لە چێشتخانەی خۆماندا — لە ڕەمادی و لە مۆبایلەکەت.",
+  heroTitle: "مریشکی برژاو، پیتزای گەرم",
+  scrollCue: "بۆ خوارەوە بڕۆ",
+  nav: { about: "دەربارەمان", why: "بۆچی ئێمە", menu: "مێنیو", franchise: "نوێنەرایەتی", contact: "پەیوەندی" },
+  ticker: ["مریشکی برژاو", "هەویری ڕۆژانە", "نۆ سۆس", "بەرگەری گۆشتی تازە", "گەیاندنی گەرم", "٩:٠٠ بۆ ٣:٠٠"],
+  badge: "یەکەم چێشتخانەی تەکنەلۆژی لە ئەنبار",
+  deliveryTitle: "بە گەرمی دەگاتە دەستت",
+  deliveryLead: "داواکارییەکەت لە تاوەکەوە بۆ بەردەرگاکەت دەڕوات — پێشوەخت ئامادە ناکرێت و لەسەر ڕەف ناوەستێت.",
+  deliveryPoints: ["کاتێک داوای دەکەیت دەبرژێنرێت", "قوتووی پاراستنی گەرمی و برژاندن", "بە نامەی واتساپ بەدوایدا بگەڕێ"],
+  faqTitle: "ئەو پرسیارانەی خەڵک دەیکەن",
+  faq: [
+    { q: "کاتەکانی کارکردن چەندن؟", a: "هەموو ڕۆژێک لە ٩:٠٠ی بەیانییەوە تا ٣:٠٠ی بەیانی، و ماڵپەڕەکە بە درێژایی ئەو کاتانە داواکاری وەردەگرێت." },
+    { q: "گەیاندنتان هەیە؟", a: "بەڵێ، لە ناو ڕەمادی — لە ماڵپەڕ یان واتساپەوە داوا بکە و لە هەر قۆناغێکدا نامەیەکت بۆ دێت." },
+    { q: "دەتوانم مێزێک حیجز بکەم؟", a: "مێزەکان بە پێشینەیی دەبن؛ بۆ بۆنەکان پەیوەندیمان پێوە بکە و ڕێکی دەخەین." },
+    { q: "چۆن لقێکی ستیشن بکەمەوە؟", a: "فۆرمی نوێنەرایەتی لەم پەڕەیەدا پڕ بکەرەوە و ئێمە پەیوەندیت پێوە دەکەین بۆ ڕوونکردنەوەی مەرج و تێچوون." },
+    { q: "گۆشتەکان حەڵاڵن؟", a: "بەڵێ، هەموو گۆشتەکانمان حەڵاڵن، لە دابینکەرانی ناسراوەوە و ڕۆژانە بە تازەیی دەگەن." },
+  ],
   order: "ئێستا داوا بکە",
   learnMore: "دەربارەی ئێمە",
   aboutTitle: "ئێمە کێین",
