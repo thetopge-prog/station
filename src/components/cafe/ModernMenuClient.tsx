@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AtSign, Check, Globe, LogIn, MessageCircle, Minus, Plus, ReceiptText, RefreshCw, ShoppingCart, X } from "lucide-react";
-import { cheapestVariant, type MenuCategoryView, type MenuItemView } from "@/lib/cafe/menu-data";
+import type { MenuCategoryView, MenuItemView } from "@/lib/cafe/menu-data";
+import { cheapestVariant } from "@/lib/cafe/variant";
 import { formatIqdLabel } from "@/lib/cafe/money";
 import { getMyOrders, submitOrder, type OrderLineInput, type PublicOrder } from "@/lib/cafe/order-actions";
 import { useCart, type CartLine } from "./use-cart";

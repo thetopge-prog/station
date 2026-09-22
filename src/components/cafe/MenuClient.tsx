@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronRight, Minus, Plus, ShoppingBag, X } from "lucide-react";
-import { cheapestVariant, type MenuCategoryView, type MenuItemView } from "@/lib/cafe/menu-data";
+import type { MenuCategoryView, MenuItemView } from "@/lib/cafe/menu-data";
+import { cheapestVariant } from "@/lib/cafe/variant";
 import { formatIqdLabel } from "@/lib/cafe/money";
 import {
   cancelMyOrder,

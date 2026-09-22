@@ -3,7 +3,8 @@
 import { useMemo, useReducer, useState } from "react";
 import Link from "next/link";
 import { Minus, Plus, ShoppingCart, X, Check, Sparkles } from "lucide-react";
-import { cheapestVariant, type MenuCategoryView, type MenuItemView } from "@/lib/cafe/menu-data";
+import type { MenuCategoryView, MenuItemView } from "@/lib/cafe/menu-data";
+import { cheapestVariant } from "@/lib/cafe/variant";
 import { MenuIcon } from "./MenuIcon";
 import { StationMark } from "./Logo";
 import { formatIqdLabel } from "@/lib/cafe/money";
