@@ -13,7 +13,7 @@ const TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN")!;
 const OWNERS = (Deno.env.get("TG_OWNER_IDS") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 const HOOK_SECRET = Deno.env.get("TG_WEBHOOK_SECRET") ?? "";
 // طلبات الزبائن تُرسَل إلى مدخل الطلبات الخارجية في الموقع — نفس باب واتساب
-const SITE = (Deno.env.get("STATION_SITE_URL") ?? "https://station.187.124.112.104.sslip.io").replace(/[/]$/, "");
+const SITE = (Deno.env.get("STATION_SITE_URL") ?? "https://station-anbar.duckdns.org").replace(/[/]$/, "");
 const INTAKE_SECRET = Deno.env.get("STATION_WEBHOOK_SECRET") ?? "";
 const URL_ = Deno.env.get("SUPABASE_URL")!;
 const SVC = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;

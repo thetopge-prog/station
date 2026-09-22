@@ -15,7 +15,7 @@ const env = Object.fromEntries(
 for (const k of ["SUPABASE_DB_URL", "STATION_WEBHOOK_SECRET"]) {
   if (!env[k]) { console.error(`${k} missing in .env.local`); process.exit(1); }
 }
-const SITE = process.env.FOLLOWUPS_SITE ?? "https://station.187.124.112.104.sslip.io";
+const SITE = process.env.FOLLOWUPS_SITE ?? "https://station-anbar.duckdns.org";
 
 const sql = `
 do $do$ begin perform cron.unschedule('station-followups'); exception when others then null; end $do$;

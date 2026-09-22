@@ -5,7 +5,8 @@
 set -euo pipefail
 ROOT=/opt/station
 REPO=$ROOT/repo
-HOST=${STATION_HOST:-station.187.124.112.104.sslip.io}
+HOST=${STATION_HOST:-station-anbar.duckdns.org}
+ALT_HOST=${STATION_ALT_HOST:-station.187.124.112.104.sslip.io}
 cd "$REPO"
 git fetch -q origin main
 if [ "${1:-}" != "force" ] && [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ]; then exit 0; fi
@@ -16,10 +17,10 @@ docker build -q --build-arg "NEXT_PUBLIC_SUPABASE_URL=$SUPA" -t station:latest .
 docker rm -f station >/dev/null 2>&1 || true
 docker run -d --name station --restart always --network coolify --env-file "$ROOT/.env" \
   -l traefik.enable=true \
-  -l "traefik.http.routers.station-http.rule=Host(\`$HOST\`)" \
+  -l "traefik.http.routers.station-http.rule=Host(\`$HOST\`) || Host(\`$ALT_HOST\`)" \
   -l traefik.http.routers.station-http.entryPoints=http \
   -l traefik.http.routers.station-http.middlewares=redirect-to-https \
-  -l "traefik.http.routers.station-https.rule=Host(\`$HOST\`)" \
+  -l "traefik.http.routers.station-https.rule=Host(\`$HOST\`) || Host(\`$ALT_HOST\`)" \
   -l traefik.http.routers.station-https.entryPoints=https \
   -l traefik.http.routers.station-https.tls.certresolver=letsencrypt \
   -l traefik.http.services.station-svc.loadbalancer.server.port=3000 \
