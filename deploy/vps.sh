@@ -19,7 +19,9 @@ docker run -d --name station --restart always --network coolify --env-file "$ROO
   -l traefik.enable=true \
   -l "traefik.http.routers.station-http.rule=Host(\`$HOST\`) || Host(\`$ALT_HOST\`)" \
   -l traefik.http.routers.station-http.entryPoints=http \
-  -l traefik.http.routers.station-http.middlewares=redirect-to-https \
+  -l traefik.http.routers.station-http.middlewares=station-https \
+  -l traefik.http.middlewares.station-https.redirectscheme.scheme=https \
+  -l traefik.http.middlewares.station-https.redirectscheme.permanent=true \
   -l "traefik.http.routers.station-https.rule=Host(\`$HOST\`) || Host(\`$ALT_HOST\`)" \
   -l traefik.http.routers.station-https.entryPoints=https \
   -l traefik.http.routers.station-https.tls.certresolver=letsencrypt \
