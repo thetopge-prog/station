@@ -10,6 +10,7 @@ import { savedOrderLabel, savedOrderToLines, type SavedOrder } from "../../../..
 import { humanPause, TEXT_UNCLEAR, VOICE_UNCLEAR, understandAudio, understandSmart, type Parsed, type PhraseMemory } from "../../../../../supabase/functions/telegram-bot/llm";
 import {
   dropClosed,
+  extractWhen,
   normalizeIraqiPhone,
   START,
   step,
@@ -300,6 +301,7 @@ async function turn(msg: WaMsg): Promise<void> {
   if (msg.id && ui?.lastMsgId === msg.id) return;
 
   let understood: CartLine[] | null = null;
+  let when: string | null = null;
   let raw = inputOf(msg);
 
   // تقييم جارٍ: أي جواب يكمله — إلا طلباً جديداً واضحاً فيقطعه
@@ -360,6 +362,7 @@ async function turn(msg: WaMsg): Promise<void> {
       const got = await understandSmart(t, menu, { gemini: process.env.GEMINI_API_KEY, groq: process.env.GROQ_API_KEY }, phraseMemory);
       if (got && "lines" in got) {
         understood = got.lines;
+        when = extractWhen(t).when; // «الساعة 11» تُنقل للمطبخ مع الطلب
       } else if (got && "intent" in got && got.intent === "menu") {
         await writeState(uiKey(waId), { ...(ui ?? { buttons: [], text: "" }), lastMsgId: msg.id });
         await humanPause();
@@ -427,7 +430,7 @@ async function turn(msg: WaMsg): Promise<void> {
   const phone = normalizeIraqiPhone(waId);
   const known = await knownCustomer(phone ?? state?.phone ?? null);
 
-  let out = step(state, understood ? { kind: "lines", lines: understood } : raw, menu, known);
+  let out = step(state && when ? { ...state, when } : when ? { ...START, when } : state, understood ? { kind: "lines", lines: understood } : raw, menu, known);
   // لا «شارك رقمي» في واتساب — ولا حاجة: المرسِل هو الرقم
   if (out.reply.requestContact && phone) out = step(out.state, { kind: "contact", phone: waId }, menu, known);
   if (!out.state.name && known.name) out.state.name = known.name;
