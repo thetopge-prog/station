@@ -54,7 +54,7 @@ export default async function SetupPage() {
   const displayKey = process.env.STATION_DISPLAY_KEY;
   const defs = [
     { title: "شاشة المطبخ", note: "لكل طبّاخ — يرى أصناف محطته فقط", path: "/kds" },
-    { title: "شاشة التجهيز", note: "هنا يُوصل قارئ الـQR", path: "/expediter" },
+    { title: "شاشة التجهيز", note: "هنا يُوصل قارئ الـQR — افحصه من /scanner", path: "/expediter" },
     {
       title: "شاشة الاستلام",
       note: displayKey ? "المعلّقة — تفتح بلا تسجيل دخول" : "⚠ لا يوجد STATION_DISPLAY_KEY",
