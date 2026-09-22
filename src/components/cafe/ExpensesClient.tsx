@@ -338,6 +338,7 @@ export function ExpensesClient({
               <th className="px-4 py-2.5 font-medium">اليوم</th>
               <th className="px-4 py-2.5 font-medium">التصنيف</th>
               <th className="px-4 py-2.5 font-medium">الشركة</th>
+              <th className="px-4 py-2.5 font-medium">من صرف</th>
               <th className="px-4 py-2.5 font-medium">المبلغ</th>
               <th className="px-4 py-2.5 font-medium">ملاحظة</th>
             </tr>
@@ -345,7 +346,7 @@ export function ExpensesClient({
           <tbody>
             {expenses.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-muted-foreground">
+                <td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">
                   لا توجد مصروفات مسجّلة.
                 </td>
               </tr>
@@ -357,6 +358,7 @@ export function ExpensesClient({
                 </td>
                 <td className="px-4 py-2.5">{x.category ?? "—"}</td>
                 <td className="px-4 py-2.5 text-muted-foreground">{x.supplier ?? "—"}</td>
+                <td className="px-4 py-2.5 text-muted-foreground">{x.spender ?? "—"}</td>
                 <td className="px-4 py-2.5 font-semibold">{formatIqdLabel(x.amount)}</td>
                 <td className="px-4 py-2.5 text-muted-foreground">
                   <span className="flex items-center justify-between gap-3">

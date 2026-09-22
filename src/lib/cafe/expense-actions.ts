@@ -15,6 +15,8 @@ export type ExpenseRow = {
   note: string | null;
   /** اسم شركة المشتريات إن نُسب إليها — «—» حين لا شركة، وهو مقبول */
   supplier: string | null;
+  /** من أخرج المبلغ من الدرج — المصروف بلا اسم لا يُسأل عنه أحد */
+  spender: string | null;
 };
 
 /** Any staff member records expenses (the cashier pays for ice, milk, …).
@@ -89,7 +91,7 @@ export async function listExpenses(limit = 60): Promise<ExpenseRow[]> {
   const svc = createSupabaseServiceClient();
   let q = svc
     .from("expenses")
-    .select("id, business_day, amount, category, note, supplier_id")
+    .select("id, business_day, amount, category, note, supplier_id, created_by")
     .order("created_at", { ascending: false })
     .limit(limit);
   if (!staff.isAdmin) q = q.eq("business_day", businessDay());
@@ -104,6 +106,12 @@ export async function listExpenses(limit = 60): Promise<ExpenseRow[]> {
     const { data: sup } = await svc.from("suppliers").select("id, name_ar").in("id", ids);
     for (const x of sup ?? []) nameOf.set(x.id, x.name_ar);
   }
+  const staffIds = [...new Set(rows.map((r) => r.created_by).filter((x): x is string => !!x))];
+  const staffOf = new Map<string, string>();
+  if (staffIds.length) {
+    const { data: emp } = await svc.from("employees").select("id, name_ar").in("id", staffIds);
+    for (const e of emp ?? []) staffOf.set(e.id, e.name_ar);
+  }
   return rows.map((r) => ({
     id: r.id,
     business_day: r.business_day,
@@ -111,6 +119,7 @@ export async function listExpenses(limit = 60): Promise<ExpenseRow[]> {
     category: r.category,
     note: r.note,
     supplier: (r.supplier_id && nameOf.get(r.supplier_id)) || null,
+    spender: (r.created_by && staffOf.get(r.created_by)) || null,
   }));
 }
 
