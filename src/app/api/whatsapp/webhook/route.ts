@@ -61,7 +61,7 @@ async function note(status: number, body: string, why: string) {
     /* التشخيص لا يُفشل ما يشخّصه */
   }
 }
-const SITE = () => (process.env.STATION_SITE_URL ?? "https://station-anbar.duckdns.org").replace(/\/$/, "");
+const SITE = () => (process.env.STATION_SITE_URL ?? "https://stationiraq.com").replace(/\/$/, "");
 
 // ── حالة المحادثة: نفس جدول بوت تليغرام، بمفتاح مسبوق بـ wa: فلا يتصادمان ──
 type Ui = { buttons: Button[]; text: string; lastMsgId?: string; humanAt?: string; unclearAt?: string; closedAt?: string };
