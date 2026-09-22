@@ -173,12 +173,28 @@ async function submitOrder(waId: string, order: OrderPayload): Promise<void> {
 }
 
 // ── دورة الرسالة ───────────────────────────────────────────────────────────
-type WaMsg = { from?: string; id?: string; type?: string; text?: { body?: string }; audio?: { id?: string; mime_type?: string }; interactive?: { button_reply?: { id?: string }; list_reply?: { id?: string } } };
+type WaMsg = { from?: string; id?: string; type?: string; text?: { body?: string }; audio?: { id?: string; mime_type?: string }; location?: { latitude?: number; longitude?: number; name?: string; address?: string }; interactive?: { button_reply?: { id?: string }; list_reply?: { id?: string } } };
+
+/**
+ * دبوس الخريطة عنوانٌ صالح — بل أدقّ ممّا سيكتبه الزبون.
+ *
+ * كان يصل رسالةً بلا نصّ فيُهمَل، ويُعاد سؤال العنوان نفسه بلا نهاية. يُحوّل
+ * هنا إلى سطر يقرؤه السائق: ما سمّاه واتساب إن وُجد، ورابط خرائط دائماً.
+ */
+function locationText(loc: NonNullable<WaMsg["location"]>): string {
+  const lat = Number(loc.latitude);
+  const lng = Number(loc.longitude);
+  const named = [loc.name, loc.address].filter(Boolean).join(" — ");
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return named;
+  const pin = `https://maps.google.com/?q=${lat.toFixed(6)},${lng.toFixed(6)}`;
+  return named ? `${named} (${pin})` : `📍 ${pin}`;
+}
 
 function inputOf(msg: WaMsg): Input {
   const id = msg.interactive?.button_reply?.id ?? msg.interactive?.list_reply?.id;
   if (id) return { kind: "button", data: id };
   if (msg.type === "audio" || msg.type === "voice") return { kind: "voice" };
+  if (msg.location) return { kind: "text", text: locationText(msg.location) };
   return { kind: "text", text: String(msg.text?.body ?? "") };
 }
 

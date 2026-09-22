@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { START, cartTotal, normalizeIraqiPhone, step, understand, type Input, type Menu, type State } from "../../../supabase/functions/telegram-bot/order-flow";
+import { START, cartTotal, extractWhen, normalizeIraqiPhone, step, understand, type Input, type Menu, type State } from "../../../supabase/functions/telegram-bot/order-flow";
 
 /**
  * محرّك الطلب بلا تليغرام: الحوار كله كأزرار ونصوص، والمنيو وسيط.
@@ -158,5 +158,42 @@ describe("understand — free text to cart, no LLM", () => {
     expect(understand("هل عندكم توصيل للتأميم؟", SHOP)).toBeNull();
     expect(understand("مرحبا", SHOP)).toBeNull();
     expect(understand("وين المحل", SHOP)).toBeNull();
+  });
+
+  // ما وقع فعلاً في محادثات واتساب — كل حالة كلّفت طلباً خاطئاً
+  it("a clock time is not a quantity: «الساعة 11» once cost 11 pizzas instead of 4", () => {
+    expect(names("اريد أربعة بيتزا سوبريم وسط الساعة 11 تكون جاهزة")).toEqual(["4×بيتزا سوبريم/وسط"]);
+    expect(extractWhen("اريد أربعة بيتزا الساعة 11 تكون جاهزة").when).toContain("11");
+  });
+
+  it("keeps other clock shapes out of the count too", () => {
+    expect(names("بيتزا سوبريم كبيرة 9:30")).toEqual(["1×بيتزا سوبريم/كبير"]);
+    expect(extractWhen("خليها بعد نص ساعة").when).toBe("بعد نص ساعة");
+    expect(extractWhen("٣ ببسي").when).toBeNull();
+  });
+
+  it("reads the Ramadi spelling of a size — «جبير» is كبير, not the cheapest", () => {
+    expect(names("بيبسي حجم جبير")).toEqual(["1×ببسي"]);
+    expect(names("بيتزا سوبريم جبيرة")).toEqual(["1×بيتزا سوبريم/كبير"]);
+    expect(names("بيتزا سوبريم متوسط")).toEqual(["1×بيتزا سوبريم/وسط"]);
+  });
+
+  it("the requested time travels to the kitchen note", () => {
+    const st = step({ ...START }, { kind: "text", text: "بيتزا سوبريم وسط الساعة 11" }, SHOP).state;
+    expect(st.when).toContain("11");
+    expect(st.cart).toHaveLength(1);
+  });
+});
+
+describe("dough is read from the message, not assumed", () => {
+  const PIZZA: Menu = {
+    categories: [{ id: "c", name: "بيتزا" }],
+    items: [{ id: "p", categoryId: "c", name: "بيتزا سوبريم", price: 12000, sizes: [{ id: "m", name: "وسط", price: 12000 }], doughs: ["كلاسيك", "عجينة سميكة"] }],
+  };
+  it("picks the crust the customer named", () => {
+    expect(understand("بيتزا سوبريم وسط سميكة", PIZZA)![0].dough).toBe("عجينة سميكة");
+  });
+  it("falls back to the first crust when none is named", () => {
+    expect(understand("بيتزا سوبريم وسط", PIZZA)![0].dough).toBe("كلاسيك");
   });
 });

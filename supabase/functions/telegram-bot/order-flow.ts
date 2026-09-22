@@ -59,6 +59,8 @@ export type State = {
   name?: string | null;
   /** لهذا الزبون طلبات محفوظة (قيّمها فوق ٨) — يُملأ من المنادي، يُظهر زرّ «طلباتي السابقة» */
   hasSaved?: boolean;
+  /** موعدٌ طلبه الزبون نصّاً («الساعة 11») — يُنقل إلى ملاحظة الطلب للمطبخ */
+  when?: string | null;
 };
 
 export type Input =
@@ -141,7 +143,7 @@ function cartText(cart: CartLine[]): string {
  */
 export function understand(text: string, menu: Menu): CartLine[] | null {
   const lines: CartLine[] = [];
-  for (const seg of splitOrder(text)) lines.push(...parseSegment(seg, menu));
+  for (const seg of splitOrder(extractWhen(text).rest)) lines.push(...parseSegment(seg, menu));
   return lines.length ? lines : null;
 }
 
@@ -152,6 +154,31 @@ export function understand(text: string, menu: Menu): CartLine[] | null {
 // وملاحظة. الصنف = أعلى تطابق كلمات مع أسماء المنيو (الكلمات الطويلة تُقارن
 // بهيكلها بلا حروف مدّ، فـ«بافلو» = «بوفالو» و«بيبسي» = «ببسي»). الزبون يرى
 // السلّة ويؤكّد — فخطأ المطابقة يظهر قبل أن يُطبخ، لا بعده.
+
+/**
+ * الوقت يُقتطع من النصّ قبل أن يراه عدّاد الكميات.
+ *
+ * «اريد أربعة بيتزا وسط الساعة 11 تكون جاهزة» كانت تُقرأ إحدى عشرة بيتزا:
+ * أوّل رقم منفصل في المقطع هو الكمية، فابتلع العدّادُ رقمَ الساعة وضاعت
+ * «أربعة» — ١٤٤ ألف دينار بدل ٤٨. والموعد ليس رقماً يُهمل، بل ما ينتظره
+ * المطبخ، فيُحفظ ويُطبع في ملاحظة الطلب.
+ */
+const TIME_RE = /(?:ال)?ساع[هة]\s*\d{1,2}(?:\s*[:.]\s*\d{2})?(?:\s*و\s*(?:نص|نصف|ربع|ثلث))?|\b\d{1,2}\s*:\s*\d{2}\b|بعد\s*(?:\d{1,2}|نص|نصف|ربع)\s*(?:دقيق[هة]|دقائق|ساع[هة]|ساعات)/g;
+
+export function extractWhen(text: string): { rest: string; when: string | null } {
+  const norm = normDigits(text);
+  const hits = norm.match(TIME_RE);
+  if (!hits?.length) return { rest: text, when: null };
+  return { rest: norm.replace(TIME_RE, " "), when: hits.join(" ").replace(/\s+/g, " ").trim() };
+}
+
+/** ما يكتبه أهل الرمادي مقابل ما يكتبه المنيو — يُطبَّق على الكلمة كاملةً. */
+const SPELLINGS: Record<string, string> = {
+  جبير: "كبير", جبيره: "كبير", كبيره: "كبير", لارج: "كبير", large: "كبير",
+  زغير: "صغير", زغيره: "صغير", صغيره: "صغير", سمول: "صغير", small: "صغير",
+  متوسط: "وسط", متوسطه: "وسط", وسطي: "وسط", وسطيه: "وسط", ميديم: "وسط", medium: "وسط",
+  ميل: "وجبه", وجبات: "وجبه",
+};
 
 const GENERIC = new Set(["وجبه", "ساندويج", "ساندويش", "سندويش", "سندويج", "كبير", "كبيره", "وسط", "صغير", "صغيره", "عائلي", "قطع", "قطعه", "حبه", "حبات", "عدد", "اريد", "ابي", "ابغي", "لو", "سمحت", "من", "فضلك", "رجاء", "ممكن", "طلب", "اطلب", "مع", "بدون", "بلا", "زياده"]);
 const NUM_WORDS: Record<string, number> = { واحد: 1, وحده: 1, اثنين: 2, ثنين: 2, اثنان: 2, ثلاث: 3, ثلاثه: 3, اربع: 4, اربعه: 4, خمس: 5, خمسه: 5, ست: 6, سته: 6, سبع: 7, سبعه: 7, ثمان: 8, ثمانيه: 8, تسع: 9, تسعه: 9, عشر: 10, عشره: 10 };
@@ -168,7 +195,7 @@ export function foldWord(w: string): string {
     .replace(/^ال/, "")
     .toLowerCase();
 }
-const tokens = (s: string) => s.split(/[\s,،.()\-]+/).map(foldWord).filter((w) => w.length >= 2);
+const tokens = (s: string) => s.split(/[\s,،.()\-]+/).map(foldWord).map((w) => SPELLINGS[w] ?? w).filter((w) => w.length >= 2);
 /** هيكل الكلمة بلا حروف المدّ — «بافلو» و«بوفالو» واحد */
 const skel = (w: string) => w.replace(/[اوي]/g, "");
 /** كلمة من النصّ (قد تبدأ بواو العطف) تساوي كلمة من المنيو؟ */
@@ -219,7 +246,7 @@ function parseSegment(seg: string, menu: Menu): CartLine[] {
       itemId: item.id,
       name: item.name,
       sizeName: size?.name ?? null,
-      dough: item.doughs[0] ?? null,
+      dough: item.doughs.find((d) => tokens(d).some((t) => words.some((w) => same(w, t)))) ?? item.doughs[0] ?? null,
       qty: out.length ? 1 : Math.min(20, Math.max(1, qty)),
       unitPrice: size ? size.price : item.price,
       note: out.length ? null : note,
@@ -317,7 +344,7 @@ function screenAddress(state: State, known?: Known): { state: State; reply: Repl
 }
 
 function screenConfirm(state: State): { state: State; reply: Reply } {
-  const lines = [cartText(state.cart), "", state.channel === "delivery" ? `🛵 توصيل إلى: ${esc(state.address ?? "")}` : "🏪 استلام من المحل", `📞 ${esc(state.phone ?? "")}`, "", "الدفع عند الاستلام."];
+  const lines = [cartText(state.cart), state.when ? `\n⏰ الموعد المطلوب: ${esc(state.when)}` : "", "", state.channel === "delivery" ? `🛵 توصيل إلى: ${esc(state.address ?? "")}` : "🏪 استلام من المحل", `📞 ${esc(state.phone ?? "")}`, "", "الدفع عند الاستلام."];
   return {
     state: { ...state, step: "confirm" },
     reply: {
@@ -329,6 +356,7 @@ function screenConfirm(state: State): { state: State; reply: Reply } {
 
 function buildOrder(state: State): OrderPayload {
   const notes = state.cart.filter((l) => l.note).map((l) => `${lineLabel(l)} ×${l.qty}: ${l.note}`);
+  if (state.when) notes.unshift(`⏰ ${state.when}`);
   return {
     channel: state.channel ?? "pickup",
     customer_name: state.name ?? null,
@@ -378,9 +406,10 @@ export function step(prev: State | null, input: Input, menu: Menu, known?: Known
       if (text.length < 5) return screenAddress(state, known);
       return screenConfirm({ ...state, address: text.slice(0, 300) });
     }
-    // نصّ حرّ في غير سؤال: مقبس الفهم — فارغ اليوم
+    // نصّ حرّ في غير سؤال: يُقرأ، ويُحفظ الموعد إن ذكره الزبون
+    const when = extractWhen(text).when ?? state.when ?? null;
     const parsed = understand(text, menu);
-    if (parsed?.length) return screenCart({ ...state, cart: [...state.cart, ...parsed] });
+    if (parsed?.length) return screenCart({ ...state, cart: [...state.cart, ...parsed], when });
     return screenStart(state);
   }
 
@@ -389,7 +418,7 @@ export function step(prev: State | null, input: Input, menu: Menu, known?: Known
   if (prefix !== "o") return screenStart(state);
 
   switch (cmd) {
-    case "start": return screenStart({ ...state, cart: [] });
+    case "start": return screenStart({ ...state, cart: [], when: null });
     case "cats": return screenCats(state, menu);
     case "cat": return screenItems(state, menu, arg);
     case "item": {
