@@ -130,3 +130,19 @@ describe("parseTotersScreen — real screens from 2026-09-20", () => {
     ]);
   });
 });
+
+describe("declaredCount — «عناصر» counts lines, proven by real screens", () => {
+  // «عنصر» ظهر مع «3x ريزو ستيشن» (طلب #753) — لو كانت وحدات لقالت «3 عناصر»
+  it("one line of three units is still «عنصر»", () => {
+    const t = parseTotersScreen(["الطلب #753", "عنصر", "الريزو", "3x", "ريزو ستيشن", "6,750 د.ع. / عنصر"]);
+    expect(t.declared).toBe(1);
+    expect(t.items).toHaveLength(1);
+    expect(unitsOf(t.items)).toBe(3);
+  });
+  // «عنصران» مع «2x ريزو» (طلب #008، 22/09): الشاشة فيها سطر مشروب لم يُقرأ بعد
+  it("«عنصران» with a single 2x line means a second line is still below the fold", () => {
+    const t = parseTotersScreen(["الطلب #008", "عنصران", "الريزو", "2x", "ريزو ستيشن", "6,750 د.ع. / عنصر"]);
+    expect(t.declared).toBe(2);
+    expect(t.items).toHaveLength(1);
+  });
+});

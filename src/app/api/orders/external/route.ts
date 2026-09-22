@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
-import { parseExternalOrder, parseTotersScreen, resolveLines, unitsOf, type ScreenItem } from "@/lib/cafe/external-order";
+import { parseExternalOrder, parseTotersScreen, resolveLines, type ScreenItem } from "@/lib/cafe/external-order";
 import { partnerSlug, SOURCE_OF_SLUG } from "@/lib/cafe/partners";
 import type { Json } from "@/lib/types";
 
@@ -134,7 +134,10 @@ export async function POST(req: Request) {
     }
   }
   // «short» يُعاد حسابه بعد الدمج
-  const complete = declared == null || unitsOf(items) >= declared;
+  // «عنصران» عند توترز = سطران، لا وحدتان: «عنصر» ظهر مع «3x ريزو»، و«عنصران»
+  // مع سطر ريزو وسطر مشروب. عدّ الوحدات كان يعدّ «2x ريزو» طلباً كاملاً فيضيع
+  // المشروب (طلب 901، 22/09). السطور هي المقياس.
+  const complete = declared == null || items.length >= declared;
 
   // ── الأصناف: كلها معروفة أو لا طلب ────────────────────────────────────
   let orderId: string | null = null;
@@ -198,7 +201,7 @@ export async function POST(req: Request) {
     title: isScreen ? `شاشة${customerName ? ` · ${customerName}` : ""}` : (body.title ?? "").slice(0, 120) || null,
     body: isScreen
       ? [
-          !complete ? `⚠ الشاشة تقول ${declared} عناصر وقُرئ ${unitsOf(items)} — مرّر شاشة توترز لأسفل حتى آخر صنف` : null,
+          !complete ? `⚠ الشاشة تقول ${declared} أصناف وقُرئ ${items.length} — مرّر شاشة توترز لأسفل حتى آخر صنف` : null,
           ...items.map((i) => `${i.qty} × ${i.name}${i.option ? ` / ${i.option}` : ""}`),
         ]
           .filter(Boolean)
