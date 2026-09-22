@@ -35,10 +35,10 @@ export function renderWelcome(hasSaved = false): WaMessage {
       body: { text: "🍔 *ستيشن* — هلا بيك!\nشلون تحب تطلب؟" },
       action: {
         buttons: [
-          { type: "reply", reply: { id: "w|link", title: "🛵 اطلب هسة من المنيو" } },
-          { type: "reply", reply: { id: "w|here", title: "💬 اطلب هنا من الواتساب" } },
+          { type: "reply", reply: { id: "w|link", title: btn("🛵 المنيو بالصور") } },
+          { type: "reply", reply: { id: "w|here", title: btn("💬 اطلب هنا") } },
           // الزرّ الثالث لمن قيّم طلباً سابقاً فوق ٨ — واتساب يسمح بثلاثة بالضبط
-          ...(hasSaved ? [{ type: "reply" as const, reply: { id: "w|saved", title: "🔁 طلباتي السابقة" } }] : []),
+          ...(hasSaved ? [{ type: "reply" as const, reply: { id: "w|saved", title: btn("🔁 طلباتي") } }] : []),
         ],
       },
     },
@@ -47,7 +47,7 @@ export function renderWelcome(hasSaved = false): WaMessage {
 
 /** طلباتي السابقة: قائمة بآخر خمسة طلبات محفوظة */
 export function renderSavedOrders(orders: { id: string; order_seq: number; label: string }[]): WaMessage {
-  const rows: WaRow[] = orders.slice(0, 10).map((o) => ({ id: `w|re|${o.id}`, title: cut(`#${String(o.order_seq).padStart(3, "0")} · ${o.label}`, 24), description: cut(o.label, 72) }));
+  const rows: WaRow[] = orders.slice(0, 10).map((o) => ({ id: `w|re|${o.id}`, title: row(`#${String(o.order_seq).padStart(3, "0")} · ${o.label}`), description: cut(o.label, 72) }));
   return {
     type: "interactive",
     interactive: { type: "list", body: { text: "🔁 طلباتك المحفوظة — اختار واحد ويصير بالسلّة:" }, action: { button: "طلباتي", sections: [{ rows }] } },
@@ -62,7 +62,7 @@ export function renderMenuLink(menuUrl: string): WaMessage {
       type: "cta_url",
       body: { text: "اكبس الزر وتفتح لك المنيو بالصور — تختار وترسل، ويوصلك بدقايق 🛵" },
       footer: { text: "الرمادي · 0783 155 1888" },
-      action: { name: "cta_url", parameters: { display_text: "🛵 اطلب هسة من المنيو", url: menuUrl } },
+      action: { name: "cta_url", parameters: { display_text: btn("🛵 افتح المنيو"), url: menuUrl } },
     },
   };
 }
@@ -70,6 +70,17 @@ export function renderMenuLink(menuUrl: string): WaMessage {
 /** ٨ صفوف + «السابق» + «المزيد» = ١٠، وهو سقف واتساب */
 const PAGE = 8;
 const cut = (s: string, n: number) => (s.length <= n ? s : s.slice(0, n - 1) + "…");
+
+/**
+ * حدود واتساب على العناوين — تجاوزها يُسقط الرسالة كلّها لا يقصّها.
+ *
+ * «🛵 اطلب هسة من المنيو» واحدٌ وعشرون حرفاً، فردّ Meta بـ131009 وصمت البوت
+ * يوماً كاملاً. فكل عنوان يمرّ من هنا، ولا يُكتب حرفياً في أي نداء.
+ */
+const BTN_MAX = 20;
+const ROW_TITLE_MAX = 24;
+const btn = (title: string) => cut(title, BTN_MAX);
+const row = (title: string) => cut(title, ROW_TITLE_MAX);
 
 /** نصّ المحرّك HTML؛ واتساب يفهم *عريض* و`ثابت العرض` */
 export function toWhatsAppText(html: string): string {
@@ -101,7 +112,7 @@ export function renderMessage(text: string, buttons: Button[], page = 0): WaMess
       interactive: {
         type: "button",
         body: { text: body },
-        action: { buttons: buttons.map((b) => ({ type: "reply" as const, reply: { id: cut(b.data, 250), title: cut(b.text, 20) } })) },
+        action: { buttons: buttons.map((b) => ({ type: "reply" as const, reply: { id: cut(b.data, 250), title: btn(b.text) } })) },
       },
     };
   }
@@ -110,7 +121,7 @@ export function renderMessage(text: string, buttons: Button[], page = 0): WaMess
   const slice = buttons.slice(start, start + PAGE);
   const rows: WaRow[] = slice.map((b) => ({
     id: cut(b.data, 250),
-    title: cut(b.text, 24),
+    title: row(b.text),
     // الاسم كاملاً حين يُقصّ العنوان — «كنتاكي 15 قطعة — 34,000» يتجاوز ٢٤ حرفاً
     ...(b.text.length > 24 ? { description: cut(b.text, 72) } : {}),
   }));
@@ -134,7 +145,7 @@ export function renderReply(reply: Reply): { message: WaMessage; buttons: Button
 export function renderRateScale(text: string): WaMessage {
   const rows: WaRow[] = Array.from({ length: 10 }, (_, i) => 10 - i).map((n) => ({
     id: `r|${n}`,
-    title: n === 10 ? "10 — ممتاز 🌟" : n >= 8 ? `${n} — حلو` : n >= 5 ? `${n} — مقبول` : n === 1 ? "1 — سيّئ" : String(n),
+    title: row(n === 10 ? "10 — ممتاز 🌟" : n >= 8 ? `${n} — حلو` : n >= 5 ? `${n} — مقبول` : n === 1 ? "1 — سيّئ" : String(n)),
   }));
   return {
     type: "interactive",

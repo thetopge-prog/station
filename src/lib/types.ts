@@ -46,6 +46,12 @@ export type Database = {
         Update: Partial<{ state: Json; updated_at: string }>;
         Relationships: [];
       };
+      franchise_leads: {  // 0097 — طلبات الوكالة من الصفحة التعريفية
+        Row: { id: string; name: string; city: string; phone: string; note: string | null; lang: string | null; created_at: string; handled_at: string | null };
+        Insert: { id?: string; name: string; city: string; phone: string; note?: string | null; lang?: string | null; created_at?: string; handled_at?: string | null };
+        Update: Partial<{ name: string; city: string; phone: string; note: string | null; lang: string | null; handled_at: string | null }>;
+        Relationships: [];
+      };
       order_ratings: {  // 0095 — تقييم الزبون بعد التسليم
         Row: { order_id: string; food: number | null; service: number | null; ordering: number | null; advice: string | null; score: number | null; source: string | null; created_at: string };
         Insert: { order_id: string; food?: number | null; service?: number | null; ordering?: number | null; advice?: string | null; score?: number | null; source?: string | null; created_at?: string };
