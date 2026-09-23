@@ -136,7 +136,7 @@ function WallDebug({ screen, phase }: { screen: number; phase: number }) {
                 innerWidth+'x'+innerHeight+' | kf '+kf+'/'+sheets
                 +' | phase '+Math.round(ph/1000)+'s'
                 +' | vis '+vis+' على الجدار · '+here+' على هذه الشاشة'
-                +' | canvas '+(r? Math.round(r.left)+','+Math.round(r.width) : '-');
+                +' | canvas '+(r? Math.round(r.left)+','+Math.round(r.width)+'x'+Math.round(r.height) : '-');
             }
             tick(); setInterval(tick, 500);
           }catch(e){ document.getElementById('wd').textContent='JS: '+e.message; }`,
