@@ -4,6 +4,7 @@ import { BRAND } from "@/lib/brand";
 import { StationSmiley } from "@/components/cafe/Logo";
 import { FranchiseForm } from "./FranchiseForm";
 import { Reveal } from "./Reveal";
+import { HtmlLang } from "./HtmlLang";
 import { isRtl, LANG_LABEL, SITE, SITE_LANGS, type SiteLang } from "@/lib/site/copy";
 
 /**
@@ -38,6 +39,7 @@ export function StationSite({ lang }: { lang: SiteLang }) {
 
   return (
     <div dir={rtl ? "rtl" : "ltr"} lang={lang} className="min-h-dvh overflow-x-hidden bg-background text-foreground">
+      <HtmlLang lang={lang} />
       {/* ── الترويسة ─────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-50 border-b border-border/70 bg-background/95 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2.5">

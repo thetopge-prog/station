@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { expectedCash } from "./expected-cash";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { requireRole } from "./auth";
 import { businessDay } from "./time";
@@ -100,23 +101,6 @@ export type DailyCount = {
  * كما هي: اللقطة يجب أن تبقى كاملة (وإلا صار جردٌ حفظه كاشير ناقصاً إلى
  * الأبد)، والشاشة يجب أن تُقصّ.
  */
-/**
- * النقد الذي يجب أن يكون في الدرج.
- *
- * `expenses` مجموع كلفة اليوم كلّها، و`expenses_offsite` ما دفعته الإدارة من
- * خارج الدرج — يُحسب في الكلفة والربح، ولا يُطرح من نقدٍ لم يمرّ به أصلاً.
- * فطرحه كان يصنع عجزاً وهمياً بحجم المبلغ في جرد الليلة.
- */
-export function expectedCash(x: {
-  opening_float: number;
-  cash_sales: number;
-  expenses: number;
-  expenses_offsite: number;
-  deposited: number;
-}): number {
-  return x.opening_float + x.cash_sales - (x.expenses - x.expenses_offsite) - x.deposited;
-}
-
 async function getDailyCountFull(day: string): Promise<DailyCount> {
   const svc = createSupabaseServiceClient();
 

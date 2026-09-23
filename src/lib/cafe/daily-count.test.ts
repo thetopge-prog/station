@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { dailyCountDoc } from "./escpos";
-import { expectedCash } from "./daily-count";
+import { expectedCash } from "./expected-cash";
 
 /**
  * The slip's one job is the last line of arithmetic: counted − expected, said
