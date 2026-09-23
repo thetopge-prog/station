@@ -22,6 +22,21 @@ import { WallScenes } from "@/components/cafe/WallScenes";
  */
 export const dynamic = "force-dynamic";
 
+/** ما تعرضه الدورة كلّها — يُحمَّل مقدّماً */
+const WALL_IMAGES = [
+  "burger-1.webp",
+  "burger-2.webp",
+  "burger-3.webp",
+  "burger-4.webp",
+  "burger-5.webp",
+  "burger-6.webp",
+  "burger-whole.webp",
+  "rizo.webp",
+  "rizo-motion.webp",
+  "rice.webp",
+  "chicken.webp",
+];
+
 export const metadata: Metadata = {
   title: "المحطة",
   robots: { index: false, follow: false },
@@ -44,8 +59,17 @@ export default async function WallPage({
   const bezel = bezelPx(sp.bezel);
 
   return (
-    <WallCanvas screen={screen} phaseMs={phase} bezel={bezel}>
-      <WallScenes />
-    </WallCanvas>
+    <>
+      {/* كل صور الدورة تُحمَّل قبل أن تبدأ.
+          الجدار يدور ساعاتٍ بلا توقّف، فصورةٌ تُطلَب لحظةَ ظهورها تصل متأخّرة
+          فيومض مكانها فارغاً كل دورة. والمجموع ٢٦٨ كيلوبايت — دون الميزانية،
+          و٢٫٩م هي الحمولة التي سقطت فعلاً على هذا الجهاز من قبل. */}
+      {WALL_IMAGES.map((src) => (
+        <link key={src} rel="preload" as="image" href={`/wallimg/${src}`} />
+      ))}
+      <WallCanvas screen={screen} phaseMs={phase} bezel={bezel}>
+        <WallScenes />
+      </WallCanvas>
+    </>
   );
 }

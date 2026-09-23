@@ -29,12 +29,12 @@ const OUT = "public/wallimg";
  */
 const FILES = [
   // طبقات البركر — من الأسفل إلى الأعلى، وكلّها بشفافية
-  { url: `${SRC}/2025/04/Layer-01.webp`, name: "burger-1.webp", alpha: true, w: 1100 },
-  { url: `${SRC}/2025/04/Layer-02.webp`, name: "burger-2.webp", alpha: true, w: 1100 },
-  { url: `${SRC}/2025/04/Layer-03.webp`, name: "burger-3.webp", alpha: true, w: 1100 },
-  { url: `${SRC}/2025/04/Layer-04.webp`, name: "burger-4.webp", alpha: true, w: 1100 },
-  { url: `${SRC}/2025/04/Layer-05.webp`, name: "burger-5.webp", alpha: true, w: 1100 },
-  { url: `${SRC}/2025/04/Layer-06.webp`, name: "burger-6.webp", alpha: true, w: 1100 },
+  { url: `${SRC}/2025/04/Layer-01.webp`, name: "burger-1.webp", alpha: true, w: 1100, trim: true },
+  { url: `${SRC}/2025/04/Layer-02.webp`, name: "burger-2.webp", alpha: true, w: 1100, trim: true },
+  { url: `${SRC}/2025/04/Layer-03.webp`, name: "burger-3.webp", alpha: true, w: 1100, trim: true },
+  { url: `${SRC}/2025/04/Layer-04.webp`, name: "burger-4.webp", alpha: true, w: 1100, trim: true },
+  { url: `${SRC}/2025/04/Layer-05.webp`, name: "burger-5.webp", alpha: true, w: 1100, trim: true },
+  { url: `${SRC}/2025/04/Layer-06.webp`, name: "burger-6.webp", alpha: true, w: 1100, trim: true },
   // الأصناف المفردة — تمرّ فوق خلفيات ملوّنة فتحتاج الشفافية كذلك
   { url: `${SRC}/2025/03/home-pruger-768x768.png`, name: "burger-whole.webp", alpha: true, w: 900 },
   { url: `${SRC}/2025/03/%D8%B1%D9%8A%D8%B2%D9%88-%D8%B3%D9%88%D8%A8%D8%B1-%D8%AC%D9%83%D9%86-copy-768x768.webp`, name: "rizo.webp", alpha: true, w: 900 },
@@ -53,7 +53,13 @@ for (const f of FILES) {
     continue;
   }
   const src = Buffer.from(await res.arrayBuffer());
-  const img = sharp(src).resize(f.w, f.w, { fit: "inside", withoutEnlargement: true });
+  // طبقات البركر تُقصّ إلى محتواها.
+  //
+  // كلٌّ منها مُصدَّرةٌ بحشوٍ شفّافٍ مختلف، فإعطاؤها عرضاً واحداً يُصغّر محتوى
+  // هذه ويُكبّر محتوى تلك — وحين تُكدَّس لا تُبنى بركراً بل تتناثر. والقصّ
+  // يجعل حدود الصورة حدودَ المكوّن نفسه، فيصير تركيبها حساباً لا تخميناً.
+  const base = f.trim ? sharp(src).trim({ threshold: 6 }) : sharp(src);
+  const img = base.resize(f.w, f.w, { fit: "inside", withoutEnlargement: true });
   // الجودة ٧٢: تحت السبعين تظهر الحلقات على تدرّجات الصلصة، وفوق الثمانين
   // تتضاعف الكيلوبايتات بلا فرقٍ يُرى من بُعد ثلاثة أمتار
   const out = await (f.alpha ? img.webp({ quality: 72 }) : img.jpeg({ quality: 80, progressive: false })).toBuffer();
