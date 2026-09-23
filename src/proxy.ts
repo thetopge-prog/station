@@ -34,7 +34,7 @@ import { AUTH_STORAGE_KEY, parseSessionCookie } from "@/lib/supabase/constants";
 // token on the GET handshake, an HMAC of the body on every POST) and cannot
 // follow a redirect to /sign-in: Meta reads the 307 as a failed delivery and
 // eventually unsubscribes the whole webhook.
-const PUBLIC_PREFIXES = ["/sign-in", "/menu", "/kiosk", "/card", "/api/orders", "/api/calls", "/api/delivery", "/api/whatsapp", "/api/wall", "/privacy", "/order", "/delivery", "/pickup", "/car", "/queue", "/tv", "/en", "/tr", "/it", "/ku", "/scan", "/wall", "/w1", "/w2", "/w3", "/w4"];
+const PUBLIC_PREFIXES = ["/sign-in", "/menu", "/kiosk", "/card", "/api/orders", "/api/calls", "/api/delivery", "/api/whatsapp", "/api/wall", "/api/build", "/privacy", "/order", "/delivery", "/pickup", "/car", "/queue", "/tv", "/en", "/tr", "/it", "/ku", "/scan", "/wall", "/w1", "/w2", "/w3", "/w4"];
 const LOGIN_PATHS = new Set(["/", "/sign-in"]);
 
 function isPublic(pathname: string): boolean {
