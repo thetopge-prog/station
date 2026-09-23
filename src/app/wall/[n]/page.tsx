@@ -111,11 +111,26 @@ function WallDebug({ screen, phase }: { screen: number; phase: number }) {
           __html: `try{
             var el = document.querySelector('.wall-anim');
             var cs = el ? getComputedStyle(el) : null;
-            var n = document.getAnimations ? document.getAnimations().length : -1;
+            // كم إطار @keyframes قرأه المتصفّح فعلاً؟ صفرٌ يعني أن الملفّ وصل
+            // ولم تُقرأ حركاته — وحينها الاسم في النمط صحيح والحركة لا تعمل
+            var kf = 0, sheets = 0;
+            for (var i = 0; i < document.styleSheets.length; i++) {
+              try {
+                var rs = document.styleSheets[i].cssRules; sheets++;
+                for (var j = 0; j < rs.length; j++) if (rs[j].type === 7 || (rs[j].name && rs[j].cssText.indexOf('@keyframes') === 0)) kf++;
+              } catch (x) { /* ملفّ من نطاقٍ آخر */ }
+            }
+            // وكم عنصراً متحرّكاً هو ظاهرٌ الآن؟ صفرٌ مع وجود الإطارات يعني
+            // أن الحركة لا تُطبَّق، لا أن المشهد فارغ
+            var all = document.querySelectorAll('.wall-anim'), vis = 0;
+            for (var k = 0; k < all.length; k++) if (+getComputedStyle(all[k]).opacity > 0) vis++;
+            var cv = document.querySelector('.wall-canvas');
+            var r = cv ? cv.getBoundingClientRect() : null;
             document.getElementById('wd').textContent =
               innerWidth+'x'+innerHeight+' dpr'+(devicePixelRatio||1)
-              +' | anims '+n
-              +' | '+(cs? cs.animationName+' '+cs.animationDuration+' d'+cs.animationDelay+' o'+cs.opacity : 'no .wall-anim');
+              +' | kf '+kf+'/'+sheets+' | vis '+vis+'/'+all.length
+              +' | canvas '+(r? Math.round(r.left)+','+Math.round(r.width) : '-')
+              +' | '+(cs? cs.animationName+' d'+cs.animationDelay : 'no .wall-anim');
           }catch(e){ document.getElementById('wd').textContent='JS: '+e.message; }`,
         }}
       />
