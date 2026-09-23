@@ -57,7 +57,7 @@ export type CartLine = {
   note: string | null;
 };
 
-export type Step = "start" | "cats" | "items" | "item" | "cart" | "channel" | "phone" | "address" | "confirm";
+export type Step = "start" | "cats" | "items" | "item" | "cart" | "channel" | "phone" | "name" | "address" | "confirm";
 
 export type State = {
   flow: "order";
@@ -348,6 +348,21 @@ function screenPhone(state: State): { state: State; reply: Reply } {
   };
 }
 
+/**
+ * «شنو اسمك؟» — سؤالٌ واحد بعد الرقم.
+ *
+ * الاسم صار مطلوباً مع كل رقم (قرار المالك)، فالبوت يسأله بدل أن يُرفَض طلبه
+ * على الخادم برسالة لا يفهمها. ومن أعطانا اسمه مرّة لا يُسأل ثانيةً: `known`
+ * يأتي من صفّ الزبون. والاسم التلقائي «عميل ستيشنN» ليس اسماً، فمن يحمله
+ * يُسأل كما لو لم يكن له اسم.
+ */
+function screenName(state: State): { state: State; reply: Reply } {
+  return {
+    state: { ...state, step: "name" },
+    reply: { text: "👤 شنو اسمك؟ (حتى ننادي عليك عند الاستلام)", buttons: [[{ text: "⬅️ السلّة", data: "o|cart" }]] },
+  };
+}
+
 function screenAddress(state: State, known?: Known): { state: State; reply: Reply } {
   const rows: Button[][] = [];
   if (known?.address) rows.push([{ text: `📍 نفس العنوان: ${known.address.slice(0, 40)}`, data: "o|addr|same" }]);
@@ -356,7 +371,7 @@ function screenAddress(state: State, known?: Known): { state: State; reply: Repl
 }
 
 function screenConfirm(state: State): { state: State; reply: Reply } {
-  const lines = [cartText(state.cart), state.when ? `\n⏰ الموعد المطلوب: ${esc(state.when)}` : "", "", state.channel === "delivery" ? `🛵 توصيل إلى: ${esc(state.address ?? "")}` : "🏪 استلام من المحل", `📞 ${esc(state.phone ?? "")}`, "", "الدفع عند الاستلام."];
+  const lines = [cartText(state.cart), state.when ? `\n⏰ الموعد المطلوب: ${esc(state.when)}` : "", "", state.channel === "delivery" ? `🛵 توصيل إلى: ${esc(state.address ?? "")}` : "🏪 استلام من المحل", `👤 ${esc(state.name ?? "")}`, `📞 ${esc(state.phone ?? "")}`, "", "الدفع عند الاستلام."];
   return {
     state: { ...state, step: "confirm" },
     reply: {
@@ -414,6 +429,11 @@ export function step(prev: State | null, input: Input, menu: Menu, known?: Known
       if (!phone) return { state, reply: { text: "الرقم غير صالح — اكتبه هكذا: <code>07XXXXXXXXX</code>", requestContact: true } };
       return afterPhone({ ...state, phone }, known);
     }
+    if (state.step === "name") {
+      const name = text.replace(/\s+/g, " ").trim().slice(0, 60);
+      if (name.length < 2) return screenName(state);
+      return afterName({ ...state, name }, known);
+    }
     if (state.step === "address") {
       if (text.length < 5) return screenAddress(state, known);
       return screenConfirm({ ...state, address: text.slice(0, 300) });
@@ -459,6 +479,8 @@ export function step(prev: State | null, input: Input, menu: Menu, known?: Known
     case "addr": if (arg === "same" && known?.address) return screenConfirm({ ...state, address: known.address }); break;
     case "send": {
       if (!state.cart.length || !state.phone) return screenCart(state);
+      // الخادم يرفض الرقم بلا اسم؛ نسأله هنا بدل أن يرتدّ الطلب برسالة تقنية
+      if (!state.name) return screenName(state);
       if (state.channel === "delivery" && !state.address) return screenAddress(state, known);
       const order = buildOrder(state);
       return { state: { ...START }, reply: { text: "⏳ جارٍ إرسال طلبك…", order } };
@@ -469,7 +491,20 @@ export function step(prev: State | null, input: Input, menu: Menu, known?: Known
 }
 
 function afterPhone(state: State, known?: Known): { state: State; reply: Reply } {
-  const withName = { ...state, name: state.name ?? known?.name ?? null };
+  const withName = { ...state, name: state.name ?? realName(known?.name) };
+  if (!withName.name) return screenName(withName);
   if (withName.channel === "delivery") return screenAddress(withName, known);
   return screenConfirm(withName);
+}
+
+/** «عميل ستيشن78» رقمُ انتظار وضعه النظام، لا اسمٌ قاله صاحبه */
+const AUTO_NAME = /^عميل ستيشن\d+$/;
+const realName = (n: string | null | undefined): string | null => {
+  const t = (n ?? "").trim();
+  return t && !AUTO_NAME.test(t) ? t : null;
+};
+
+function afterName(state: State, known?: Known): { state: State; reply: Reply } {
+  if (state.channel === "delivery") return screenAddress(state, known);
+  return screenConfirm(state);
 }

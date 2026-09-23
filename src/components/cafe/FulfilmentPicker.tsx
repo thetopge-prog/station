@@ -1,11 +1,11 @@
 "use client";
 
 import { Bike, Car, ShoppingBag, UtensilsCrossed } from "lucide-react";
-import { CHANNEL_OF, type FulfilmentMode } from "@/lib/cafe/fulfilment";
+import { CHANNEL_OF, missingFields, type FulfilmentMode } from "@/lib/cafe/fulfilment";
 
 // re-exported so the existing imports from this file keep working; the data
 // itself lives in lib/cafe/fulfilment.ts, which a server component can read
-export { CHANNEL_OF, type FulfilmentMode };
+export { CHANNEL_OF, missingFields, type FulfilmentMode };
 
 /**
  * «كيف تريد طلبك؟» — the four ways to receive an order.
@@ -68,17 +68,4 @@ export function FulfilmentPicker({
       </div>
     </div>
   );
-}
-
-/** What each mode must have before «إتمام الطلب» is allowed to fire. */
-export function missingFields(
-  mode: FulfilmentMode | null,
-  f: { name: string; phone: string; address: string },
-): string | null {
-  if (!mode) return "اختر طريقة الاستلام";
-  const phone = f.phone.trim();
-  const needsPhone = mode === "delivery" || mode === "curbside";
-  if (needsPhone && phone.length < 10) return "رقم الهاتف مطلوب";
-  if (mode === "delivery" && f.address.trim().length < 5) return "العنوان مطلوب للتوصيل";
-  return null;
 }

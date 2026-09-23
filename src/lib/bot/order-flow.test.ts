@@ -62,8 +62,12 @@ describe("order flow", () => {
     expect(state.cart.map((l) => l.itemId)).toEqual(["i-sup"]);
   });
 
-  it("pickup: channel → phone → confirm, no address asked", () => {
-    const { state, reply } = walk([btn("o|cat|c-fries"), btn("o|item|i-wed"), btn("o|add"), btn("o|checkout"), btn("o|ch|pickup"), { kind: "contact", phone: "+964 770 123 4567" }]);
+  it("pickup: channel → phone → name → confirm, no address asked", () => {
+    const { state, reply } = walk(
+      [btn("o|cat|c-fries"), btn("o|item|i-wed"), btn("o|add"), btn("o|checkout"), btn("o|ch|pickup"), { kind: "contact", phone: "+964 770 123 4567" }],
+      null,
+      { name: "سيف" },
+    );
     expect(state.step).toBe("confirm");
     expect(state.phone).toBe("07701234567");
     expect(reply.text).toContain("استلام من المحل");
@@ -79,7 +83,7 @@ describe("order flow", () => {
     expect(same.state.address).toBe("الرمادي — حي التأميم");
     expect(same.state.name).toBe("أبو علي");
 
-    const typed = walk([...base, txt("حي الضباط، قرب الجامع")]);
+    const typed = walk([...base, txt("أبو علي"), txt("حي الضباط، قرب الجامع")]);
     expect(typed.state.step).toBe("confirm");
     expect(typed.state.address).toBe("حي الضباط، قرب الجامع");
   });
@@ -94,11 +98,11 @@ describe("order flow", () => {
     const { state, reply } = walk([
       btn("o|cat|c-pizza"), btn("o|item|i-sup"), btn("o|size|s-l"), btn("o|dough|سميك"), btn("o|note"), txt("بلا بصل"), btn("o|add"),
       btn("o|cat|c-fries"), btn("o|item|i-wed"), btn("o|qty|+"), btn("o|add"),
-      btn("o|checkout"), btn("o|ch|delivery"), txt("٠٧٧٠١٢٣٤٥٦٧"), txt("حي الضباط"), btn("o|send"),
+      btn("o|checkout"), btn("o|ch|delivery"), txt("٠٧٧٠١٢٣٤٥٦٧"), txt("أبو علي"), txt("حي الضباط"), btn("o|send"),
     ]);
     expect(reply.order).toEqual({
       channel: "delivery",
-      customer_name: null,
+      customer_name: "أبو علي",
       phone: "07701234567",
       address: "حي الضباط",
       note: "بيتزا سوبريم · كبير · سميك ×1: بلا بصل",
@@ -211,5 +215,50 @@ describe("default size is the cheapest, not the first row", () => {
   it("«وجبة» in the message still wins", () => {
     const l = understand("بركر دجاج بالجبن وجبة", BURGER)![0];
     expect([l.sizeName, l.unitPrice]).toEqual(["وجبة", 6750]);
+  });
+});
+
+/**
+ * الاسم مع الرقم صار قاعدةً في النظام كلّه، والخادم يرفض الطلب بدونه. فالبوت
+ * يجب أن يسأله — وإلا ارتدّ طلبُ الزبون برسالة تقنية لا يفهمها.
+ */
+describe("الاسم مطلوب مع الرقم", () => {
+  const toPhone = [btn("o|cat|c-fries"), btn("o|item|i-wed"), btn("o|add"), btn("o|checkout"), btn("o|ch|pickup")];
+
+  it("يسأل عن الاسم بعد الرقم حين لا يعرفه", () => {
+    const { state, reply } = walk([...toPhone, txt("07801234567")]);
+    expect(state.step).toBe("name");
+    expect(reply.text).toContain("شنو اسمك");
+  });
+
+  it("يقبل الاسم ثم يعرض التأكيد وفيه الاسم", () => {
+    const { state, reply } = walk([...toPhone, txt("07801234567"), txt("أبو علي")]);
+    expect(state.step).toBe("confirm");
+    expect(state.name).toBe("أبو علي");
+    expect(reply.text).toContain("أبو علي");
+  });
+
+  it("لا يقبل حرفاً واحداً اسماً", () => {
+    const { state } = walk([...toPhone, txt("07801234567"), txt("ا")]);
+    expect(state.step).toBe("name");
+  });
+
+  it("لا يسأل من عرّفنا باسمه من قبل", () => {
+    const { state } = walk([...toPhone, txt("07801234567")], null, { name: "سيف" });
+    expect(state.step).toBe("confirm");
+    expect(state.name).toBe("سيف");
+  });
+
+  it("«عميل ستيشن78» رقمُ انتظار لا اسم — يُسأل صاحبه", () => {
+    const { state } = walk([...toPhone, txt("07801234567")], null, { name: "عميل ستيشن78" });
+    expect(state.step).toBe("name");
+  });
+
+  it("التوصيل يسأل الاسم قبل العنوان", () => {
+    const base = [btn("o|cat|c-fries"), btn("o|item|i-wed"), btn("o|add"), btn("o|checkout"), btn("o|ch|delivery")];
+    const afterPhone = walk([...base, txt("07801234567")]);
+    expect(afterPhone.state.step).toBe("name");
+    const afterName = walk([...base, txt("07801234567"), txt("أبو علي")]);
+    expect(afterName.state.step).toBe("address");
   });
 });

@@ -17,6 +17,7 @@ import { earnPoints } from "./points";
 import type { OrderLineInput } from "./order-actions";
 import { customSplit } from "./money";
 import { cleanPhone } from "./phone";
+import { nameWithPhoneError } from "./customer-required";
 
 /** How the counter was settled. "partner" = billed to a delivery company and
  *  collected later, so it never reaches the drawer. */
@@ -311,6 +312,10 @@ export async function cashierCheckout(input: {
   if (input.payMethod === "debt" && !debtor) {
     return { ok: false, error: "اكتب اسم من سيدفع الدين." };
   }
+  // الاسم مع الرقم — القاعدة تُنفَّذ هنا لا على الشاشة وحدها: الشاشة تُغلق
+  // وتُفتح، والجهاز اللوحي قد يحمل نسخة قديمة، والطلب يصل من غير طريق
+  const nameErr = nameWithPhoneError(input.phone, input.customerName);
+  if (nameErr) return { ok: false, error: nameErr };
 
   // On the shop hub with no line: take the sale locally, print it, replay it
   // later. Checked before any Supabase call — a till that waits out DNS
@@ -334,10 +339,18 @@ export async function cashierCheckout(input: {
   if (onHub && !(await cloudReachable())) return local();
 
   const supabase = await createSupabaseServerClient();
+  // الطلب يشير إلى صاحبه لا إلى نصٍّ يُطابَق لاحقاً: البطاقة إن مُسحت، وإلا
+  // الرقمُ نفسه يجد صفَّ الزبون أو يُنشئه ويكتب اسمه عليه
+  const phoneForLink = cleanPhone(input.phone);
+  const linkedId =
+    input.customerId ??
+    (phoneForLink
+      ? ((await supabase.rpc("customer_for_order", { p_phone: phoneForLink, p_name: input.customerName?.trim() || null })).data ?? null)
+      : null);
   const { data: placed, error } = await supabase.rpc("place_order", {
     p_channel: input.channel === "takeaway" ? "takeaway" : "cashier",
     p_lines: input.lines as unknown as Json,
-    p_customer: input.customerId ?? null,
+    p_customer: linkedId,
     p_table: input.table?.trim() || null,
     p_note: input.note?.trim() || null,
     // كانت خمسة من تسعة: هاتف الزبون وعنوانه كانا يُكتبان في الملاحظة ويضيعان

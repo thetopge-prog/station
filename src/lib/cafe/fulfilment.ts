@@ -1,4 +1,5 @@
 import type { Fulfilment } from "./order-actions";
+import { nameWithPhoneError } from "./customer-required";
 
 /**
  * The four ways to receive an order, as plain data.
@@ -34,4 +35,21 @@ export const CHANNEL_OF: Record<FulfilmentMode, Fulfilment> = {
  */
 export function toFulfilmentMode(raw: string | undefined | null): FulfilmentMode | null {
   return FULFILMENT_MODES.includes(raw as FulfilmentMode) ? (raw as FulfilmentMode) : null;
+}
+
+/** What each mode must have before «إتمام الطلب» is allowed to fire. */
+export function missingFields(
+  mode: FulfilmentMode | null,
+  f: { name: string; phone: string; address: string },
+): string | null {
+  if (!mode) return "اختر طريقة الاستلام";
+  const phone = f.phone.trim();
+  const needsPhone = mode === "delivery" || mode === "curbside";
+  if (needsPhone && phone.length < 10) return "رقم الهاتف مطلوب";
+  // الاسم مع الرقم: من ترك رقمه اختياراً يترك اسمه معه، وإلا صار في السجلّ
+  // رقماً بلا صاحب. والقاعدة نفسها على الكاشير وعلى الخادم.
+  const nameErr = nameWithPhoneError(phone, f.name);
+  if (nameErr) return nameErr;
+  if (mode === "delivery" && f.address.trim().length < 5) return "العنوان مطلوب للتوصيل";
+  return null;
 }

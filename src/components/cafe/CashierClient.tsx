@@ -34,6 +34,7 @@ import {
   type LastLine,
 } from "@/lib/cafe/call-actions";
 import { cleanPhone, normalizeIraqiPhone } from "@/lib/cafe/phone";
+import { needsName } from "@/lib/cafe/customer-required";
 import { FridayPrayerNotice } from "./FridayPrayerNotice";
 import { PartnerLogo } from "./PartnerLogo";
 import { cloneMenuItem } from "@/lib/cafe/menu-actions-cashier";
@@ -181,6 +182,10 @@ export function CashierClient({
   const [custName, setCustName] = useState("");
   const [custPhone, setCustPhone] = useState("");
   const [custAddress, setCustAddress] = useState("");
+  // الاسم صار مطلوباً مع كل رقم (قرار المالك): الشاشة تمنع قبل الضغط، والخادم
+  // يمنع أيضاً — والقاعدة مكتوبة مرّة في customer-required فلا تفترق النسختان.
+  // وداخل المطعم مستثنًى لأن الرقم لا يُرسَل أصلاً في هذا النوع.
+  const nameMissing = orderType !== "dinein" && needsName(custPhone, custName);
   const [orderNote, setOrderNote] = useState("");
   // itemized surcharges for add-ons the customer requests (extra shot, syrup…)
   const [extras, setExtras] = useState<{ name: string; price: number }[]>([]);
@@ -1060,9 +1065,12 @@ export function CashierClient({
             <input
               value={custName}
               onChange={(e) => setCustName(e.target.value)}
-              placeholder="👤 اسم الزبون"
+              placeholder={nameMissing ? "👤 اسم الزبون (مطلوب)" : "👤 اسم الزبون"}
               maxLength={120}
-              className="min-h-11 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+              aria-invalid={nameMissing}
+              className={`min-h-11 rounded-lg border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring ${
+                nameMissing ? "border-destructive ring-1 ring-destructive" : "border-input"
+              }`}
             />
             {orderType !== "dinein" && (
               <input
@@ -1167,13 +1175,20 @@ export function CashierClient({
 
         {orderType !== "delivery" && partnerBlock}
 
+        {nameMissing && (
+          <p className="rounded-lg border-2 border-destructive bg-destructive/10 px-3 py-2 text-xs font-black text-destructive">
+            اكتب اسم الزبون مع الرقم — الاسم صار مطلوباً مع كل رقم.
+          </p>
+        )}
+
         <button
           onClick={checkout}
           disabled={
             busy ||
             lines.length === 0 ||
             (payMethod === "partner" && !partnerId) ||
-            (payMethod === "debt" && !debtorName.trim() && !custName.trim())
+            (payMethod === "debt" && !debtorName.trim() && !custName.trim()) ||
+            nameMissing
           }
           className="w-full rounded-xl bg-primary px-4 py-3 font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
         >

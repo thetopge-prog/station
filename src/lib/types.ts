@@ -554,6 +554,8 @@ export type Database = {
       log_webhook: { Args: { p_route: string; p_status: number; p_body: string; p_note: string }; Returns: undefined };
       // سجلّ الزبائن (0099) — قابلة للتكرار بلا أثر
       sync_customer_book: { Args: Record<string, never>; Returns: { added: number; named: number; auto_named: number }[] };
+      // زبون الطلب (0101): يوحّد الرقم، يجد أو يُنشئ، يكتب الاسم، يعيد المعرّف
+      customer_for_order: { Args: { p_phone: string; p_name: string | null }; Returns: string | null };
       // الجرد اليومي (0056)
       save_daily_count: { Args: { p_day: string; p_counted: number; p_deposited: number; p_note: string | null; p_snapshot: Json; p_close?: boolean }; Returns: undefined };
       stock_value: { Args: Record<string, never>; Returns: number };

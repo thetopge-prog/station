@@ -122,16 +122,27 @@ export async function POST(req: Request) {
   // لا وردية مفتوحة = لا أحد يطبخ: يُرفض هنا كما يُرفض على المنيو، والبوت يقول «مسدود»
   if (!(await isShopOpen())) return NextResponse.json({ ok: false, error: "closed" }, { status: 409 });
 
+  // الاسم مع الرقم، والطلب مربوطٌ بصاحبه — نفس قاعدة الكاشير والمنيو.
+  // البوت يسأل الاسم قبل الإرسال، وهذا آخر سدٍّ لو جاء الطلب من نسخة قديمة.
+  const botPhone = body.phone?.trim() || null;
+  const botName = body.customer_name?.trim() || null;
+  if (botPhone && (botName ?? "").length < 2) {
+    return NextResponse.json({ ok: false, error: "name_required" }, { status: 422 });
+  }
+  const { data: linkedId } = botPhone
+    ? await svc.rpc("customer_for_order", { p_phone: botPhone, p_name: botName })
+    : { data: null };
+
   const { data, error } = await svc.rpc("place_order", {
     p_channel: channel,
     p_lines: lines as unknown as Json,
-    p_customer: null,
+    p_customer: linkedId ?? null,
     p_table: null,
     p_note: body.note?.trim() || null,
-    p_phone: body.phone?.trim() || null,
+    p_phone: botPhone,
     p_address: body.address?.trim() || null,
     p_source: "whatsapp",
-    p_customer_name: body.customer_name?.trim() || null,
+    p_customer_name: botName,
   });
 
   if (error || !data?.[0]) {
