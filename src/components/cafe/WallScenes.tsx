@@ -29,7 +29,7 @@ export function WallScenes() {
       <SceneSystem />
       <SceneMenu />
       <SceneBurger />
-      <SceneRizo />
+      <SceneItems />
       <SceneServices />
       <SceneFresh />
       <SceneClean />
@@ -197,15 +197,6 @@ const BURGER_STACK = [
 function SceneBurger() {
   return (
     <div className="wall-scene">
-      {/* البركر كاملاً كما يُقدَّم، ثم يختفي ليُبنى أمامك */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        className="wall-anim"
-        src="/wallimg/burger-whole.webp"
-        alt=""
-        style={{ position: "absolute", left: MID, top: "50%", width: "78vh", marginTop: "-39vh", animationName: "wall-whole" }}
-      />
-
       {BURGER_STACK.map((l) => (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -234,56 +225,66 @@ function SceneBurger() {
 }
 
 /**
- * ٠٥ — الريزو تتطاير منه الحبّات.
+ * ٠٥ — أصناف المنيو بصورها.
  *
- * الطبق في المركز، ومنه تخرج حبّات الرزّ وقطع الدجاج إلى جهاتٍ مختلفة عبر
- * الشاشات. المدى لكل حبّة في متغيّرات، فإطارٌ واحد يخدمها جميعاً.
+ * المشهد الذي قبله يكتب أسماء الأقسام، وهذا يُريها. صفٌّ واحد يعبر اللوحة
+ * كلّها — ثلاثة أصنافٍ أمام كل شاشة، فالواقف أمام أيٍّ منها يرى طبقاً كاملاً
+ * باسمه لا نصفَ طبق.
+ *
+ * والصور من موقع المطعم نفسه، مقصوصةً إلى محتواها ومصغَّرة عندنا.
  */
-const GRAINS = [
-  { img: "chicken.webp", h: "17vh", x: "-58vw", y: "-18vh", r: "-24deg" },
-  { img: "chicken.webp", h: "30vh", x: "-34vw", y: "-28vh", r: "18deg" },
-  { img: "chicken.webp", h: "13vh", x: "-16vw", y: "-34vh", r: "40deg" },
-  { img: "chicken.webp", h: "26vh", x: "20vw", y: "-30vh", r: "-30deg" },
-  { img: "chicken.webp", h: "19vh", x: "44vw", y: "-20vh", r: "12deg" },
-  { img: "chicken.webp", h: "28vh", x: "66vw", y: "-6vh", r: "-14deg" },
-  { img: "chicken.webp", h: "15vh", x: "-70vw", y: "8vh", r: "30deg" },
-  { img: "chicken.webp", h: "12vh", x: "82vw", y: "12vh", r: "-40deg" },
+const DISHES = [
+  { img: "kentucky", name: "كنتاكي" },
+  { img: "zinger", name: "زنجر" },
+  { img: "twister", name: "تويستر" },
+  { img: "pepperoni", name: "بيتزا ببروني" },
+  { img: "mushroom", name: "مشروم جكن" },
+  { img: "rizo-super", name: "ريزو سوبر" },
+  { img: "strips", name: "ستربس" },
+  { img: "popcorn", name: "بوب كورن" },
+  { img: "fries", name: "كرسبي فرايز" },
+  { img: "onion", name: "حلقات بصل" },
+  { img: "sides", name: "مقبّلات" },
+  { img: "sauce", name: "صوصات" },
 ];
 
-function SceneRizo() {
+function SceneItems() {
   return (
     <div className="wall-scene">
-      {GRAINS.map((g, i) => (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          key={i}
+      <span
+        className="wall-anim wall-stamp"
+        style={{
+          position: "absolute",
+          left: MID,
+          top: "11vh",
+          transform: "translateX(-50%)",
+          fontSize: `calc(${H1} * 0.8)`,
+          animationName: "wall-aside2",
+        }}
+      >
+        {WALL_COPY.itemsTitle}
+      </span>
+      {DISHES.map((d, i) => (
+        <div
+          key={d.img}
           className="wall-anim"
-          src={`/wallimg/${g.img}`}
-          alt=""
-          style={
-            {
-              position: "absolute",
-              left: MID,
-              top: "44%",
-              height: g.h,
-              width: "auto",
-              animationName: "wall-grain",
-              animationTimingFunction: `cubic-bezier(${(0.12 + i * 0.05).toFixed(2)}, 0.85, 0.3, 1)`,
-              ["--gx"]: g.x,
-              ["--gy"]: g.y,
-              ["--gr"]: g.r,
-            } as CSSProperties
-          }
-        />
+          style={{
+            position: "absolute",
+            // الصفّ موزّعٌ على اللوحة كلّها: ٤٠٠vw على اثني عشر صنفاً
+            left: `${((i + 0.5) * 400) / DISHES.length}vw`,
+            top: "52%",
+            textAlign: "center",
+            animationName: "wall-dish",
+            animationTimingFunction: `cubic-bezier(${(0.1 + i * 0.05).toFixed(2)}, 0.85, 0.3, 1)`,
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={`/wallimg/dish-${d.img}.webp`} alt="" style={{ display: "block", height: "30vh", width: "auto", margin: "0 auto" }} />
+          <span className="wall-display" style={{ display: "block", marginTop: "2vh", fontSize: `calc(${H1} * 0.34)` }}>
+            {d.name}
+          </span>
+        </div>
       ))}
-      <Aside x="298vw" anim="wall-aside2" title={WALL_COPY.rizoTitle} sub={WALL_COPY.rizoSub} />
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        className="wall-anim"
-        src="/wallimg/rizo.webp"
-        alt=""
-        style={{ position: "absolute", left: MID, top: "50%", height: "56vh", marginTop: "-22vh", animationName: "wall-plate" }}
-      />
     </div>
   );
 }
@@ -424,18 +425,24 @@ function SceneBoard() {
 
 /** ١٠ — الشريط المستمرّ بأحجامٍ متفاوتة */
 const STRIP = [
-  { img: "burger-whole.webp", h: "80vh" },
-  { img: "poster-3.webp", h: "46vh" },
-  { img: "rizo.webp", h: "50vh" },
-  { img: "chicken.webp", h: "68vh" },
-  { img: "poster-6.webp", h: "38vh" },
-  { img: "rizo-motion.webp", h: "44vh" },
-  { img: "burger-whole.webp", h: "36vh" },
-  { img: "poster-4.webp", h: "52vh" },
-  { img: "chicken.webp", h: "34vh" },
-  { img: "rizo.webp", h: "72vh" },
-  { img: "poster-7.webp", h: "42vh" },
-  { img: "rizo-motion.webp", h: "58vh" },
+  { img: "burger-whole.webp", h: "64vh" },
+  { img: "poster-1.webp", h: "46vh" },
+  { img: "dish-kentucky.webp", h: "40vh" },
+  { img: "poster-2.webp", h: "38vh" },
+  { img: "dish-pepperoni.webp", h: "44vh" },
+  { img: "poster-3.webp", h: "50vh" },
+  { img: "dish-zinger.webp", h: "36vh" },
+  { img: "poster-4.webp", h: "42vh" },
+  { img: "rizo.webp", h: "52vh" },
+  { img: "poster-5.webp", h: "46vh" },
+  { img: "dish-fries.webp", h: "38vh" },
+  { img: "poster-6.webp", h: "40vh" },
+  { img: "dish-twister.webp", h: "44vh" },
+  { img: "poster-7.webp", h: "48vh" },
+  { img: "dish-onion.webp", h: "34vh" },
+  { img: "poster-m1.webp", h: "42vh" },
+  { img: "rizo-motion.webp", h: "46vh" },
+  { img: "poster-m2.webp", h: "44vh" },
 ];
 
 function SceneStrip() {
@@ -477,66 +484,9 @@ function SceneStrip() {
  * تتموّج في أسفل الجدار، ثم ماءٌ أبيض يملأ الشاشات صعوداً، ثم يعود البرتقالي
  * صاعداً فوقه. كلّها إزاحةٌ وشفافية — لا مرشّح ولا رسمٌ في كل إطار.
  */
-/**
- * أعمدة الأطراف — عرضٌ متكرّر لا يقف.
- *
- * الشاشة الأولى والرابعة تبقيان شبه فارغتين: أكثر المشاهد تتوسّط اللوحة،
- * فالطرفان لا ينالان إلّا ما يمرّ. فعمودان من ملصقات المحل على كلٍّ منهما،
- * يدوران طول الدورة بلا نافذةٍ زمنية — أحدهما ينزل والآخر يصعد.
- *
- * وهي خلف كل شيء: المشاهد التي تملأ الشاشات (اللوحة، الماء الأبيض) تغطّيها،
- * والمشاهد المتوسّطة تتركها تعمل. وموضعها على الأطراف الخارجية، فالحافّة
- * الداخلية من كل شاشةٍ طرفية تبقى خالية لما يعبر إليها من جارتها.
- */
-const RAILS = [
-  { x: "5vw", up: false, posters: [1, 2, 3, 4] },
-  { x: "36vw", up: true, posters: [5, 6, 7, "m1"] },
-  { x: "336vw", up: true, posters: [3, 5, 7, "m2"] },
-  { x: "367vw", up: false, posters: [2, 4, 6, "m1"] },
-];
-
-function Rails() {
-  return (
-    <>
-      {RAILS.map((r) => (
-        <div
-          key={r.x}
-          style={{ position: "absolute", left: r.x, top: 0, bottom: 0, width: "28vw", overflow: "hidden", opacity: 0.9 }}
-        >
-          <div
-            className="wall-anim"
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: "100%",
-              animationName: "wall-rail",
-              animationDirection: r.up ? "reverse" : "normal",
-            }}
-          >
-            {/* القائمة مرّتين، والإزاحة ‎-50%‎ بالضبط. والفراغ هامشٌ أسفل كل
-                صورةٍ بلا استثناء — لا `gap`: الفجوة الأخيرة تنقص من النصف
-                فيقفز العمود عند العودة */}
-            {[...r.posters, ...r.posters].map((n, i) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={`${n}-${i}`}
-                src={`/wallimg/poster-${n}.webp`}
-                alt=""
-                style={{ display: "block", width: "100%", height: "auto", marginBottom: "2.6vh", borderRadius: "1.6vh" }}
-              />
-            ))}
-          </div>
-        </div>
-      ))}
-    </>
-  );
-}
-
 function Backdrop() {
   return (
     <div className="wall-scene" style={{ pointerEvents: "none" }}>
-      <Rails />
       <span className="wall-anim wall-wave" style={{ bottom: 0, height: "34vh", animationName: "wall-wave" }} />
       <span
         className="wall-anim"

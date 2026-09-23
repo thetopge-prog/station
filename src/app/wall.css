@@ -126,20 +126,13 @@
 /* ═══ ٠٤ · البركر يتفكّك  24.28% → 34.29% ══════════════════════════════════
    يبدأ بركراً كاملاً كما يُقدَّم، ثم تنفصل طبقاته الستّ وتتباعد فيُرى ما
    بداخله. */
-@keyframes wall-whole {
-  0%, 24.28% { opacity: 0; transform: translate3d(-50%, 8vh, 0) scale(0.88); }
-  26.06% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-  27.94% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-  28.63%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(1); }
-}
 /* الطبقات تنزل من الأعلى وتستقرّ في المركز، واحدةً بعد أخرى.
    كانت تتفرّق أفقياً عبر الشاشات فبدت متناثرةً بلا روح — والبركر يُبنى
    عمودياً لا يُنثر. و`--ld` تأخير نزول كل طبقة، فإطارٌ واحد يخدم الستّ. */
 @keyframes wall-drop {
-  0% { opacity: 0; transform: translate3d(-50%, -70vh, 0); }
-  27.94% { opacity: 0; transform: translate3d(-50%, -70vh, 0); }
-  28.46% { opacity: 1; transform: translate3d(-50%, -70vh, 0); }
-  32.23% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  0%, 24.28% { opacity: 0; transform: translate3d(-50%, -70vh, 0); }
+  24.9% { opacity: 1; transform: translate3d(-50%, -70vh, 0); }
+  31.5% { opacity: 1; transform: translate3d(-50%, 0, 0); }
   33.77% { opacity: 1; transform: translate3d(-50%, 0, 0); }
   34.29%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0); }
 }
@@ -165,11 +158,13 @@
   42% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
   42.86%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(1); }
 }
-@keyframes wall-grain {
-  0%, 36.43% { opacity: 0; transform: translate3d(0, 0, 0) scale(0.25) rotate(0deg); }
-  37.37% { opacity: 1; transform: translate3d(0, 0, 0) scale(1) rotate(0deg); }
-  41.66% { opacity: 1; transform: translate3d(var(--gx), var(--gy), 0) scale(1) rotate(var(--gr)); }
-  42.86%, 100% { opacity: 0; transform: translate3d(var(--gx), var(--gy), 0) scale(1) rotate(var(--gr)); }
+
+/* ═══ ٠٥ · صفّ الأصناف  34.29% → 42.86% ═══════════════════════════════ */
+@keyframes wall-dish {
+  0%, 34.29% { opacity: 0; transform: translate3d(-50%, 9vh, 0) scale(0.86); }
+  36.6% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
+  42% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
+  42.86%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(1); }
 }
 
 /* ═══ ٠٦ · كيف تطلب  42.86% → 51.43% ═════════════════════════════════════════
@@ -269,7 +264,9 @@
    `st-drift` القائمة في globals.css. */
 @keyframes wall-strip {
   0%, 75.71% { opacity: 0; transform: translate3d(0, 0, 0); }
-  76.6% { opacity: 1; }
+  76.6% { opacity: 1; transform: translate3d(0, 0, 0); }
+  87.9% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  87.91% { opacity: 1; transform: translate3d(0, 0, 0); }
   99.3% { opacity: 1; transform: translate3d(-50%, 0, 0); }
   100% { opacity: 0; transform: translate3d(-50%, 0, 0); }
 }
@@ -311,12 +308,3 @@
 /* لا يُطفأ العرض مع تفضيل «تقليل الحركة»: الجدار لوحةُ إعلانٍ لا واجهةُ
    استعمال، وإطفاؤه يترك أربع شاشاتٍ ساكنة على الحائط. */
 
-/* ═══ الأطراف · عرضٌ متكرّر لا يقف ═══════════════════════════════════════
-   الشاشتان الطرفيّتان تبقيان شبه فارغتين: أكثر المشاهد تتوسّط اللوحة. فعمودان
-   من ملصقات المحل على كلٍّ منهما، يدوران بلا نافذةٍ زمنية — القائمة مكرّرة
-   مرّتين والإزاحة ‎-50%‎ بالضبط فتعود بلا قفزة، وهي حيلة `wall-strip` نفسها.
-   وأحدهما بـ`animation-direction: reverse` فيصعد بينما ينزل أخوه. */
-@keyframes wall-rail {
-  0% { transform: translate3d(0, 0, 0); }
-  100% { transform: translate3d(0, -50%, 0); }
-}

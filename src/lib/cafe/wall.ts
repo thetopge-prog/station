@@ -120,7 +120,7 @@ export const SCENES: Scene[] = [
   { id: "system", title: "صور المحل تملأ الجدار", ms: 12_000 },
   { id: "menu", title: "أقسام المنيو مكتوبة", ms: 12_000 },
   { id: "burger", title: "البركر يتفكّك إلى طبقاته", ms: 14_000 },
-  { id: "rizo", title: "الريزو تتطاير منه الحبّات", ms: 12_000 },
+  { id: "items", title: "أصناف المنيو بصورها", ms: 12_000 },
   { id: "services", title: "كيف تطلب", ms: 12_000 },
   { id: "fresh", title: "«كل شيء طازج / ومن الرمادي»", ms: 10_000 },
   { id: "clean", title: "«ما عدنا شي نظمه عليك»", ms: 14_000 },
@@ -196,6 +196,7 @@ export const WALL_COPY = {
   /** يُقال بجانب البركر وهو يتكوّن — وهو وعد المحل نفسه لا شعارٌ مخترع */
   burgerTitle: "يُقلى عند الطلب",
   burgerSub: "طبقةً طبقة، وأنت تنتظر",
+  itemsTitle: "من منيو المحطة",
   rizoTitle: "ريزو ستيشن",
   rizoSub: "رزٌّ وحبّات دجاج مقرمشة",
   servicesTitle: "كيف تطلب",

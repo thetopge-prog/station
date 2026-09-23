@@ -67,6 +67,32 @@ for (const f of FILES) {
   console.log(`✓ ${f.name}  ${(src.length / 1024).toFixed(0)}KB → ${(out.length / 1024).toFixed(0)}KB`);
 }
 
+// ── أصناف المنيو بصورها ──────────────────────────────────────────────────
+// أسماء الملفّات عربية على الخادم الأصلي، فتُرمَّز في الرابط. وتُقصّ إلى
+// محتواها: كلٌّ منها مُصدَّرةٌ بحشوٍ مختلف، فصفٌّ بارتفاعٍ واحد يُظهر هذا
+// كبيراً وذاك صغيراً ما لم تُقصّ.
+const DISHES = [
+  ["كنتاكي", "kentucky"], ["زنكر", "zinger"], ["ببروني", "pepperoni"],
+  ["كرسبي-فرايز", "fries"], ["حلقات-بصل-1", "onion"], ["ستربس-1", "strips"],
+  ["تويستر-كلاسك", "twister"], ["ريزو-سوبر", "rizo-super"], ["سوبر-صوص", "sauce"],
+  ["مقبلات", "sides"], ["بوب-كورن-1", "popcorn"], ["مشروم-جكن", "mushroom"],
+];
+for (const [ar, en] of DISHES) {
+  const res = await fetch(`${SRC}/2025/03/${encodeURIComponent(ar)}.webp`);
+  if (!res.ok) {
+    console.log(`✗ dish-${en}  ${res.status}`);
+    continue;
+  }
+  const out = await sharp(Buffer.from(await res.arrayBuffer()))
+    .trim({ threshold: 6 })
+    .resize(460, 460, { fit: "inside", withoutEnlargement: true })
+    .webp({ quality: 66 })
+    .toBuffer();
+  writeFileSync(`${OUT}/dish-${en}.webp`, out);
+  total += out.length;
+  console.log(`✓ dish-${en}.webp  ${(out.length / 1024).toFixed(0)}KB`);
+}
+
 // ── ملصقات المحلّ، مصغَّرةً للجدار ────────────────────────────────────────
 // الأصول في `public/posters/` تخدم صفحاتٍ أخرى بحجمها الكامل — ١٫٤ ميغابايت
 // للتسعة. والجدار يعرضها بنحو ٥٤٠ بكسل عرضاً، فحملُ الأصل كلّه على واي‑فاي
