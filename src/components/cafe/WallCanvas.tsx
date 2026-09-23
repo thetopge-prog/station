@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { canvasWidth, SCREENS, sliceOffset } from "@/lib/cafe/wall";
+import { canvasWidth, LOOP_MS, SCREENS, sliceOffset } from "@/lib/cafe/wall";
 
 /**
  * نافذةُ شاشةٍ واحدة على لوحةٍ واحدة.
@@ -110,7 +110,7 @@ export function WallCanvas({
       <script
         dangerouslySetInnerHTML={{
           __html: `try{
-            var LOOP = 140000, cv = document.currentScript.parentNode;
+            var LOOP = ${LOOP_MS}, cv = document.currentScript.parentNode;
             // الطور المكتوب ولحظة كتابته. والطور الجاري = المكتوب + ما مضى —
             // فبغير حفظ اللحظة تبدو كل شاشةٍ منحرفةً بمقدار عمرها، وتُصحَّح
             // كل دقيقتين بقفزةٍ تُرى، وهي في التزامن أصلاً

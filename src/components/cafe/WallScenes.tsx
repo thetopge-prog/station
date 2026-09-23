@@ -35,6 +35,7 @@ export function WallScenes() {
       <SceneClean />
       <SceneBoard />
       <SceneStrip />
+      <ScenePizza />
       {/* السهم آخر شيء فيمرّ فوق الجميع */}
       <Arrow />
     </>
@@ -570,6 +571,58 @@ function SceneStrip() {
           />
         ))}
       </div>
+    </div>
+  );
+}
+
+/**
+ * ١١ — البيتزا تتكوّن طبقةً طبقة.
+ *
+ * أخت مشهد البركر وبنفس منطقه: كل طبقةٍ تنزل من فوق الشاشة وتستقرّ على
+ * أختها، والتتابع بمنحنى التوقيت لا بتأخيرٍ ثانٍ — `animation-delay` محجوزٌ
+ * لطور الدورة وحده.
+ *
+ * والفرق أن البيتزا تُبنى **مسطّحة**: الطبقات لا تتكوّم بل تتراكب، فالإزاحة
+ * الرأسية بينها أصغر من البركر بكثير — ما يُظهر الطبقة هو أنها تصل بعد التي
+ * تحتها لا أنها أعلى منها.
+ *
+ * والصور مقصوصةٌ من صورةٍ واحدة أرسلها المالك: ستّ طبقاتٍ فوق بعضها على
+ * أبيض، فُصلت بملءٍ من الحواف لا بعتبةِ بياض — والموزاريلا بيضاء، فعتبةٌ
+ * عمياء كانت تأكل الجبن.
+ */
+const PIZZA_STACK = [
+  { file: 1, bottom: 0, at: 0 },
+  { file: 2, bottom: 2.6, at: 1 },
+  { file: 3, bottom: 4.8, at: 2 },
+  { file: 4, bottom: 6.6, at: 3 },
+  { file: 5, bottom: 8.2, at: 4 },
+  { file: 6, bottom: 9.6, at: 5 },
+];
+
+function ScenePizza() {
+  return (
+    <div className="wall-scene">
+      {PIZZA_STACK.map((l) => (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          key={l.file}
+          className="wall-anim"
+          src={`/wallimg/pizza-${l.file}.webp`}
+          alt=""
+          style={{
+            position: "absolute",
+            left: MID,
+            bottom: `calc(26vh + ${l.bottom}vh)`,
+            width: "62vh",
+            animationName: "wall-slice",
+            animationTimingFunction: `cubic-bezier(${(0.08 + l.at * 0.16).toFixed(2)}, 0.9, 0.35, 1)`,
+          }}
+        />
+      ))}
+
+      {/* على الشاشتين الطرفيّتين، كما في البركر */}
+      <Aside x="50vw" anim="wall-aside4" title={WALL_COPY.pizzaTitle} sub={WALL_COPY.pizzaSub} />
+      <Aside x="350vw" anim="wall-aside4" title={WALL_COPY.freshTop} sub={WALL_COPY.freshBottom} />
     </div>
   );
 }

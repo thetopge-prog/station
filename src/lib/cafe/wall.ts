@@ -19,7 +19,7 @@ export const SCREENS = 4;
  * فإن تغيّرت هنا ولم تتغيّر هناك انفرط التسلسل — ولذلك يحرسها اختبار يجمع
  * مُدَد المشاهد ويطابقها بها.
  */
-export const LOOP_MS = 140_000;
+export const LOOP_MS = 154_000;
 
 /** رقم الشاشة كما يأتي من المسار — وهو مدخل من المستخدم فيُفحَص */
 export function screenIndex(raw: string | undefined): number | null {
@@ -126,6 +126,7 @@ export const SCENES: Scene[] = [
   { id: "clean", title: "«ما عدنا شي نظمه عليك»", ms: 14_000 },
   { id: "board", title: "اللوحة الرقمية", ms: 10_000 },
   { id: "strip", title: "شريط الأطعمة المستمرّ", ms: 34_000 },
+  { id: "pizza", title: "البيتزا تتكوّن طبقةً طبقة", ms: 14_000 },
 ];
 
 /** بداية كل مشهد من أول الدورة — يُشتقّ ولا يُكتب بيد */
@@ -201,6 +202,8 @@ export const WALL_COPY = {
   burgerTitle2: "بركر ما يتكرّر",
   burgerSub2: "من أجود المنتوج، طبقةً طبقة",
   itemsTitle: "من منيو المحطة",
+  pizzaTitle: "بيتزا تتبنى قدّامك",
+  pizzaSub: "عجينٌ يُفرد اليوم، لا أمس",
   rizoTitle: "ريزو ستيشن",
   rizoSub: "رزٌّ وحبّات دجاج مقرمشة",
   servicesTitle: "كيف تطلب",
