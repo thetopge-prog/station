@@ -7,7 +7,7 @@ import { renderMenuLink, renderMessage, renderRateScale, renderReply, renderSave
 import { isShopOpen } from "@/lib/cafe/shop-open";
 import { rateStep, type RateState } from "../../../../../supabase/functions/telegram-bot/rating-flow";
 import { savedOrderLabel, savedOrderToLines, type SavedOrder } from "../../../../../supabase/functions/telegram-bot/reorder";
-import { humanPause, TEXT_UNCLEAR, VOICE_UNCLEAR, understandAudio, understandSmart, type Parsed, type PhraseMemory } from "../../../../../supabase/functions/telegram-bot/llm";
+import { humanPause, TEXT_UNCLEAR, VOICE_UNCLEAR, understandAudio, understandSmart, type LlmBudget, type Parsed, type PhraseMemory } from "../../../../../supabase/functions/telegram-bot/llm";
 import {
   dropClosed,
   extractWhen,
@@ -124,6 +124,35 @@ async function writeState(chatId: string, state: unknown): Promise<void> {
     .from("bot_state")
     .upsert({ chat_id: chatId, state: state as Json, updated_at: new Date().toISOString() }, { onConflict: "chat_id" });
 }
+
+/**
+ * السقف اليومي لنداءات النموذج — عدّادٌ في نفس جدول الحالة، بلا ترحيل.
+ *
+ * الحساب الذي خرج منه الرقم: المنيو والتعليمات نحو ألفين وستّمئة رمز، والردّ
+ * مئة وعشرون. فالنداء الواحد بأسوأ حال — بلا خزينٍ مؤقّت — نحو ثلاث أعشار
+ * السنت. ومئةٌ وعشرون نداءً في اليوم تعني أربعين سنتاً، أي اثني عشر دولاراً
+ * في الشهر **لو لم يُخزَّن شيء ولم تُفهم عبارةٌ مرّتين** — وكلاهما لا يحدث.
+ *
+ * وعملياً: الذاكرة والقواعد تبتلعان أكثر الرسائل، والخزين المؤقّت يخفض الباقي
+ * إلى عُشره. فالعشرون دولاراً تكفي شهوراً، والسقف موجودٌ ليوم الحملة لا ليوم
+ * العمل العادي. يُرفع أو يُخفض من `LLM_DAILY_CAP` بلا نشر.
+ */
+const llmBudget: LlmBudget = {
+  async take() {
+    const cap = Number(process.env.LLM_DAILY_CAP ?? 120);
+    if (!Number.isFinite(cap) || cap <= 0) return false;
+    // يوم بغداد لا يوم الخادم: الخادم بتوقيت UTC، فالعدّاد كان يُصفَّر الثالثة فجراً
+    const day = new Date(Date.now() + 3 * 3600_000).toISOString().slice(0, 10);
+    const chatId = `llm:${day}`;
+    const used = (await readState<{ n?: number }>(chatId))?.n ?? 0;
+    if (used >= cap) {
+      if (used === cap) await note(200, "", `سقف النموذج اليومي (${cap}) بلغ — القواعد وحدها لبقيّة اليوم`);
+      return false;
+    }
+    await writeState(chatId, { n: used + 1 });
+    return true;
+  },
+};
 
 // ── الإرسال ────────────────────────────────────────────────────────────────
 async function send(to: string, message: WaMessage): Promise<void> {
@@ -408,7 +437,7 @@ async function turn(msg: WaMsg): Promise<void> {
     // «٢ زنجر بوفالو وجبة وبيبسي» → سلّة يؤكّدها بالأزرار (ذاكرة ثم قواعد ثم Gemini/Groq)
     if (prev?.flow !== "order" || !prev.draft?.awaitingNote) {
       const menu = await loadMenu();
-      const got = await understandSmart(t, menu, { anthropic: process.env.ANTHROPIC_API_KEY, gemini: process.env.GEMINI_API_KEY, groq: process.env.GROQ_API_KEY }, phraseMemory);
+      const got = await understandSmart(t, menu, { anthropic: process.env.ANTHROPIC_API_KEY, gemini: process.env.GEMINI_API_KEY, groq: process.env.GROQ_API_KEY }, phraseMemory, llmBudget);
       if (got && "lines" in got) {
         understood = got.lines;
         when = extractWhen(t).when; // «الساعة 11» تُنقل للمطبخ مع الطلب
