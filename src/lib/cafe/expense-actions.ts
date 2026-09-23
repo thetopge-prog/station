@@ -17,6 +17,8 @@ export type ExpenseRow = {
   supplier: string | null;
   /** من أخرج المبلغ من الدرج — المصروف بلا اسم لا يُسأل عنه أحد */
   spender: string | null;
+  /** دفعته الإدارة من خارج الدرج؟ اسمه هنا، و null يعني أنه خرج من الدرج */
+  paid_by: string | null;
 };
 
 /** Any staff member records expenses (the cashier pays for ice, milk, …).
@@ -52,7 +54,7 @@ export async function addStaffAdvance(input: { employeeId: string; amount: numbe
   return { ok: true as const };
 }
 
-export async function addExpense(input: { amount: number; category?: string; note?: string; businessDay?: string | null; supplierId?: string | null }) {
+export async function addExpense(input: { amount: number; category?: string; note?: string; businessDay?: string | null; supplierId?: string | null; paidBy?: string | null }) {
   const staff = await requireStaff();
   const amount = Math.max(0, Math.round(input.amount));
   if (amount <= 0) return { ok: false as const, error: "أدخل مبلغاً صحيحاً." };
@@ -69,7 +71,9 @@ export async function addExpense(input: { amount: number; category?: string; not
   // Z-report subtract the right expenses from the right cashier.
   // إلا المؤرَّخ في الماضي: لا يُلصق بدرج الليلة، وإلا ظهر عجزٌ في جرد اليوم
   // عن مصروف صُرف قبل أسبوع.
-  const session_id = backdated ? null : await openSessionIdFor(staff.employeeId);
+  // دفعته الإدارة؟ لا يُلصق بدرج أحد: الوردية تُقفل على نقد لم يخرج منها
+  const paid_by = input.paidBy?.trim().slice(0, 60) || null;
+  const session_id = backdated || paid_by ? null : await openSessionIdFor(staff.employeeId);
   const { error } = await svc.from("expenses").insert({
     amount,
     session_id,
@@ -78,6 +82,7 @@ export async function addExpense(input: { amount: number; category?: string; not
     business_day: day,
     created_by: staff.employeeId,
     supplier_id: input.supplierId || null,
+    paid_by,
   });
   if (error) return { ok: false as const, error: error.message };
   revalidatePath("/expenses");
@@ -91,7 +96,7 @@ export async function listExpenses(limit = 60): Promise<ExpenseRow[]> {
   const svc = createSupabaseServiceClient();
   let q = svc
     .from("expenses")
-    .select("id, business_day, amount, category, note, supplier_id, created_by")
+    .select("id, business_day, amount, category, note, supplier_id, created_by, paid_by")
     .order("created_at", { ascending: false })
     .limit(limit);
   if (!staff.isAdmin) q = q.eq("business_day", businessDay());
@@ -120,6 +125,7 @@ export async function listExpenses(limit = 60): Promise<ExpenseRow[]> {
     note: r.note,
     supplier: (r.supplier_id && nameOf.get(r.supplier_id)) || null,
     spender: (r.created_by && staffOf.get(r.created_by)) || null,
+    paid_by: r.paid_by,
   }));
 }
 

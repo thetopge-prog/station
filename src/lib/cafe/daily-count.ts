@@ -53,6 +53,8 @@ export type DailyCount = {
   orders_count: number;
   guests: number;
   expenses: number;
+  /** منها ما دفعته الإدارة من خارج الدرج — محسوب في الكلفة لا في نقد الصندوق */
+  expenses_offsite: number;
   deposited: number;
   debts_issued: number;
   /** float + cash − expenses − deposited, summed across the day's shifts */
@@ -98,6 +100,23 @@ export type DailyCount = {
  * كما هي: اللقطة يجب أن تبقى كاملة (وإلا صار جردٌ حفظه كاشير ناقصاً إلى
  * الأبد)، والشاشة يجب أن تُقصّ.
  */
+/**
+ * النقد الذي يجب أن يكون في الدرج.
+ *
+ * `expenses` مجموع كلفة اليوم كلّها، و`expenses_offsite` ما دفعته الإدارة من
+ * خارج الدرج — يُحسب في الكلفة والربح، ولا يُطرح من نقدٍ لم يمرّ به أصلاً.
+ * فطرحه كان يصنع عجزاً وهمياً بحجم المبلغ في جرد الليلة.
+ */
+export function expectedCash(x: {
+  opening_float: number;
+  cash_sales: number;
+  expenses: number;
+  expenses_offsite: number;
+  deposited: number;
+}): number {
+  return x.opening_float + x.cash_sales - (x.expenses - x.expenses_offsite) - x.deposited;
+}
+
 async function getDailyCountFull(day: string): Promise<DailyCount> {
   const svc = createSupabaseServiceClient();
 
@@ -122,7 +141,7 @@ async function getDailyCountFull(day: string): Promise<DailyCount> {
       svc.from("orders").select("subtotal, discount, extra, payment_method, partner_cash_received").eq("business_day", day).eq("status", "paid"),
       svc.rpc("daily_partner_breakdown", { p_day: day }),
       // كل مصاريف اليوم بفئاتها وأصحابها — لا المجموع وحده
-      svc.from("expenses").select("amount, category, employee_id").eq("business_day", day),
+      svc.from("expenses").select("amount, category, employee_id, paid_by").eq("business_day", day),
       // الملغى والمُرجَع: يُعدّ ولا يُطرح
       svc.from("orders").select("subtotal, discount, extra").eq("business_day", day).in("status", ["cancelled", "refunded"]),
     ]);
@@ -169,6 +188,9 @@ async function getDailyCountFull(day: string): Promise<DailyCount> {
   // لبطاقة الوردية — وإلا قال الجرد «زيادة» وقالت البطاقة «مطابقة» عن الدرج نفسه.
   const cash_sales = sumBy("cash") + paid.reduce((t, o) => t + (o.partner_cash_received ?? 0), 0);
   const expenses = summary?.expenses ?? 0;
+  // ما دفعته الإدارة من خارج الدرج: كلفةُ اليوم تبقى، لكنها لا تُطرح من نقدٍ
+  // لم يخرج منه شيء — وإلا ظهر عجزٌ وهميّ بحجم المبلغ في جرد الليلة.
+  const expenses_offsite = (expenseRowsRes.data ?? []).reduce((t, e) => t + (e.paid_by ? e.amount : 0), 0);
 
   // Debts issued today, which left the drawer as goods and not as money.
   const { data: debtRows, error: debtErr } = await svc
@@ -191,9 +213,10 @@ async function getDailyCountFull(day: string): Promise<DailyCount> {
     orders_count: paid.length,
     guests: (guestsRes.data as number | null) ?? 0,
     expenses,
+    expenses_offsite,
     deposited,
     debts_issued: (debtRows ?? []).reduce((t, d) => t + d.amount, 0),
-    expected_cash: opening_float + cash_sales - expenses - deposited,
+    expected_cash: expectedCash({ opening_float, cash_sales, expenses, expenses_offsite, deposited }),
     sales: summary?.sales ?? 0,
     profit: summary?.profit ?? 0,
     fixed_cost: fixed?.total ?? 0,

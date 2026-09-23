@@ -44,6 +44,8 @@ export function ExpensesClient({
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [note, setNote] = useState("");
   const [supplierId, setSupplierId] = useState("");
+  // من دفع المبلغ من خارج الدرج — فارغ يعني أنه خرج من درج الكاشير
+  const [paidBy, setPaidBy] = useState("");
   // فارغ = اليوم. يُملأ فقط لمصروف صُرف قبل الاعتماد.
   const [expenseDay, setExpenseDay] = useState("");
   const [busy, setBusy] = useState(false);
@@ -112,7 +114,7 @@ export function ExpensesClient({
     }
     setBusy(true);
     setMsg(null);
-    const res = await addExpense({ amount, category, note, businessDay: expenseDay || null, supplierId: supplierId || null });
+    const res = await addExpense({ amount, category, note, businessDay: expenseDay || null, supplierId: supplierId || null, paidBy: paidBy || null });
     setBusy(false);
     if (!res.ok) {
       setMsg(res.error);
@@ -121,6 +123,7 @@ export function ExpensesClient({
     setAmount(0);
     setNote("");
     setSupplierId("");
+    setPaidBy("");
     setExpenseDay("");
     router.refresh();
   }
@@ -212,6 +215,19 @@ export function ExpensesClient({
             ))}
           </select>
         </label>
+        {/* دفعتها الإدارة من خارج الدرج؟ الكلفة تُحسب على اليوم، ولا تُطرح من
+            نقد الكاشير — وإلا ظهر عجزٌ عن مالٍ لم يمرّ بالدرج أصلاً. */}
+        {isAdmin && (
+          <label className="space-y-1 text-sm">
+            <span className="text-muted-foreground">دفعها من خارج الدرج (اختياري)</span>
+            <input
+              value={paidBy}
+              onChange={(e) => setPaidBy(e.target.value)}
+              placeholder="اسم من دفع — اتركه فارغاً إن خرج من الدرج"
+              className="w-full rounded-lg border border-input bg-background px-3 py-2 outline-none focus:ring-2 focus:ring-ring"
+            />
+          </label>
+        )}
         <label className="space-y-1 text-sm">
           <span className="text-muted-foreground">ملاحظة (اختياري)</span>
           <input
@@ -339,6 +355,7 @@ export function ExpensesClient({
               <th className="px-4 py-2.5 font-medium">التصنيف</th>
               <th className="px-4 py-2.5 font-medium">الشركة</th>
               <th className="px-4 py-2.5 font-medium">من صرف</th>
+              <th className="px-4 py-2.5 font-medium">من الدرج؟</th>
               <th className="px-4 py-2.5 font-medium">المبلغ</th>
               <th className="px-4 py-2.5 font-medium">ملاحظة</th>
             </tr>
@@ -346,7 +363,7 @@ export function ExpensesClient({
           <tbody>
             {expenses.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">
+                <td colSpan={7} className="px-4 py-6 text-center text-muted-foreground">
                   لا توجد مصروفات مسجّلة.
                 </td>
               </tr>
@@ -359,6 +376,7 @@ export function ExpensesClient({
                 <td className="px-4 py-2.5">{x.category ?? "—"}</td>
                 <td className="px-4 py-2.5 text-muted-foreground">{x.supplier ?? "—"}</td>
                 <td className="px-4 py-2.5 text-muted-foreground">{x.spender ?? "—"}</td>
+                <td className="px-4 py-2.5 text-muted-foreground">{x.paid_by ? `الإدارة · ${x.paid_by}` : "من الدرج"}</td>
                 <td className="px-4 py-2.5 font-semibold">{formatIqdLabel(x.amount)}</td>
                 <td className="px-4 py-2.5 text-muted-foreground">
                   <span className="flex items-center justify-between gap-3">

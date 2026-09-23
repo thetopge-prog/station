@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { dailyCountDoc } from "./escpos";
+import { expectedCash } from "./daily-count";
 
 /**
  * The slip's one job is the last line of arithmetic: counted − expected, said
@@ -65,5 +66,28 @@ describe("dailyCountDoc", () => {
     const d = dailyCountDoc(base);
     expect(d.qr).toBeNull();
     expect(d.kick).toBe(false);
+  });
+});
+
+/**
+ * المصروف الذي دفعته الإدارة من خارج الدرج لا يُطرح من نقد الكاشير.
+ */
+describe("expectedCash", () => {
+  const drawer = { opening_float: 50_000, cash_sales: 20_000, expenses: 5_000, expenses_offsite: 0, deposited: 0 };
+
+  it("subtracts an expense paid from the drawer", () => {
+    expect(expectedCash(drawer)).toBe(65_000);
+  });
+
+  it("leaves the drawer alone when management paid from outside it", () => {
+    expect(expectedCash({ ...drawer, expenses_offsite: 5_000 })).toBe(70_000);
+  });
+
+  it("subtracts only the drawer's share when the day mixes both", () => {
+    expect(expectedCash({ ...drawer, expenses: 12_000, expenses_offsite: 7_000 })).toBe(65_000);
+  });
+
+  it("still subtracts what went upstairs", () => {
+    expect(expectedCash({ ...drawer, expenses_offsite: 5_000, deposited: 30_000 })).toBe(40_000);
   });
 });

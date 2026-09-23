@@ -445,9 +445,9 @@ export type Database = {
         Relationships: [];
       };
       expenses: {
-        Row: Timestamped & { session_id: string | null; business_day: string; amount: number; category: string | null; note: string | null; created_by: string | null; employee_id: string | null; supplier_id: string | null };
-        Insert: { id?: string; business_day?: string; amount: number; category?: string | null; note?: string | null; created_by?: string | null; created_at?: string; session_id?: string | null; employee_id?: string | null; supplier_id?: string | null };
-        Update: Partial<{ business_day: string; amount: number; category: string | null; note: string | null; employee_id: string | null; supplier_id: string | null }>;
+        Row: Timestamped & { session_id: string | null; business_day: string; amount: number; category: string | null; note: string | null; created_by: string | null; employee_id: string | null; supplier_id: string | null; paid_by: string | null };
+        Insert: { id?: string; business_day?: string; amount: number; category?: string | null; note?: string | null; created_by?: string | null; created_at?: string; session_id?: string | null; employee_id?: string | null; supplier_id?: string | null; paid_by?: string | null };
+        Update: Partial<{ business_day: string; amount: number; category: string | null; note: string | null; employee_id: string | null; supplier_id: string | null; paid_by: string | null }>;
         Relationships: [];
       };
       loyalty_events: {
