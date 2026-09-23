@@ -423,6 +423,20 @@ function SceneClean() {
       >
         {WALL_COPY.cleanBody}
       </span>
+
+      {/* الدعوة على الشاشة الأولى — كانت فارغةً والكلام كلّه في المنتصف.
+          والسهم مرسومٌ لا صورةً منزَّلة: شكلٌ هندسيٌّ بحت، فرسمه بالمتّجهات
+          أصفى على أي مقاس، وبلا بايتٍ واحدٍ يُحمَّل، وبلا حقوقِ صورةٍ لغيرنا */}
+      <div className="wall-anim" style={{ position: "absolute", left: "50vw", top: "50%", transform: "translate(-50%, -50%)", textAlign: "center", animationName: "wall-invite" }}>
+        <svg viewBox="0 0 100 100" style={{ display: "block", height: "24vh", width: "24vh", margin: "0 auto" }} aria-hidden="true">
+          <circle cx="50" cy="50" r="48" fill="#0b6b3a" />
+          <circle cx="50" cy="50" r="41" fill="none" stroke="#ffffff" strokeWidth="5" />
+          <path d="M 20 50 L 44 27 L 44 43 L 77 43 L 77 57 L 44 57 L 44 73 Z" fill="#ffffff" />
+        </svg>
+        <span style={{ display: "block", marginTop: "3.5vh", fontSize: `calc(${H1} * 0.82)`, fontWeight: 900, color: "#b63f06", whiteSpace: "nowrap" }}>
+          {WALL_COPY.cleanInvite}
+        </span>
+      </div>
     </div>
   );
 }

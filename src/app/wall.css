@@ -254,6 +254,14 @@
 /* ═══ ٠٨ · رسالة النظافة  58.57% → 68.57% ═════════════════════════════════
    المسح الأفقي حُذف: الخلفية صارت تمتلئ صعوداً كالماء في `Backdrop`، وكان
    الاثنان يغطّيان المشهد نفسه. */
+/* الدعوة والسهم — يبقيان طول المشهد لا مع سطرٍ واحدٍ منه */
+@keyframes wall-invite {
+  0%, 61.5% { opacity: 0; transform: translate(-50%, -50%) scale(0.86); }
+  63.4% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  67.71% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  68.57%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+}
+
 @keyframes wall-clean1 {
   0%, 60.86% { opacity: 0; transform: translate3d(-50%, 0.3em, 0); }
   62.57% { opacity: 1; transform: translate3d(-50%, 0, 0); }
