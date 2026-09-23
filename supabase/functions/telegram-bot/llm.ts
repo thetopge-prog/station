@@ -162,7 +162,7 @@ async function anthropic(key: string, text: string, menu: Menu): Promise<Parsed 
 }
 
 async function gemini(key: string, text: string, menu: Menu): Promise<Parsed | null> {
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`, {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${key}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ contents: [{ parts: [{ text: prompt(text, menu) }] }], generationConfig: { responseMimeType: "application/json", temperature: 0 } }),
@@ -286,6 +286,30 @@ export async function understandSmart(text: string, menu: Menu, keys: LlmKeys, m
  * النصّ الناتج يمرّ على understandSmart كأنه كُتب — فالصوت لا يزيد قاعدة.
  */
 /**
+ * تلميح المفردات للمفرّغ: أسماء المنيو، مقصوصةً إلى سقف Groq.
+ *
+ * التلميح يجعل الكلام السريع «زنجر بوفالو وجبة» يُكتب كما نكتبه نحن لا كما
+ * يسمعه غريب. لكن السقف ٨٩٦ حرفاً، ومنيونا ١٧٤٩ — فكان الطلب يُرفض كلّه،
+ * ويضيع التفريغ لا التلميح وحده.
+ *
+ * والقصّ عند فاصلة: اسمٌ نصفه يضلّل المفرّغ أكثر مما يعينه.
+ */
+const GROQ_PROMPT_MAX = 896;
+
+export function vocabHint(menu: Menu): string {
+  const head = "طلب من مطعم ستيشن: ";
+  const tail = ". وجبة، ساندويچ، بدون بصل، توصيل.";
+  const room = GROQ_PROMPT_MAX - head.length - tail.length;
+  let names = menu.items.map((i) => i.name).join("، ");
+  if (names.length > room) {
+    names = names.slice(0, room);
+    const cut = names.lastIndexOf("، ");
+    if (cut > 0) names = names.slice(0, cut);
+  }
+  return head + names + tail;
+}
+
+/**
  * بايتات الصوت إلى base64 — على دفعات، لا دفعةً واحدة.
  *
  * `String.fromCharCode(...new Uint8Array(buf))` ينشر كل بايتٍ وسيطاً مستقلاً،
@@ -316,7 +340,10 @@ export async function transcribe(audio: ArrayBuffer, mime: string, keys: LlmKeys
       form.append("temperature", "0");
       form.append("response_format", "json");
       // أسماء المنيو تُعطى للنموذج كمفردات: الكلام السريع «زنجر بوفالو وجبة» يُكتب كما نكتبه
-      if (menu) form.append("prompt", "طلب من مطعم ستيشن: " + menu.items.map((i) => i.name).join("، ") + ". وجبة، ساندويچ، بدون بصل، توصيل.");
+      // Groq يسقف تلميح المفردات بـ٨٩٦ حرفاً، وتسعةٌ وسبعون صنفاً تبلغ ١٧٤٩ —
+      // فكان يردّ 400 ويسقط التفريغ كلّه. يُقصّ عند آخر فاصلةٍ قبل السقف، فلا
+      // ينتهي التلميح باسمٍ نصفه
+      if (menu) form.append("prompt", vocabHint(menu));
       const res = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", { method: "POST", headers: { Authorization: `Bearer ${keys.groq}` }, body: form, signal: AbortSignal.timeout(15000) });
       if (res.ok) {
         const j = (await res.json()) as { text?: string };
@@ -333,7 +360,7 @@ export async function transcribe(audio: ArrayBuffer, mime: string, keys: LlmKeys
   if (keys.gemini) {
     try {
       const b64 = toBase64(audio);
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${keys.gemini}`, {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${keys.gemini}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contents: [{ parts: [{ text: "اكتب ما قيل في هذا التسجيل بالعربية كما هو، بلا تعليق." }, { inlineData: { mimeType: mime, data: b64 } }] }] }),
@@ -360,7 +387,7 @@ export async function understandAudio(audio: ArrayBuffer, mime: string, menu: Me
   if (keys.gemini) {
     try {
       const b64 = toBase64(audio);
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${keys.gemini}`, {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${keys.gemini}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
