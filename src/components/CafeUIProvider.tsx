@@ -77,6 +77,10 @@ export function CafeUIProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (typeof document === "undefined") return;
+    // صفحة أعلنت لغتها بنفسها (الصفحة التعريفية بخمس لغات) تملك <html>: تأثير
+    // الابن يسبق تأثير الأب، فترفع الرايةَ قبل أن نصل نحن. وإلا كتبنا «ar» فوق
+    // صفحة إنكليزية فقرأها القارئ الصوتي بالعربية.
+    if (document.documentElement.dataset.langOwned) return;
     document.documentElement.lang = language;
     document.documentElement.dir = language === "ar" ? "rtl" : "ltr";
   }, [language]);

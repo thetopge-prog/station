@@ -21,8 +21,12 @@ export function HtmlLang({ lang }: { lang: SiteLang }) {
     const was = { lang: el.lang, dir: el.dir };
     el.lang = lang;
     el.dir = isRtl(lang) ? "rtl" : "ltr";
+    // CafeUIProvider يكتب لغة واجهة الموظّفين على <html> أيضاً — هذه الراية
+    // تقول له إن الصفحة تملك لغتها، فيتركها
+    el.dataset.langOwned = "1";
     // الرجوع عند الخروج: شاشات الموظّفين عربية، ولا تُترك بلغة زائر
     return () => {
+      delete el.dataset.langOwned;
       el.lang = was.lang;
       el.dir = was.dir;
     };
