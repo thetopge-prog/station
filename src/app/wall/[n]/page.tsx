@@ -74,6 +74,51 @@ export default async function WallPage({
       <WallCanvas screen={screen} phaseMs={phase} bezel={bezel}>
         <WallScenes />
       </WallCanvas>
+      {/* `?debug=1` — مسطرةٌ في الزاوية تُصوَّر من الشاشة نفسها.
+          بطاقة الفحص أثبتت أن المتصفّح يشغّل الحركة، والجدار مع ذلك فارغ. فما
+          بينهما يُقاس هنا: هل رُسم عنصرٌ ساكن أصلاً؟ وكم يقرأ المنفذ؟ وهل
+          تعرف الصفحة حركاتها؟ ثلاثة أسئلةٍ تجيبها صورةٌ واحدة. */}
+      {sp.debug ? <WallDebug screen={screen} phase={phase} /> : null}
     </>
+  );
+}
+
+function WallDebug({ screen, phase }: { screen: number; phase: number }) {
+  return (
+    <div
+      dir="ltr"
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        zIndex: 99,
+        background: "#2c1e16",
+        color: "#fff",
+        font: "700 22px/1.4 sans-serif",
+        padding: "10px 14px",
+      }}
+    >
+      {/* عنصران ساكنان بلا حركة: إن لم يُريا فالمشكلة في الرسم لا في الحركة */}
+      <div>
+        screen {screen} · phase {phase}ms
+      </div>
+      <div id="wd" style={{ marginTop: 6 }}>
+        …
+      </div>
+      <div style={{ marginTop: 8, width: 120, height: 26, background: "#ff6b00" }} />
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `try{
+            var el = document.querySelector('.wall-anim');
+            var cs = el ? getComputedStyle(el) : null;
+            var n = document.getAnimations ? document.getAnimations().length : -1;
+            document.getElementById('wd').textContent =
+              innerWidth+'x'+innerHeight+' dpr'+(devicePixelRatio||1)
+              +' | anims '+n
+              +' | '+(cs? cs.animationName+' '+cs.animationDuration+' d'+cs.animationDelay+' o'+cs.opacity : 'no .wall-anim');
+          }catch(e){ document.getElementById('wd').textContent='JS: '+e.message; }`,
+        }}
+      />
+    </div>
   );
 }
