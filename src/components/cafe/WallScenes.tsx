@@ -26,7 +26,7 @@ export function WallScenes() {
     <>
       <Backdrop />
       <SceneLockup />
-      <SceneMosaic set="m" />
+      <SceneMosaic />
       <SceneMenu />
       <SceneBurger />
       <SceneItems />
@@ -35,7 +35,6 @@ export function WallScenes() {
       <SceneClean />
       <SceneBoard />
       <SceneStrip />
-      <SceneMosaic set="n" />
       <ScenePizza />
       {/* السهم آخر شيء فيمرّ فوق الجميع */}
       <Arrow />
@@ -143,58 +142,45 @@ function SceneLockup() {
 }
 
 /**
- * صورةٌ واحدة مفكَّكة على الجدار.
+ * شريط الصور الإعلانية — كاملةً، تمشي أمام الناظر.
  *
- * كل صورةٍ تُقصّ إلى شرائح رأسية — أربع أو خمس أو ست، يختلف العدد بين صورةٍ
- * وأخرى عمداً فلا يقع القصّ دائماً على حدود الشاشات نفسها. وتُوزَّع الشرائح
- * وكلٌّ تُفكَّك على **شاشةٍ واحدة**: صورةٌ مربّعة لا تمتدّ على جدارٍ نسبته
- * أربعةٌ إلى واحد إلّا بتشويه الطعام. وأربعُ صورٍ تُعرض معاً — واحدةٌ لكل
- * شاشة — فالقصّ يُرى، والجدار ممتلئ، والصورة على نسبتها.
+ * كانت تُقصّ إلى شرائح تتفرّق على الشاشات، فبدت الصورة ممزّقة لا مفكَّكة.
+ * وهي ملصقاتٌ مصمَّمة أصلاً: فيها كتابةٌ وترتيبٌ وحدود، وقصُّها يُفسد ما
+ * صُمِّم. فتُعرض كما هي، واحدةً بعد أخرى.
  *
- * والعرض يُحسب من نسبة الشريحة نفسها (`ar` = العرض ÷ الارتفاع)، لا برقمٍ
- * واحدٍ لها جميعاً: شريحةٌ من صورةٍ ذات ستّ شرائح أضيق من أختها من صورةٍ ذات
- * أربع، وعرضٌ واحدٌ يمطّ هذه ويضغط تلك.
+ * والحركة من اليسار إلى اليمين: القائمة مكرّرة مرّتين والإزاحة نصفها
+ * بالضبط، فتبدأ مزاحةً وتعود إلى الصفر — فتمشي يميناً بلا قفزةٍ عند العودة.
  */
-const MOSAIC: Record<string, { n: number; ar: number }[]> = {
-  m: [{ n: 5, ar: 0.36 }, { n: 4, ar: 0.44 }, { n: 6, ar: 0.3 }, { n: 4, ar: 0.44 }, { n: 5, ar: 0.36 }, { n: 6, ar: 0.3 }],
-  n: [{ n: 4, ar: 0.44 }, { n: 5, ar: 0.36 }, { n: 6, ar: 0.3 }, { n: 4, ar: 0.44 }, { n: 5, ar: 0.36 }, { n: 6, ar: 0.3 }, { n: 4, ar: 0.44 }],
-};
+const MOS = [0, 1, 2, 3, 4, 5];
 
-/** ارتفاع الشريحة بـvh، والفجوة بينها وبين أختها */
-const MOS_H = 58;
-const MOS_GAP = 0.9;
-
-function SceneMosaic({ set }: { set: "m" | "n" }) {
+function SceneMosaic() {
+  const line = [...MOS, ...MOS];
   return (
-    <div className="wall-scene">
-      {MOSAIC[set].map((img, f) => {
-        // عرض الشريحة من نسبتها هي، لا برقمٍ واحدٍ لها جميعاً
-        const w = MOS_H * img.ar;
-        const span = img.n * w + (img.n - 1) * MOS_GAP;
-        // كلٌّ على شاشةٍ بالدور، وأربعٌ معاً في كل لحظة
-        const screen = f % SCREENS;
-        return Array.from({ length: img.n }, (_, i) => (
+    <div className="wall-scene" style={{ overflow: "hidden" }}>
+      <div
+        className="wall-anim"
+        style={{
+          position: "absolute",
+          top: "50%",
+          left: 0,
+          display: "flex",
+          alignItems: "center",
+          gap: "6vh",
+          width: "max-content",
+          marginTop: "-29vh",
+          animationName: "wall-mos",
+        }}
+      >
+        {line.map((n, i) => (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            key={`${f}-${i}`}
-            className="wall-anim"
-            src={`/wallimg/${set}${f}-${i}.webp`}
+            key={`${n}-${i}`}
+            src={`/wallimg/mos-m${n}.webp`}
             alt=""
-            style={{
-              position: "absolute",
-              left: `calc(${CENTERS[screen]} + ${(-span / 2 + i * (w + MOS_GAP) + w / 2).toFixed(2)}vh)`,
-              top: "50%",
-              marginTop: `-${MOS_H / 2}vh`,
-              height: `${MOS_H}vh`,
-              width: `${w.toFixed(2)}vh`,
-              borderRadius: "0.8vh",
-              animationName: `wall-mos-${set}${f}`,
-              // الشرائح تتفرّق بمنحنى التوقيت: تصل واحدةً بعد أخرى من اليمين
-              animationTimingFunction: `cubic-bezier(${(0.12 + (img.n - 1 - i) * 0.13).toFixed(2)}, 0.85, 0.3, 1)`,
-            }}
+            style={{ height: "58vh", width: "auto", flexShrink: 0, borderRadius: "1.2vh" }}
           />
-        ));
-      })}
+        ))}
+      </div>
     </div>
   );
 }

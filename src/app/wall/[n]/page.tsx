@@ -38,11 +38,7 @@ const WALL_IMAGES = [
   ...[1, 2, 3, 4].map((n) => `kfc-${n}.webp`),
   // ملصقات المحل: في أعمدة الأطراف وفي مشهد الصور وفي الشريط. مصغَّرةٌ إلى
   // `wallimg/` — الأصل في `public/posters/` ١٫٤ ميغابايت، وهذه ٣٩٢ كيلوبايت
-  // شرائح الفسيفساء — ثلاث عشرة صورة، كلٌّ إلى أربعٍ أو خمسٍ أو ست
-  ...[
-    ["m", [5, 4, 6, 4, 5, 6]],
-    ["n", [4, 5, 6, 4, 5, 6, 4]],
-  ].flatMap(([p, ns]) => (ns as number[]).flatMap((n, f) => Array.from({ length: n }, (_, i) => `${p}${f}-${i}.webp`))),
+  ...[0, 1, 2, 3, 4, 5].map((n) => `mos-m${n}.webp`),
   ...["kentucky", "zinger", "pepperoni", "fries", "onion", "strips", "twister", "rizo-super", "sauce", "popcorn", "mushroom"].map(
     (n) => `dish-${n}.webp`,
   ),

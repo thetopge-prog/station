@@ -117,7 +117,7 @@ export type Scene = { id: string; title: string; ms: number };
  */
 export const SCENES: Scene[] = [
   { id: "lockup", title: "«المحطة تفزعلك»", ms: 10_000 },
-  { id: "mosaic", title: "صورٌ تتفكّك على الجدار", ms: 15_000 },
+  { id: "mosaic", title: "شريط الصور الإعلانية", ms: 15_000 },
   { id: "menu", title: "أقسام المنيو مكتوبة", ms: 12_000 },
   { id: "hero", title: "بركر وبيتزا وكنتاكي — مشهدٌ واحد", ms: 20_000 },
   { id: "items", title: "أصناف المنيو بصورها", ms: 12_000 },
@@ -125,8 +125,7 @@ export const SCENES: Scene[] = [
   { id: "fresh", title: "«كل شيء طازج / ومن الرمادي»", ms: 10_000 },
   { id: "clean", title: "«ما عدنا شي نظمه عليك»", ms: 14_000 },
   { id: "board", title: "اللوحة الرقمية", ms: 10_000 },
-  { id: "strip", title: "شريط الأطعمة المستمرّ", ms: 12_000 },
-  { id: "mosaic2", title: "صورٌ أخرى تتفكّك على الجدار", ms: 13_000 },
+  { id: "strip", title: "شريط الأطعمة المستمرّ", ms: 25_000 },
 ];
 
 /** بداية كل مشهد من أول الدورة — يُشتقّ ولا يُكتب بيد */

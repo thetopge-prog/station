@@ -331,10 +331,10 @@
    `st-drift` القائمة في globals.css. */
 @keyframes wall-strip {
   0%, 82.14% { opacity: 0; transform: translate3d(0, 0, 0); }
-  82.44% { opacity: 1; transform: translate3d(0, 0, 0); }
-  86.44% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  86.45% { opacity: 1; transform: translate3d(0, 0, 0); }
-  90.44% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  82.9% { opacity: 1; transform: translate3d(0, 0, 0); }
+  91% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  91.01% { opacity: 1; transform: translate3d(0, 0, 0); }
+  99.3% { opacity: 1; transform: translate3d(-50%, 0, 0); }
   100% { opacity: 0; transform: translate3d(-50%, 0, 0); }
 }
 
@@ -407,85 +407,13 @@
   40.71%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0); }
 }
 
-/* ═══ الفسيفساء · كل صورةٍ مفكَّكةٌ على شاشتها ═══════════════════════════
-   صورةٌ مربّعة لا تمتدّ على جدارٍ نسبته ٤:١ إلّا بتشويه الطعام. فكلٌّ تُفكَّك
-   على شاشةٍ واحدة، وأربعٌ تُعرض معاً — واحدةٌ لكل شاشة — ثم تتبدّل واحدةً
-   بعد أخرى. فالقصّ يُرى، والجدار ممتلئ، والصورة على نسبتها. */
-@keyframes wall-mos-m0 {
-  0%, 7.14% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(0.86); }
-  7.49% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-  11.6% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-  11.9%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(1.06); }
-}
-@keyframes wall-mos-m1 {
-  0%, 8.33% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(0.86); }
-  8.68% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-  12.8% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-  13.1%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(1.06); }
-}
-@keyframes wall-mos-m2 {
-  0%, 9.52% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(0.86); }
-  9.87% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-  13.99% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-  14.29%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(1.06); }
-}
-@keyframes wall-mos-m3 {
-  0%, 10.71% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(0.86); }
-  11.06% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-  15.18% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-  15.48%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(1.06); }
-}
-@keyframes wall-mos-m4 {
-  0%, 11.9% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(0.86); }
-  12.25% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-  16.37% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-  16.67%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(1.06); }
-}
-@keyframes wall-mos-m5 {
-  0%, 13.1% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(0.86); }
-  13.45% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-  17.56% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-  17.86%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(1.06); }
-}
-@keyframes wall-mos-n0 {
-  0%, 90.71% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(0.86); }
-  91.06% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-  94.13% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-  94.43%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(1.06); }
-}
-@keyframes wall-mos-n1 {
-  0%, 91.64% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(0.86); }
-  91.99% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-  95.06% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-  95.36%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(1.06); }
-}
-@keyframes wall-mos-n2 {
-  0%, 92.57% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(0.86); }
-  92.92% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-  95.99% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-  96.29%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(1.06); }
-}
-@keyframes wall-mos-n3 {
-  0%, 93.5% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(0.86); }
-  93.85% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-  96.91% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-  97.21%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(1.06); }
-}
-@keyframes wall-mos-n4 {
-  0%, 94.43% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(0.86); }
-  94.78% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-  97.84% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-  98.14%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(1.06); }
-}
-@keyframes wall-mos-n5 {
-  0%, 95.36% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(0.86); }
-  95.71% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-  98.77% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-  99.07%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(1.06); }
-}
-@keyframes wall-mos-n6 {
-  0%, 96.29% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(0.86); }
-  96.64% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-  99.7% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-  100.0%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(1.06); }
+/* ═══ شريط الصور · كاملةً، من اليسار إلى اليمين  7.14% → 17.86% ═══════
+   لا تُقطَّع ولا تُفرَّق: صورةٌ بعد صورة تمشي أمام الناظر. والقائمة مكرّرة
+   مرّتين والإزاحة نصفها بالضبط، فتعود بلا قفزة — حيلة `wall-strip` نفسها،
+   لكن باتّجاه القراءة المعاكس: تبدأ مزاحةً وتعود، فتمشي يميناً. */
+@keyframes wall-mos {
+  0%, 7.14% { opacity: 0; transform: translate3d(-50%, 0, 0); }
+  7.9% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  17.1% { opacity: 1; transform: translate3d(0, 0, 0); }
+  17.86%, 100% { opacity: 0; transform: translate3d(0, 0, 0); }
 }
