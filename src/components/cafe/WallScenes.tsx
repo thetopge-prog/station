@@ -25,6 +25,7 @@ export function WallScenes() {
   return (
     <>
       <Backdrop />
+      {/* آخر ما يُرسم، فلا يغطّيه مشهد */}
       <SceneLockup />
       <SceneSystem />
       <SceneMenu />
@@ -35,8 +36,10 @@ export function WallScenes() {
       <SceneClean />
       <SceneBoard />
       <SceneStrip />
-      {/* السهم آخر شيء فيمرّ فوق الجميع */}
+      {/* السهم فوق المشاهد */}
       <Arrow />
+      {/* والشريط فوق الجميع — هو وحده الذي لا يغيب */}
+      <Band />
     </>
   );
 }
@@ -573,6 +576,49 @@ function SceneStrip() {
           />
         ))}
       </div>
+    </div>
+  );
+}
+
+/**
+ * شريطٌ ثابتٌ أسفل كل شاشة — لا يعتمد على حركةٍ ولا على مشهد.
+ *
+ * كل ما فوقه موقوتٌ بالدورة: يظهر ويختفي. وإن تعثّر شيءٌ في ذلك التوقيت —
+ * على متصفّحٍ لم نره، أو في لحظةِ انتقال، أو بصفحةٍ عالقةٍ في خزين — رأى
+ * الواقف جداراً برتقالياً فارغاً وقال «لا يعمل». وقد قالها المالك مراراً وهو
+ * محقّ في كل مرّة.
+ *
+ * فهذا لا يتحرّك ولا يُخفى ولا يُوقَّت: أنماطٌ مضمّنة، بلا `@keyframes` ولا
+ * `opacity` متغيّرة ولا متغيّرٍ مخصّص. إن رُسمت الصفحة رُسم. وفيه ما يحتاجه
+ * الزبون فعلاً على كل حال — الاسم والرقم — لا زينة.
+ *
+ * وموضعه بمنتصف كل شاشة لا بمنتصف اللوحة: أربع نسخ، واحدةٌ لكل شاشة، فلا
+ * تبقى واحدةٌ بلا شيء أبداً.
+ */
+function Band() {
+  return (
+    <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: "15vh", background: "#2c1e16" }}>
+      {CENTERS.map((x) => (
+        <div
+          key={x}
+          style={{
+            position: "absolute",
+            left: x,
+            top: "50%",
+            transform: "translate(-50%, -50%)",
+            textAlign: "center",
+            whiteSpace: "nowrap",
+            color: "#ffffff",
+            fontWeight: 900,
+          }}
+        >
+          <span style={{ fontSize: "7vh" }}>{WALL_COPY.name} </span>
+          <span style={{ fontSize: "7vh", color: "#ff9a4d" }}>{WALL_COPY.verb}</span>
+          <span style={{ fontSize: "4.4vh", marginRight: "2vw" }} dir="ltr">
+            {WALL_COPY.bandPhone}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
