@@ -147,8 +147,9 @@ function SceneLockup() {
  *
  * كل صورةٍ تُقصّ إلى شرائح رأسية — أربع أو خمس أو ست، يختلف العدد بين صورةٍ
  * وأخرى عمداً فلا يقع القصّ دائماً على حدود الشاشات نفسها. وتُوزَّع الشرائح
- * على الأربع بفجواتٍ بينها، فتُقرأ صورةً واحدة مفكَّكة على الجدار لا بطاقةً
- * في زاوية.
+ * وكلٌّ تُفكَّك على **شاشةٍ واحدة**: صورةٌ مربّعة لا تمتدّ على جدارٍ نسبته
+ * أربعةٌ إلى واحد إلّا بتشويه الطعام. وأربعُ صورٍ تُعرض معاً — واحدةٌ لكل
+ * شاشة — فالقصّ يُرى، والجدار ممتلئ، والصورة على نسبتها.
  *
  * والعرض يُحسب من نسبة الشريحة نفسها (`ar` = العرض ÷ الارتفاع)، لا برقمٍ
  * واحدٍ لها جميعاً: شريحةٌ من صورةٍ ذات ستّ شرائح أضيق من أختها من صورةٍ ذات
@@ -159,13 +160,20 @@ const MOSAIC: Record<string, { n: number; ar: number }[]> = {
   n: [{ n: 4, ar: 0.44 }, { n: 5, ar: 0.36 }, { n: 6, ar: 0.3 }, { n: 4, ar: 0.44 }, { n: 5, ar: 0.36 }, { n: 6, ar: 0.3 }, { n: 4, ar: 0.44 }],
 };
 
-const MOS_H = 46; // ارتفاع الشريحة بـvh — يترك الثلث الأعلى والأسفل للهواء
+/** ارتفاع الشريحة بـvh، والفجوة بينها وبين أختها */
+const MOS_H = 58;
+const MOS_GAP = 0.9;
 
 function SceneMosaic({ set }: { set: "m" | "n" }) {
   return (
     <div className="wall-scene">
-      {MOSAIC[set].map((img, f) =>
-        Array.from({ length: img.n }, (_, i) => (
+      {MOSAIC[set].map((img, f) => {
+        // عرض الشريحة من نسبتها هي، لا برقمٍ واحدٍ لها جميعاً
+        const w = MOS_H * img.ar;
+        const span = img.n * w + (img.n - 1) * MOS_GAP;
+        // كلٌّ على شاشةٍ بالدور، وأربعٌ معاً في كل لحظة
+        const screen = f % SCREENS;
+        return Array.from({ length: img.n }, (_, i) => (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             key={`${f}-${i}`}
@@ -174,20 +182,19 @@ function SceneMosaic({ set }: { set: "m" | "n" }) {
             alt=""
             style={{
               position: "absolute",
-              // موزَّعةٌ على اللوحة كلّها، وكل شريحةٍ في مركز حصّتها
-              left: `${(((i + 0.5) * 400) / img.n).toFixed(2)}vw`,
+              left: `calc(${CENTERS[screen]} + ${(-span / 2 + i * (w + MOS_GAP) + w / 2).toFixed(2)}vh)`,
               top: "50%",
               marginTop: `-${MOS_H / 2}vh`,
               height: `${MOS_H}vh`,
-              width: `${(MOS_H * img.ar).toFixed(2)}vh`,
-              borderRadius: "1.2vh",
+              width: `${w.toFixed(2)}vh`,
+              borderRadius: "0.8vh",
               animationName: `wall-mos-${set}${f}`,
-              // تتفرّق الشرائح بمنحنى التوقيت: تصل واحدةً بعد أخرى من اليمين
-              animationTimingFunction: `cubic-bezier(${(0.12 + (img.n - 1 - i) * 0.14).toFixed(2)}, 0.85, 0.3, 1)`,
+              // الشرائح تتفرّق بمنحنى التوقيت: تصل واحدةً بعد أخرى من اليمين
+              animationTimingFunction: `cubic-bezier(${(0.12 + (img.n - 1 - i) * 0.13).toFixed(2)}, 0.85, 0.3, 1)`,
             }}
           />
-        )),
-      )}
+        ));
+      })}
     </div>
   );
 }
