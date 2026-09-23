@@ -449,7 +449,6 @@ function SceneClean() {
           fontSize: `calc(${H1} * 0.72)`,
           color: "#b63f06",
           whiteSpace: "nowrap",
-          textShadow: "none",
           animationName: "wall-invite",
         }}
       >
