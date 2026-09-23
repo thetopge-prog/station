@@ -592,11 +592,11 @@ function SceneStrip() {
  */
 const PIZZA_STACK = [
   { file: 1, bottom: 0, at: 0 },
-  { file: 2, bottom: 2.6, at: 1 },
-  { file: 3, bottom: 4.8, at: 2 },
-  { file: 4, bottom: 6.6, at: 3 },
-  { file: 5, bottom: 8.2, at: 4 },
-  { file: 6, bottom: 9.6, at: 5 },
+  { file: 2, bottom: 3.6, at: 1 },
+  { file: 3, bottom: 6.6, at: 2 },
+  { file: 4, bottom: 9.2, at: 3 },
+  { file: 5, bottom: 11.4, at: 4 },
+  { file: 6, bottom: 13.2, at: 5 },
 ];
 
 function ScenePizza() {
@@ -612,8 +612,8 @@ function ScenePizza() {
           style={{
             position: "absolute",
             left: MID,
-            bottom: `calc(26vh + ${l.bottom}vh)`,
-            width: "62vh",
+            bottom: `calc(30vh + ${l.bottom}vh)`,
+            width: "88vh",
             animationName: "wall-slice",
             animationTimingFunction: `cubic-bezier(${(0.08 + l.at * 0.16).toFixed(2)}, 0.9, 0.35, 1)`,
           }}
