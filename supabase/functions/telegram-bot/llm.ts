@@ -106,8 +106,20 @@ function safeReply(r: string | undefined): string | null {
 /** سؤال عن ذات البوت أو التقنية — يُجاب ثابتاً قبل أي نموذج */
 const ABOUT_SELF = /(ذكاء|اصطناعي|روبوت|\bبوت\b|برنامج|انت انسان|انت بشر|منو انت|من انت|شنو انت|مبني|تقنيه|\b(chatgpt|gpt|ai)\b)/i;
 
+/**
+ * جيل الذاكرة — يُزاد كلّما تغيّر معنى ما يفهمه المحلّل.
+ *
+ * العبارة تُخزَّن بنصّها ويُعاد تحليلها المخزون كما هو. فحين صُحِّح خطأ —
+ * «الساعة ١١» قُرئت إحدى عشرة بيتزا — بقي التصحيح بلا أثر على من كتبها من
+ * قبل: الذاكرة تسبق المحلّل وتردّ الخطأ نفسه إلى الأبد. وبزيادة الجيل
+ * تُهجَر الصفوف القديمة بلا حذفٍ من القاعدة، وتُبنى من جديد بالمحلّل المصحَّح.
+ *
+ * ٢: تصحيح الساعة، والواو الملتصقة بعدد، وإملاء «بيزة» و«برقر» و«قجاج».
+ */
+const MEM_GEN = "2";
+
 export async function understandSmart(text: string, menu: Menu, keys: LlmKeys, memory?: PhraseMemory): Promise<Understood> {
-  const key = text.split(/\s+/).map(foldWord).filter(Boolean).join(" ").slice(0, 200);
+  const key = `${MEM_GEN}:${text.split(/\s+/).map(foldWord).filter(Boolean).join(" ").slice(0, 198)}`;
   if (!key) return null;
 
   if (ABOUT_SELF.test(foldWord(text)) && !understand(text, menu)) return { intent: "menu", reply: SELF_REPLY };

@@ -165,6 +165,16 @@ describe("understand — free text to cart, no LLM", () => {
   });
 
   // ما وقع فعلاً في محادثات واتساب — كل حالة كلّفت طلباً خاطئاً
+  it("«واثنين» is a second order, not an adjective — the burger used to arrive as one", () => {
+    expect(names("تريد واحد بيتزا سوبريم وسط واثنين زنجر بوفالو")).toEqual(["1×بيتزا سوبريم/وسط", "2×زنجر بوفالو/ساندويچ"]);
+  });
+
+  it("the spellings customers actually type: «بيزة» is a pizza, «برقر» is a burger", () => {
+    expect(names("بيزه سوبريم وسط")).toEqual(["1×بيتزا سوبريم/وسط"]);
+    expect(names("زنكر بوفالو")).toEqual(["1×زنجر بوفالو/ساندويچ"]);
+  });
+
+
   it("a clock time is not a quantity: «الساعة 11» once cost 11 pizzas instead of 4", () => {
     expect(names("اريد أربعة بيتزا سوبريم وسط الساعة 11 تكون جاهزة")).toEqual(["4×بيتزا سوبريم/وسط"]);
     expect(extractWhen("اريد أربعة بيتزا الساعة 11 تكون جاهزة").when).toContain("11");

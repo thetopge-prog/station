@@ -91,14 +91,38 @@ type Ui = { buttons: Button[]; text: string; lastMsgId?: string; humanAt?: strin
 const key = (waId: string) => `wa:${waId}`;
 const uiKey = (waId: string) => `wa:${waId}:ui`;
 
-async function readState<T>(chatId: string): Promise<T | null> {
+/**
+ * عمر المحادثة قبل أن تُنسى.
+ *
+ * محادثةٌ نصفَ مكتملة عمرها أسبوعان ليست محادثة. زبونٌ ترك سلّته عند سؤال
+ * «شنو اسمك؟» ثم كتب بعد أربعة عشر يوماً «مرحبا» كان يُستأنف به إلى ذلك
+ * السؤال نفسه — فيردّ بما لا يُفهم، ويظنّ البوت كلامَه غامضاً، ويدور
+ * الاثنان. وهذا ما حصل فعلاً على رقمٍ في ٩ أيلول استُؤنف في ٢٣ منه.
+ *
+ * ستّ ساعات: أطول من جلسة طلبٍ حقيقية بكثير، وأقصر من أن يعود الزبون فيجد
+ * نفسه في منتصف سؤالٍ نسيه. وتُطبَّق على حالة المحادثة وحدها لا على صفّ
+ * `:ui` — فذاك يحمل «طلب موظّفاً» و«المحل مغلق»، وهي مؤقّتاتٌ لها حسابها.
+ */
+const STATE_TTL_MS = 6 * 60 * 60 * 1000;
+
+async function readState<T>(chatId: string, maxAgeMs?: number): Promise<T | null> {
   const svc = createSupabaseServiceClient();
-  const { data } = await svc.from("bot_state").select("state").eq("chat_id", chatId).maybeSingle();
-  return (data?.state as T | undefined) ?? null;
+  const { data } = await svc.from("bot_state").select("state, updated_at").eq("chat_id", chatId).maybeSingle();
+  if (!data) return null;
+  if (maxAgeMs && data.updated_at) {
+    const age = Date.now() - new Date(data.updated_at as string).getTime();
+    if (Number.isFinite(age) && age > maxAgeMs) return null;
+  }
+  return (data.state as T | undefined) ?? null;
 }
 async function writeState(chatId: string, state: unknown): Promise<void> {
   const svc = createSupabaseServiceClient();
-  await svc.from("bot_state").upsert({ chat_id: chatId, state: state as Json }, { onConflict: "chat_id" });
+  // `updated_at` يُكتب صراحةً: قيمته الافتراضية `now()` تعمل عند الإدراج
+  // وحده، فصفٌّ يُحدَّث مئة مرّة كان يبقى بتاريخ أوّل مرّة — ولا يُعرف عمر
+  // محادثةٍ من صفٍّ لا يتحرّك تاريخه
+  await svc
+    .from("bot_state")
+    .upsert({ chat_id: chatId, state: state as Json, updated_at: new Date().toISOString() }, { onConflict: "chat_id" });
 }
 
 // ── الإرسال ────────────────────────────────────────────────────────────────
@@ -319,7 +343,7 @@ async function turn(msg: WaMsg): Promise<void> {
   const waId = String(msg.from ?? "");
   if (!waId) return;
 
-  const [prev, ui] = await Promise.all([readState<State>(key(waId)), readState<Ui>(uiKey(waId))]);
+  const [prev, ui] = await Promise.all([readState<State>(key(waId), STATE_TTL_MS), readState<Ui>(uiKey(waId))]);
   // واتساب يعيد إرسال ما لم يُجَب عنه بسرعة — رسالة مرّتين تعني طلباً مرّتين
   if (msg.id && ui?.lastMsgId === msg.id) return;
 
