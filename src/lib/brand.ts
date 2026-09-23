@@ -21,13 +21,14 @@ export const BRAND = {
   cityAr: "الرمادي — العراق",
   addressAr: "الرمادي، شارع المستودع، فلكة الفرسان",
 
-  /** as printed on the menu board */
-  phoneDisplay: "0783 155 1888",
   /**
-   * الرقم داخل رسالة عربية: بلا مسافات، وإلا أعاد واتساب ترتيب المجموعات
-   * الثلاث من اليمين فقرأ الزبون «1888 155 0783». مقطع أرقام واحد لا يُقلب.
+   * الرقم كما يُكتب في كل مكان — مقطعٌ واحد بلا مسافات.
+   *
+   * وليست مسألة ذوق: ثلاث مجموعاتٍ مفصولة بمسافات داخل نصٍّ عربي يعيد
+   * واتساب ترتيبها من اليمين، فيقرأ الزبون «1888 155 0783» ويتّصل بالخطأ.
+   * مقطعٌ واحد لا يُقلب — فهو صالحٌ للعرض وللنصّ ولـ`tel:` معاً.
    */
-  phoneInText: "07831551888",
+  phoneDisplay: "07831551888",
   /** E.164 without the +, for wa.me links */
   whatsapp: "9647831551888",
 
@@ -59,14 +60,14 @@ export function orderAcceptedLink(input: { phone: string; orderNumber: string; d
     `تم استلام طلبك رقم ${input.orderNumber} ✅ ${BRAND.nameAr}`,
     input.delivery ? "يصلك خلال ٣٠–٤٥ دقيقة إن شاء الله 🛵" : "يكون جاهزاً خلال ~٢٠ دقيقة 🍔",
     "",
-    `للاستفسار: ${BRAND.phoneInText}`,
+    `للاستفسار: ${BRAND.phoneDisplay}`,
   ].join("\n");
   return whatsappOrderLink(body, normaliseIraqiPhone(input.phone));
 }
 
 /** «طلبك في الطريق» — the expediter's tap when a delivery bag leaves. */
 export function deliveryOnWayLink(input: { phone: string; orderNumber: string }): string {
-  const body = [`طلبك رقم ${input.orderNumber} في الطريق إليك 🛵 ${BRAND.nameAr}`, "", `للاستفسار: ${BRAND.phoneInText}`].join("\n");
+  const body = [`طلبك رقم ${input.orderNumber} في الطريق إليك 🛵 ${BRAND.nameAr}`, "", `للاستفسار: ${BRAND.phoneDisplay}`].join("\n");
   return whatsappOrderLink(body, normaliseIraqiPhone(input.phone));
 }
 
@@ -86,7 +87,7 @@ export function curbsideReadyLink(input: { phone: string; orderNumber: string; c
     input.code ? `رمزك: ${input.code}` : null,
     "",
     "قبل وصولك بدقيقتين اتصل بنا ويسلّمك موظفنا طلبك مباشرة دون نزولك!",
-    BRAND.phoneInText,
+    BRAND.phoneDisplay,
   ]
     .filter((l) => l !== null)
     .join("\n");

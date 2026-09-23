@@ -636,7 +636,7 @@ export function MenuClient({
       return;
     }
     setOrderPhase(r === "started" ? "started" : "open");
-    if (r === "error") setErr("لا اتصال — اتصل بالمطعم " + BRAND.phoneInText);
+    if (r === "error") setErr("لا اتصال — اتصل بالمطعم " + BRAND.phoneDisplay);
   }
 
   // «داخل المطعم» خيار فقط لمن جاء برابطه؛ من الشارع يختار من ثلاثة

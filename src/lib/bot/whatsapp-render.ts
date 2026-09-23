@@ -1,4 +1,5 @@
 import type { Button, Reply } from "../../../supabase/functions/telegram-bot/order-flow";
+import { BRAND } from "@/lib/brand";
 
 /**
  * ردّ المحرّك → رسالة واتساب.
@@ -61,7 +62,7 @@ export function renderMenuLink(menuUrl: string): WaMessage {
     interactive: {
       type: "cta_url",
       body: { text: "دوس على «افتح المنيو» راح ينقلك إلى المنيو مفصّل، واطلب وتدلّل.. والمحطة تفزعلك 🛵" },
-      footer: { text: "الرمادي · 0783 155 1888" },
+      footer: { text: `الرمادي · ${BRAND.phoneDisplay}` },
       action: { name: "cta_url", parameters: { display_text: btn("🛵 افتح المنيو"), url: menuUrl } },
     },
   };

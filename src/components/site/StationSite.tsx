@@ -312,7 +312,7 @@ export function StationSite({ lang }: { lang: SiteLang }) {
           </div>
         </dl>
         <div className="mt-5 flex flex-wrap gap-3">
-          <a href={`tel:${BRAND.phoneInText}`} className="flex items-center gap-2 rounded-2xl bg-primary px-6 py-3.5 text-lg font-black text-primary-foreground shadow-lg">
+          <a href={`tel:${BRAND.phoneDisplay}`} className="flex items-center gap-2 rounded-2xl bg-primary px-6 py-3.5 text-lg font-black text-primary-foreground shadow-lg">
             <Phone className="size-5" />
             <bdi dir="ltr">{BRAND.phoneDisplay}</bdi>
           </a>
