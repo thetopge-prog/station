@@ -34,7 +34,7 @@ import { AUTH_STORAGE_KEY, parseSessionCookie } from "@/lib/supabase/constants";
 // token on the GET handshake, an HMAC of the body on every POST) and cannot
 // follow a redirect to /sign-in: Meta reads the 307 as a failed delivery and
 // eventually unsubscribes the whole webhook.
-const PUBLIC_PREFIXES = ["/sign-in", "/menu", "/kiosk", "/card", "/api/orders", "/api/calls", "/api/delivery", "/api/whatsapp", "/privacy", "/order", "/delivery", "/pickup", "/car", "/queue", "/tv", "/en", "/tr", "/it", "/ku", "/scan"];
+const PUBLIC_PREFIXES = ["/sign-in", "/menu", "/kiosk", "/card", "/api/orders", "/api/calls", "/api/delivery", "/api/whatsapp", "/privacy", "/order", "/delivery", "/pickup", "/car", "/queue", "/tv", "/en", "/tr", "/it", "/ku", "/scan", "/wall"];
 const LOGIN_PATHS = new Set(["/", "/sign-in"]);
 
 function isPublic(pathname: string): boolean {
@@ -72,6 +72,16 @@ export function proxy(request: NextRequest) {
     // touches, which is what a ceiling screen is, permanently. The HTML engine
     // does not suspend.
     // …but not the diagnostic page, which somebody is standing there reading
+    // جدار العرض: نفس علّة تلفزيون الاستلام. الحركة كلّها CSS فلا تُعلَّق، لكن
+    // إعادة التحميل هي ما **يُعيد التزامن من ساعة الخادم** فلا يتراكم انحراف
+    // بين أربعة أجهزة، وهي كذلك ما يلتقط أي نشرٍ جديد. نصف ساعة تكفي للأمرين.
+    // …عدا بطاقة الفحص، فأحدهم واقفٌ أمامها يقرؤها
+    if (pathname.startsWith("/wall/") && !pathname.endsWith("/check")) {
+      const res = NextResponse.next();
+      res.headers.set("Refresh", "1800");
+      return res;
+    }
+
     if (pathname.startsWith("/tv/") && !pathname.endsWith("/check")) {
       const res = NextResponse.next();
       // كان ١٠: ٨٬٦٤٠ إعادة تحميل يومياً، كلٌّ منها استدعاء دالة. التحديث
