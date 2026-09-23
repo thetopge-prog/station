@@ -145,7 +145,12 @@ async function resolveStaff(): Promise<Staff | null> {
     email: user.email ?? null,
     role: primary ?? roles[0] ?? null,
     roles,
-    isAdmin: roles.includes("admin"),
+    // حساب المطوّر مديرٌ حيثما سُئل `isAdmin`.
+    //
+    // وإلّا فكل شاشةٍ تحجب شيئاً عن غير المدير تحجبه عمّن يصلحها — ويصير
+    // تشخيص عطلٍ في شاشةٍ لا تُرى تخميناً. وهو حسابٌ واحد بيد المالك، لا
+    // صلاحيةٌ تُمنح لموظّف.
+    isAdmin: roles.includes("admin") || emp.is_developer === true,
     shiftPeriod: (emp.shift_period as ShiftPeriod | null) ?? null,
     stationId: emp.station_id ?? null,
     isDeveloper: emp.is_developer === true,

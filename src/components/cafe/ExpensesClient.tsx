@@ -216,18 +216,20 @@ export function ExpensesClient({
           </select>
         </label>
         {/* دفعتها الإدارة من خارج الدرج؟ الكلفة تُحسب على اليوم، ولا تُطرح من
-            نقد الكاشير — وإلا ظهر عجزٌ عن مالٍ لم يمرّ بالدرج أصلاً. */}
-        {isAdmin && (
-          <label className="space-y-1 text-sm">
-            <span className="text-muted-foreground">دفعها من خارج الدرج (اختياري)</span>
-            <input
-              value={paidBy}
-              onChange={(e) => setPaidBy(e.target.value)}
-              placeholder="اسم من دفع — اتركه فارغاً إن خرج من الدرج"
-              className="w-full rounded-lg border border-input bg-background px-3 py-2 outline-none focus:ring-2 focus:ring-ring"
-            />
-          </label>
-        )}
+            نقد الكاشير — وإلا ظهر عجزٌ عن مالٍ لم يمرّ بالدرج أصلاً.
+
+            وهي للكاشير لا للإدارة وحدها: المدير يدفع ويمضي، والذي يجلس عند
+            الشاشة ويكتب المصروف هو الكاشير. وحجبها عنه كان يعني أن كل ما
+            تدفعه الإدارة يُسجَّل «من الدرج» فيظهر عجزٌ في الجرد. */}
+        <label className="space-y-1 text-sm">
+          <span className="text-muted-foreground">دفعها من خارج الدرج (اختياري)</span>
+          <input
+            value={paidBy}
+            onChange={(e) => setPaidBy(e.target.value)}
+            placeholder="اسم من دفع — اتركه فارغاً إن خرج من الدرج"
+            className="w-full rounded-lg border border-input bg-background px-3 py-2 outline-none focus:ring-2 focus:ring-ring"
+          />
+        </label>
         <label className="space-y-1 text-sm">
           <span className="text-muted-foreground">ملاحظة (اختياري)</span>
           <input
