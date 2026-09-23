@@ -60,7 +60,7 @@ export function renderMenuLink(menuUrl: string): WaMessage {
     type: "interactive",
     interactive: {
       type: "cta_url",
-      body: { text: "اكبس الزر وتفتح لك المنيو بالصور — تختار وترسل، ويوصلك بدقايق 🛵" },
+      body: { text: "دوس على «افتح المنيو» راح ينقلك إلى المنيو مفصّل، واطلب وتدلّل.. والمحطة تفزعلك 🛵" },
       footer: { text: "الرمادي · 0783 155 1888" },
       action: { name: "cta_url", parameters: { display_text: btn("🛵 افتح المنيو"), url: menuUrl } },
     },
