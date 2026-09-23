@@ -78,7 +78,7 @@ export default async function WallPage({
           بطاقة الفحص أثبتت أن المتصفّح يشغّل الحركة، والجدار مع ذلك فارغ. فما
           بينهما يُقاس هنا: هل رُسم عنصرٌ ساكن أصلاً؟ وكم يقرأ المنفذ؟ وهل
           تعرف الصفحة حركاتها؟ ثلاثة أسئلةٍ تجيبها صورةٌ واحدة. */}
-      {sp.debug ? <WallDebug screen={screen} phase={phase} /> : null}
+      {sp.debug || sp.d ? <WallDebug screen={screen} phase={phase} /> : null}
     </>
   );
 }
@@ -131,12 +131,23 @@ function WallDebug({ screen, phase }: { screen: number; phase: number }) {
                   if (b.right > 0 && b.left < innerWidth && b.bottom > 0 && b.top < innerHeight) here++;
                 }
               }
+              // وأين يقع أوّل عنصرٍ ظاهر فعلاً؟ الحساب يقول داخل الشاشة
+              // والمسطرة تقول لا أحد — فليقل الرقم نفسه أين هو
+              var w = '-';
+              for (var q = 0; q < all.length; q++) {
+                if (+getComputedStyle(all[q]).opacity > 0.05) {
+                  var bb = all[q].getBoundingClientRect();
+                  w = Math.round(bb.left) + ',' + Math.round(bb.top) + ' ' + Math.round(bb.width) + 'x' + Math.round(bb.height);
+                  break;
+                }
+              }
               var ph = (p0 + (Date.now() - t0)) % 140000;
               document.getElementById('wd').textContent =
                 innerWidth+'x'+innerHeight+' | kf '+kf+'/'+sheets
                 +' | phase '+Math.round(ph/1000)+'s'
                 +' | vis '+vis+' على الجدار · '+here+' على هذه الشاشة'
-                +' | canvas '+(r? Math.round(r.left)+','+Math.round(r.width)+'x'+Math.round(r.height) : '-');
+                +' | canvas '+(r? Math.round(r.left)+','+Math.round(r.width)+'x'+Math.round(r.height) : '-')
+                +' | first '+w;
             }
             tick(); setInterval(tick, 500);
           }catch(e){ document.getElementById('wd').textContent='JS: '+e.message; }`,

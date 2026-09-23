@@ -46,12 +46,25 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  /*
+   * عناوين قصيرة للجدار: `/w1` … `/w4`.
+   *
+   * تُكتب بريموت تلفزيون، حرفاً حرفاً على لوحة مفاتيحٍ معروضة على الشاشة.
+   * و`stationiraq.com/wall/4?r=1` أربعة وعشرون ضغطة، و`stationiraq.com/w4`
+   * ثلاث عشرة. و`?d=1` تفتح المسطرة.
+   *
+   * إعادة كتابةٍ لا تحويل: العنوان يبقى قصيراً في شريط المتصفّح، فإعادة
+   * التحميل التلقائية لا تُطيله.
+   */
   async rewrites() {
-    const supa = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    return supa
-      ? [{ source: "/img/:path*", destination: `${supa}/storage/v1/object/public/menu/:path*` }]
-      : [];
+    const short = [1, 2, 3, 4].map((n) => ({ source: `/w${n}`, destination: `/wall/${n}` }));
+    const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    return [
+      ...short,
+      ...(supaUrl ? [{ source: "/img/:path*", destination: `${supaUrl}/storage/v1/object/public/menu/:path*` }] : []),
+    ];
   },
+
 };
 
 export default nextConfig;

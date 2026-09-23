@@ -34,7 +34,7 @@ import { AUTH_STORAGE_KEY, parseSessionCookie } from "@/lib/supabase/constants";
 // token on the GET handshake, an HMAC of the body on every POST) and cannot
 // follow a redirect to /sign-in: Meta reads the 307 as a failed delivery and
 // eventually unsubscribes the whole webhook.
-const PUBLIC_PREFIXES = ["/sign-in", "/menu", "/kiosk", "/card", "/api/orders", "/api/calls", "/api/delivery", "/api/whatsapp", "/privacy", "/order", "/delivery", "/pickup", "/car", "/queue", "/tv", "/en", "/tr", "/it", "/ku", "/scan", "/wall"];
+const PUBLIC_PREFIXES = ["/sign-in", "/menu", "/kiosk", "/card", "/api/orders", "/api/calls", "/api/delivery", "/api/whatsapp", "/privacy", "/order", "/delivery", "/pickup", "/car", "/queue", "/tv", "/en", "/tr", "/it", "/ku", "/scan", "/wall", "/w1", "/w2", "/w3", "/w4"];
 const LOGIN_PATHS = new Set(["/", "/sign-in"]);
 
 function isPublic(pathname: string): boolean {
@@ -76,7 +76,7 @@ export function proxy(request: NextRequest) {
     // إعادة التحميل هي ما **يُعيد التزامن من ساعة الخادم** فلا يتراكم انحراف
     // بين أربعة أجهزة، وهي كذلك ما يلتقط أي نشرٍ جديد. نصف ساعة تكفي للأمرين.
     // …عدا بطاقة الفحص، فأحدهم واقفٌ أمامها يقرؤها
-    if (pathname.startsWith("/wall/") && !pathname.endsWith("/check")) {
+    if ((pathname.startsWith("/wall/") || /^\/w[1-4]$/.test(pathname)) && !pathname.endsWith("/check")) {
       const res = NextResponse.next();
       // عشر دقائق لا ثلاثون. شاشةٌ على الجدار قُرئت بعد نصف ساعة من فتحها
       // فوجدت الطور نفسه الذي فُتحت عليه — لم تُعِد التحميل، ولم تلتقط نشراً،
