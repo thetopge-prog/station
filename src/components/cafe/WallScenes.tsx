@@ -245,11 +245,11 @@ function SceneMenu() {
  */
 const BURGER_STACK = [
   { file: 1, bottom: 0, at: 0 },
-  { file: 4, bottom: 9.9, at: 1 },
-  { file: 2, bottom: 20.6, at: 2 },
-  { file: 3, bottom: 29.6, at: 3 },
-  { file: 5, bottom: 34.1, at: 4 },
-  { file: 6, bottom: 43, at: 5 },
+  { file: 4, bottom: 9.4, at: 1 },
+  { file: 2, bottom: 19.8, at: 2 },
+  { file: 3, bottom: 28.6, at: 3 },
+  { file: 5, bottom: 33, at: 4 },
+  { file: 6, bottom: 41.5, at: 5 },
 ];
 
 function SceneBurger() {
