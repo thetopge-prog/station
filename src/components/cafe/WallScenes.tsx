@@ -26,7 +26,7 @@ export function WallScenes() {
     <>
       <Backdrop />
       <SceneLockup />
-      <SceneSystem />
+      <SceneMosaic set="m" />
       <SceneMenu />
       <SceneBurger />
       <SceneItems />
@@ -35,6 +35,7 @@ export function WallScenes() {
       <SceneClean />
       <SceneBoard />
       <SceneStrip />
+      <SceneMosaic set="n" />
       <ScenePizza />
       {/* السهم آخر شيء فيمرّ فوق الجميع */}
       <Arrow />
@@ -142,43 +143,51 @@ function SceneLockup() {
 }
 
 /**
- * ٠٢ — صور المحلّ تملأ الجدار.
+ * صورةٌ واحدة مفكَّكة على الجدار.
  *
- * بطاقاتٌ تدخل من اليسار إلى اليمين فتمتلئ الشاشات الأربع تباعاً.
- * والصور من ملصقات المحلّ نفسه (`public/posters`) لا من مخزونٍ مشترى — وهي
- * الصور الموجودة في المشروع أصلاً.
+ * كل صورةٍ تُقصّ إلى شرائح رأسية — أربع أو خمس أو ست، يختلف العدد بين صورةٍ
+ * وأخرى عمداً فلا يقع القصّ دائماً على حدود الشاشات نفسها. وتُوزَّع الشرائح
+ * على الأربع بفجواتٍ بينها، فتُقرأ صورةً واحدة مفكَّكة على الجدار لا بطاقةً
+ * في زاوية.
+ *
+ * والعرض يُحسب من نسبة الشريحة نفسها (`ar` = العرض ÷ الارتفاع)، لا برقمٍ
+ * واحدٍ لها جميعاً: شريحةٌ من صورةٍ ذات ستّ شرائح أضيق من أختها من صورةٍ ذات
+ * أربع، وعرضٌ واحدٌ يمطّ هذه ويضغط تلك.
  */
-const POSTERS = [1, 2, 3, 4, 5, 6, 7];
+const MOSAIC: Record<string, { n: number; ar: number }[]> = {
+  m: [{ n: 5, ar: 0.36 }, { n: 4, ar: 0.44 }, { n: 6, ar: 0.3 }, { n: 4, ar: 0.44 }, { n: 5, ar: 0.36 }, { n: 6, ar: 0.3 }],
+  n: [{ n: 4, ar: 0.44 }, { n: 5, ar: 0.36 }, { n: 6, ar: 0.3 }, { n: 4, ar: 0.44 }, { n: 5, ar: 0.36 }, { n: 6, ar: 0.3 }, { n: 4, ar: 0.44 }],
+};
 
-/** عرض البطاقة والخطوة بينها — محسوبان من عددها، فحذفُ واحدةٍ لا يترك فجوة */
-const CARD_W = 52;
-const CARD_STEP = (390 - CARD_W) / (POSTERS.length - 1);
+const MOS_H = 46; // ارتفاع الشريحة بـvh — يترك الثلث الأعلى والأسفل للهواء
 
-function SceneSystem() {
+function SceneMosaic({ set }: { set: "m" | "n" }) {
   return (
     <div className="wall-scene">
-      {POSTERS.map((p, i) => (
-        <span
-          key={String(p)}
-          className="wall-anim"
-          style={{
-            position: "absolute",
-            left: `${(5 + i * CARD_STEP).toFixed(2)}vw`,
-            top: "14%",
-            width: `${CARD_W}vw`,
-            height: "72%",
-            overflow: "hidden",
-            borderRadius: "1.6vh",
-            animationName: "wall-card",
-            // كلٌّ تدخل بعد التي قبلها. و`animation-delay` محجوزٌ لطور الدورة،
-            // فالتتابع يُصنع بمنحنى توقيتٍ مختلف لا بتأخيرٍ ثانٍ
-            animationTimingFunction: `cubic-bezier(${(0.2 + i * 0.07).toFixed(2)}, 0.7, 0.3, 1)`,
-          }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={`/wallimg/poster-${p}.webp`} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-        </span>
-      ))}
+      {MOSAIC[set].map((img, f) =>
+        Array.from({ length: img.n }, (_, i) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={`${f}-${i}`}
+            className="wall-anim"
+            src={`/wallimg/${set}${f}-${i}.webp`}
+            alt=""
+            style={{
+              position: "absolute",
+              // موزَّعةٌ على اللوحة كلّها، وكل شريحةٍ في مركز حصّتها
+              left: `${(((i + 0.5) * 400) / img.n).toFixed(2)}vw`,
+              top: "50%",
+              marginTop: `-${MOS_H / 2}vh`,
+              height: `${MOS_H}vh`,
+              width: `${(MOS_H * img.ar).toFixed(2)}vh`,
+              borderRadius: "1.2vh",
+              animationName: `wall-mos-${set}${f}`,
+              // تتفرّق الشرائح بمنحنى التوقيت: تصل واحدةً بعد أخرى من اليمين
+              animationTimingFunction: `cubic-bezier(${(0.12 + (img.n - 1 - i) * 0.14).toFixed(2)}, 0.85, 0.3, 1)`,
+            }}
+          />
+        )),
+      )}
     </div>
   );
 }
@@ -473,13 +482,13 @@ function SceneClean() {
 }
 
 /** ٠٩ — اللوحة الرقمية: أربع كتلٍ لونية، واحدةٌ لكل شاشة. ليست شاشة أسعار */
-const BOARD: { x: string; bg: string; img?: string; photo?: string; word: string }[] = [
+const BOARD: { x: string; bg: string; img: string; word: string }[] = [
   // من اليمين إلى اليسار كما تُقرأ: أوّلها على الشاشة الرابعة
   { x: "300vw", bg: "#2c1e16", img: "burger-whole.webp", word: "بركر" },
   { x: "200vw", bg: "#fffdfb", img: "rizo.webp", word: "ريزو" },
   { x: "100vw", bg: "#b63f06", img: "chicken.webp", word: "كنتاكي" },
   // وآخرها صورةُ المحل نفسه تملأ الكتلة: ثلاثة أصنافٍ ثم المكان الذي تُصنع فيه
-  { x: "0vw", bg: "#2c1e16", photo: "1", word: "المحطة" },
+  { x: "0vw", bg: "#2c1e16", img: "dish-pepperoni.webp", word: "بيتزا" },
 ];
 
 function SceneBoard() {
@@ -503,7 +512,7 @@ function SceneBoard() {
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={b.photo ? `/wallimg/poster-${b.photo}.webp` : `/wallimg/${b.img}`}
+            src={`/wallimg/${b.img}`}
             alt=""
             // الصنف يُقصّ فيتوسّط الكتلة، وصورة المحل تملؤها كاملة.
             // والتوسيط بالإزاحة لا بهامشٍ محسوب: هامشُ نصف العرض يفترض صورةً
@@ -537,19 +546,16 @@ function SceneBoard() {
 /** ١٠ — الشريط المستمرّ بأحجامٍ متفاوتة */
 const STRIP = [
   { img: "burger-whole.webp", h: "64vh" },
-  { img: "poster-1.webp", h: "46vh" },
   { img: "dish-kentucky.webp", h: "40vh" },
-  { img: "poster-2.webp", h: "38vh" },
   { img: "dish-pepperoni.webp", h: "44vh" },
-  { img: "poster-3.webp", h: "50vh" },
   { img: "dish-zinger.webp", h: "36vh" },
-  { img: "poster-4.webp", h: "42vh" },
   { img: "rizo.webp", h: "52vh" },
-  { img: "poster-5.webp", h: "46vh" },
   { img: "dish-fries.webp", h: "38vh" },
-  { img: "poster-6.webp", h: "40vh" },
   { img: "dish-twister.webp", h: "44vh" },
-  { img: "poster-7.webp", h: "48vh" },
+  { img: "dish-mushroom.webp", h: "50vh" },
+  { img: "dish-popcorn.webp", h: "40vh" },
+  { img: "dish-strips.webp", h: "46vh" },
+  { img: "dish-sauce.webp", h: "36vh" },
   { img: "dish-onion.webp", h: "34vh" },
   { img: "dish-mushroom.webp", h: "42vh" },
   { img: "dish-strips.webp", h: "36vh" },
@@ -579,7 +585,7 @@ function SceneStrip() {
             key={`${it.img}-${i}`}
             src={`/wallimg/${it.img}`}
             alt=""
-            style={{ height: it.h, width: "auto", flexShrink: 0, borderRadius: it.img.startsWith("poster") ? "1.4vh" : 0 }}
+            style={{ height: it.h, width: "auto", flexShrink: 0 }}
           />
         ))}
       </div>
