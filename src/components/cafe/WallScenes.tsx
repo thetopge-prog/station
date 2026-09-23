@@ -599,10 +599,10 @@ function SceneStrip() {
  * شبكةٍ منتظمة، والربع الأعمى كان يقصّ قطعةً نصفين.
  */
 const KFC = [
-  { file: 1, x: -9, y: 4, h: 19, r: -12, at: 0 },
-  { file: 2, x: 8, y: 1, h: 17, r: 14, at: 1 },
-  { file: 3, x: -3, y: -6, h: 16, r: -6, at: 2 },
-  { file: 4, x: 11, y: -8, h: 15, r: 20, at: 3 },
+  { file: 1, x: -10, y: 2, h: 18, r: -12, at: 0 },
+  { file: 2, x: 9, y: 0, h: 16, r: 14, at: 1 },
+  { file: 3, x: -2, y: 8, h: 15, r: -6, at: 2 },
+  { file: 4, x: 12, y: 7, h: 14, r: 20, at: 3 },
 ];
 
 function SceneKfc() {
@@ -619,7 +619,7 @@ function SceneKfc() {
             {
               position: "absolute",
               left: `calc(${CENTERS[3]} + ${k.x}vh)`,
-              bottom: `calc(34vh + ${k.y}vh)`,
+              bottom: `calc(41vh + ${k.y}vh)`,
               height: `${k.h}vh`,
               width: "auto",
               animationName: "wall-fill",
