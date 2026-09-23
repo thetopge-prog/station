@@ -514,14 +514,9 @@ function SceneBoard() {
           <img
             src={`/wallimg/${b.img}`}
             alt=""
-            // الصنف يُقصّ فيتوسّط الكتلة، وصورة المحل تملؤها كاملة.
-            // والتوسيط بالإزاحة لا بهامشٍ محسوب: هامشُ نصف العرض يفترض صورةً
+            // التوسيط بالإزاحة لا بهامشٍ محسوب: هامشُ نصف العرض يفترض صورةً
             // مربّعة، فما كان أعرض من ارتفاعه يعلو عن مركز كتلته
-            style={
-              b.photo
-                ? { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.66 }
-                : { position: "absolute", left: "50%", top: "42%", width: "60vh", transform: "translate(-50%, -50%)" }
-            }
+            style={{ position: "absolute", left: "50%", top: "42%", width: "60vh", transform: "translate(-50%, -50%)" }}
           />
           <span
             style={{
