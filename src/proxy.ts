@@ -78,7 +78,11 @@ export function proxy(request: NextRequest) {
     // …عدا بطاقة الفحص، فأحدهم واقفٌ أمامها يقرؤها
     if (pathname.startsWith("/wall/") && !pathname.endsWith("/check")) {
       const res = NextResponse.next();
-      res.headers.set("Refresh", "1800");
+      // عشر دقائق لا ثلاثون. شاشةٌ على الجدار قُرئت بعد نصف ساعة من فتحها
+      // فوجدت الطور نفسه الذي فُتحت عليه — لم تُعِد التحميل، ولم تلتقط نشراً،
+      // وأي جمودٍ فيها يدوم نصف ساعة. والطلب الواحد كل عشر دقائق على أربع
+      // شاشات ستّة وخمسون طلباً في اليوم: لا شيء.
+      res.headers.set("Refresh", "600");
       return res;
     }
 

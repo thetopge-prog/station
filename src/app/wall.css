@@ -249,14 +249,14 @@
 @keyframes wall-fill-white {
   0%, 58.57% { opacity: 1; transform: translate3d(0, 101%, 0); }
   61.29% { opacity: 1; transform: translate3d(0, 0, 0); }
-  68.14% { opacity: 1; transform: translate3d(0, 0, 0); }
-  68.57%, 100% { opacity: 1; transform: translate3d(0, 0, 0); }
+  70.5% { opacity: 1; transform: translate3d(0, 0, 0); }
+  71.5%, 100% { opacity: 1; transform: translate3d(0, 101%, 0); }
 }
 @keyframes wall-fill-orange {
   0%, 67.71% { opacity: 1; transform: translate3d(0, 101%, 0); }
   69.86% { opacity: 1; transform: translate3d(0, 0, 0); }
-  99.6% { opacity: 1; transform: translate3d(0, 0, 0); }
-  100% { opacity: 1; transform: translate3d(0, 101%, 0); }
+  75.5% { opacity: 1; transform: translate3d(0, 0, 0); }
+  76.2%, 100% { opacity: 1; transform: translate3d(0, 101%, 0); }
 }
 
 /* حافّة متعرّجة — موجةٌ مرسومة بالقصّ لا بصورة */
@@ -295,6 +295,13 @@
   67.71% { opacity: 1; transform: translate3d(-50%, 0, 0); }
   68.57%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0); }
 }
+
+/* لوحا الماء ينزلان بعد مشهدهما.
+   كان البرتقالي يبقى مرفوعاً من ٦٩٫٨٦٪ إلى نهاية الدورة — ثلاثون بالمئة، أي
+   اثنتان وأربعون ثانية — لوحٌ معتمٌ بحجم الشاشة معلّقٌ فوق اللوحة الرقمية
+   والشريط كليهما. ترتيب العناصر يضعه خلفهما فلا يُرى أثره على متصفّحٍ سليم،
+   لكنه يبقى مخاطرةً بلا مقابل: خلفية الجدار برتقالية أصلاً، فرفعُ لوحٍ
+   برتقاليّ فوقها لا يضيف شيئاً ويحجب ما وراءه إن اختلّ الترتيب. */
 
 /* ═══ ٠٩ · اللوحة الرقمية  68.57% → 75.71% ════════════════════════════════ */
 @keyframes wall-block {
