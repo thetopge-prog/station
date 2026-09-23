@@ -39,7 +39,6 @@ const FILES = [
   { url: `${SRC}/2025/03/home-pruger-768x768.png`, name: "burger-whole.webp", alpha: true, w: 900 },
   { url: `${SRC}/2025/03/%D8%B1%D9%8A%D8%B2%D9%88-%D8%B3%D9%88%D8%A8%D8%B1-%D8%AC%D9%83%D9%86-copy-768x768.webp`, name: "rizo.webp", alpha: true, w: 900 },
   { url: `${SRC}/2025/03/Rizo-Motion-copy.webp`, name: "rizo-motion.webp", alpha: true, w: 900 },
-  { url: `${SRC}/2025/04/Rice-003.webp`, name: "rice.webp", alpha: true, w: 700 },
   { url: `${SRC}/2025/03/333-768x905.png`, name: "chicken.webp", alpha: true, w: 800 },
 ];
 
@@ -66,6 +65,21 @@ for (const f of FILES) {
   writeFileSync(`${OUT}/${f.name}`, out);
   total += out.length;
   console.log(`✓ ${f.name}  ${(src.length / 1024).toFixed(0)}KB → ${(out.length / 1024).toFixed(0)}KB`);
+}
+
+// ── ملصقات المحلّ، مصغَّرةً للجدار ────────────────────────────────────────
+// الأصول في `public/posters/` تخدم صفحاتٍ أخرى بحجمها الكامل — ١٫٤ ميغابايت
+// للتسعة. والجدار يعرضها بنحو ٥٤٠ بكسل عرضاً، فحملُ الأصل كلّه على واي‑فاي
+// المحل هو بالضبط العطل الذي أسقط تسع صورٍ من قبل. تُصغَّر هنا مرّة وتُقرأ
+// من `wallimg/` وحدها.
+for (const n of [1, 2, 3, 4, 5, 6, 7, "m1", "m2"]) {
+  const out = await sharp(`public/posters/${n}.jpg`)
+    .resize(760, 760, { fit: "inside", withoutEnlargement: true })
+    .webp({ quality: 66 })
+    .toBuffer();
+  writeFileSync(`${OUT}/poster-${n}.webp`, out);
+  total += out.length;
+  console.log(`✓ poster-${n}.webp  ${(out.length / 1024).toFixed(0)}KB`);
 }
 
 // ── مسبارا بطاقة الفحص ─────────────────────────────────────────────────────

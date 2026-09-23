@@ -114,7 +114,7 @@ function SceneSystem() {
           }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={`/posters/${p}.jpg`} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          <img src={`/wallimg/poster-${p}.webp`} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
         </span>
       ))}
     </div>
@@ -240,14 +240,14 @@ function SceneBurger() {
  * الشاشات. المدى لكل حبّة في متغيّرات، فإطارٌ واحد يخدمها جميعاً.
  */
 const GRAINS = [
-  { img: "rice.webp", h: "17vh", x: "-58vw", y: "-18vh", r: "-24deg" },
+  { img: "chicken.webp", h: "17vh", x: "-58vw", y: "-18vh", r: "-24deg" },
   { img: "chicken.webp", h: "30vh", x: "-34vw", y: "-28vh", r: "18deg" },
-  { img: "rice.webp", h: "13vh", x: "-16vw", y: "-34vh", r: "40deg" },
+  { img: "chicken.webp", h: "13vh", x: "-16vw", y: "-34vh", r: "40deg" },
   { img: "chicken.webp", h: "26vh", x: "20vw", y: "-30vh", r: "-30deg" },
-  { img: "rice.webp", h: "19vh", x: "44vw", y: "-20vh", r: "12deg" },
+  { img: "chicken.webp", h: "19vh", x: "44vw", y: "-20vh", r: "12deg" },
   { img: "chicken.webp", h: "28vh", x: "66vw", y: "-6vh", r: "-14deg" },
-  { img: "rice.webp", h: "15vh", x: "-70vw", y: "8vh", r: "30deg" },
-  { img: "rice.webp", h: "12vh", x: "82vw", y: "12vh", r: "-40deg" },
+  { img: "chicken.webp", h: "15vh", x: "-70vw", y: "8vh", r: "30deg" },
+  { img: "chicken.webp", h: "12vh", x: "82vw", y: "12vh", r: "-40deg" },
 ];
 
 function SceneRizo() {
@@ -362,11 +362,12 @@ function SceneClean() {
 }
 
 /** ٠٩ — اللوحة الرقمية: أربع كتلٍ لونية، واحدةٌ لكل شاشة. ليست شاشة أسعار */
-const BOARD = [
+const BOARD: { x: string; bg: string; img?: string; photo?: string; word: string }[] = [
   { x: "0vw", bg: "#2c1e16", img: "burger-whole.webp", word: "بركر" },
   { x: "100vw", bg: "#fffdfb", img: "rizo.webp", word: "ريزو" },
-  { x: "200vw", bg: "#b63f06", img: "rice.webp", word: "رز" },
-  { x: "300vw", bg: "#2c1e16", img: "chicken.webp", word: "كنتاكي" },
+  { x: "200vw", bg: "#b63f06", img: "chicken.webp", word: "كنتاكي" },
+  // الرابعة صورةُ المحل نفسه تملأ الكتلة: ثلاثة أصنافٍ ثم المكان الذي تُصنع فيه
+  { x: "300vw", bg: "#2c1e16", photo: "m2", word: "المحطة" },
 ];
 
 function SceneBoard() {
@@ -390,11 +391,16 @@ function SceneBoard() {
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={`/wallimg/${b.img}`}
+            src={b.photo ? `/wallimg/poster-${b.photo}.webp` : `/wallimg/${b.img}`}
             alt=""
-            // التوسيط بالإزاحة لا بهامشٍ محسوب: هوامش نصف العرض تفترض صورةً
-            // مربّعة، والرزّ أعرض من ارتفاعه فكان يعلو عن مركز كتلته
-            style={{ position: "absolute", left: "50%", top: "42%", width: "60vh", transform: "translate(-50%, -50%)" }}
+            // الصنف يُقصّ فيتوسّط الكتلة، وصورة المحل تملؤها كاملة.
+            // والتوسيط بالإزاحة لا بهامشٍ محسوب: هامشُ نصف العرض يفترض صورةً
+            // مربّعة، فما كان أعرض من ارتفاعه يعلو عن مركز كتلته
+            style={
+              b.photo
+                ? { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.66 }
+                : { position: "absolute", left: "50%", top: "42%", width: "60vh", transform: "translate(-50%, -50%)" }
+            }
           />
           <span
             style={{
@@ -419,10 +425,17 @@ function SceneBoard() {
 /** ١٠ — الشريط المستمرّ بأحجامٍ متفاوتة */
 const STRIP = [
   { img: "burger-whole.webp", h: "80vh" },
+  { img: "poster-3.webp", h: "46vh" },
   { img: "rizo.webp", h: "50vh" },
   { img: "chicken.webp", h: "68vh" },
+  { img: "poster-6.webp", h: "38vh" },
   { img: "rizo-motion.webp", h: "44vh" },
-  { img: "rice.webp", h: "34vh" },
+  { img: "burger-whole.webp", h: "36vh" },
+  { img: "poster-4.webp", h: "52vh" },
+  { img: "chicken.webp", h: "34vh" },
+  { img: "rizo.webp", h: "72vh" },
+  { img: "poster-7.webp", h: "42vh" },
+  { img: "rizo-motion.webp", h: "58vh" },
 ];
 
 function SceneStrip() {
@@ -445,7 +458,12 @@ function SceneStrip() {
       >
         {line.map((it, i) => (
           // eslint-disable-next-line @next/next/no-img-element
-          <img key={`${it.img}-${i}`} src={`/wallimg/${it.img}`} alt="" style={{ height: it.h, width: "auto", flexShrink: 0 }} />
+          <img
+            key={`${it.img}-${i}`}
+            src={`/wallimg/${it.img}`}
+            alt=""
+            style={{ height: it.h, width: "auto", flexShrink: 0, borderRadius: it.img.startsWith("poster") ? "1.4vh" : 0 }}
+          />
         ))}
       </div>
     </div>
@@ -459,9 +477,66 @@ function SceneStrip() {
  * تتموّج في أسفل الجدار، ثم ماءٌ أبيض يملأ الشاشات صعوداً، ثم يعود البرتقالي
  * صاعداً فوقه. كلّها إزاحةٌ وشفافية — لا مرشّح ولا رسمٌ في كل إطار.
  */
+/**
+ * أعمدة الأطراف — عرضٌ متكرّر لا يقف.
+ *
+ * الشاشة الأولى والرابعة تبقيان شبه فارغتين: أكثر المشاهد تتوسّط اللوحة،
+ * فالطرفان لا ينالان إلّا ما يمرّ. فعمودان من ملصقات المحل على كلٍّ منهما،
+ * يدوران طول الدورة بلا نافذةٍ زمنية — أحدهما ينزل والآخر يصعد.
+ *
+ * وهي خلف كل شيء: المشاهد التي تملأ الشاشات (اللوحة، الماء الأبيض) تغطّيها،
+ * والمشاهد المتوسّطة تتركها تعمل. وموضعها على الأطراف الخارجية، فالحافّة
+ * الداخلية من كل شاشةٍ طرفية تبقى خالية لما يعبر إليها من جارتها.
+ */
+const RAILS = [
+  { x: "5vw", up: false, posters: [1, 2, 3, 4] },
+  { x: "36vw", up: true, posters: [5, 6, 7, "m1"] },
+  { x: "336vw", up: true, posters: [3, 5, 7, "m2"] },
+  { x: "367vw", up: false, posters: [2, 4, 6, "m1"] },
+];
+
+function Rails() {
+  return (
+    <>
+      {RAILS.map((r) => (
+        <div
+          key={r.x}
+          style={{ position: "absolute", left: r.x, top: 0, bottom: 0, width: "28vw", overflow: "hidden", opacity: 0.9 }}
+        >
+          <div
+            className="wall-anim"
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              animationName: "wall-rail",
+              animationDirection: r.up ? "reverse" : "normal",
+            }}
+          >
+            {/* القائمة مرّتين، والإزاحة ‎-50%‎ بالضبط. والفراغ هامشٌ أسفل كل
+                صورةٍ بلا استثناء — لا `gap`: الفجوة الأخيرة تنقص من النصف
+                فيقفز العمود عند العودة */}
+            {[...r.posters, ...r.posters].map((n, i) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={`${n}-${i}`}
+                src={`/wallimg/poster-${n}.webp`}
+                alt=""
+                style={{ display: "block", width: "100%", height: "auto", marginBottom: "2.6vh", borderRadius: "1.6vh" }}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
 function Backdrop() {
   return (
     <div className="wall-scene" style={{ pointerEvents: "none" }}>
+      <Rails />
       <span className="wall-anim wall-wave" style={{ bottom: 0, height: "34vh", animationName: "wall-wave" }} />
       <span
         className="wall-anim"
