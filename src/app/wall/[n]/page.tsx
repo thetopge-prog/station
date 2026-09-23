@@ -32,11 +32,10 @@ const WALL_IMAGES = [
   "burger-6.webp",
   "burger-whole.webp",
   "rizo.webp",
-  "rizo-motion.webp",
   "chicken.webp",
   // ملصقات المحل: في أعمدة الأطراف وفي مشهد الصور وفي الشريط. مصغَّرةٌ إلى
   // `wallimg/` — الأصل في `public/posters/` ١٫٤ ميغابايت، وهذه ٣٩٢ كيلوبايت
-  ...[1, 2, 3, 4, 5, 6, 7, "m1", "m2"].map((n) => `poster-${n}.webp`),
+  ...[1, 2, 3, 4, 5, 6, 7].map((n) => `poster-${n}.webp`),
   ...["kentucky", "zinger", "pepperoni", "fries", "onion", "strips", "twister", "rizo-super", "sauce", "sides", "popcorn", "mushroom"].map(
     (n) => `dish-${n}.webp`,
   ),

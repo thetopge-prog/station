@@ -85,11 +85,15 @@ function SceneLockup() {
 /**
  * ٠٢ — صور المحلّ تملأ الجدار.
  *
- * ثمانِ بطاقاتٍ تدخل من اليسار إلى اليمين فتمتلئ الشاشات الأربع تباعاً.
+ * بطاقاتٌ تدخل من اليسار إلى اليمين فتمتلئ الشاشات الأربع تباعاً.
  * والصور من ملصقات المحلّ نفسه (`public/posters`) لا من مخزونٍ مشترى — وهي
  * الصور الموجودة في المشروع أصلاً.
  */
-const POSTERS: (number | string)[] = [1, 2, 3, 4, 5, 6, 7, "m1"];
+const POSTERS = [1, 2, 3, 4, 5, 6, 7];
+
+/** عرض البطاقة والخطوة بينها — محسوبان من عددها، فحذفُ واحدةٍ لا يترك فجوة */
+const CARD_W = 52;
+const CARD_STEP = (390 - CARD_W) / (POSTERS.length - 1);
 
 function SceneSystem() {
   return (
@@ -100,10 +104,9 @@ function SceneSystem() {
           className="wall-anim"
           style={{
             position: "absolute",
-            // ثمانٍ على أربع شاشات: بطاقتان لكل شاشة
-            left: `${5 + i * 49}vw`,
+            left: `${(5 + i * CARD_STEP).toFixed(2)}vw`,
             top: "14%",
-            width: "44vw",
+            width: `${CARD_W}vw`,
             height: "72%",
             overflow: "hidden",
             borderRadius: "1.6vh",
@@ -368,7 +371,7 @@ const BOARD: { x: string; bg: string; img?: string; photo?: string; word: string
   { x: "100vw", bg: "#fffdfb", img: "rizo.webp", word: "ريزو" },
   { x: "200vw", bg: "#b63f06", img: "chicken.webp", word: "كنتاكي" },
   // الرابعة صورةُ المحل نفسه تملأ الكتلة: ثلاثة أصنافٍ ثم المكان الذي تُصنع فيه
-  { x: "300vw", bg: "#2c1e16", photo: "m2", word: "المحطة" },
+  { x: "300vw", bg: "#2c1e16", photo: "1", word: "المحطة" },
 ];
 
 function SceneBoard() {
@@ -440,9 +443,9 @@ const STRIP = [
   { img: "dish-twister.webp", h: "44vh" },
   { img: "poster-7.webp", h: "48vh" },
   { img: "dish-onion.webp", h: "34vh" },
-  { img: "poster-m1.webp", h: "42vh" },
-  { img: "rizo-motion.webp", h: "46vh" },
-  { img: "poster-m2.webp", h: "44vh" },
+  { img: "dish-mushroom.webp", h: "42vh" },
+  { img: "dish-strips.webp", h: "36vh" },
+  { img: "dish-sides.webp", h: "44vh" },
 ];
 
 function SceneStrip() {
