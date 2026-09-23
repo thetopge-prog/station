@@ -198,32 +198,25 @@ function SceneMenu() {
       >
         {WALL_COPY.menuTitle}
       </span>
-      <div
-        style={{
-          position: "absolute",
-          left: 0,
-          right: 0,
-          top: "46%",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          gap: "5vw",
-        }}
-      >
-        {WALL_MENU.map((c, i) => (
-          <span
-            key={c}
-            className="wall-anim wall-display"
-            style={{
-              fontSize: `calc(${H1} * 0.92)`,
-              animationName: "wall-menu-item",
-              animationTimingFunction: `cubic-bezier(${(0.15 + i * 0.07).toFixed(2)}, 0.8, 0.25, 1)`,
-            }}
-          >
-            {c}
-          </span>
-        ))}
-      </div>
+      {/* موزَّعةٌ على اللوحة كلّها لا مصفوفةً في المنتصف: صفٌّ واحدٌ في الوسط
+          يترك الشاشة الأولى والرابعة فارغتين ويُصغّر الكلمات حتى لا تُقرأ من
+          بعيد. وبالتوزيع ينال كل شاشةٍ قسمان بحجمٍ يُقرأ من ثلاثة أمتار */}
+      {WALL_MENU.map((c, i) => (
+        <span
+          key={c}
+          className="wall-anim wall-display"
+          style={{
+            position: "absolute",
+            left: `${(((i + 0.5) * 400) / WALL_MENU.length).toFixed(2)}vw`,
+            top: "46%",
+            fontSize: `calc(${H1} * 1)`,
+            animationName: "wall-menu-item",
+            animationTimingFunction: `cubic-bezier(${(0.15 + i * 0.07).toFixed(2)}, 0.8, 0.25, 1)`,
+          }}
+        >
+          {c}
+        </span>
+      ))}
     </div>
   );
 }

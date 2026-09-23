@@ -126,10 +126,10 @@
   24.28%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0); }
 }
 @keyframes wall-menu-item {
-  0%, 16.63% { opacity: 0; transform: translate3d(0, 0.6em, 0); }
-  19.29% { opacity: 1; transform: translate3d(0, 0, 0); }
-  23.49% { opacity: 1; transform: translate3d(0, 0, 0); }
-  24.28%, 100% { opacity: 0; transform: translate3d(0, 0, 0); }
+  0%, 16.63% { opacity: 0; transform: translate3d(-50%, 0.6em, 0); }
+  19.29% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  23.49% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  24.28%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0); }
 }
 
 /* ═══ ٠٤ · البركر يتفكّك  24.28% → 34.29% ══════════════════════════════════
