@@ -275,10 +275,12 @@ function SceneBurger() {
       ))}
 
       {/* الكلام بجانبه — على الشاشة الثانية، فيقرؤه الواقف أمامها */}
-      {/* واحدٌ عن يساره وواحدٌ عن يمينه، والبركر يُبنى بينهما. والثاني يدخل
-          بعد الأول بلحظةٍ فتُقرأ الجملتان لا تُزاحمان */}
-      <Aside x="104vw" title={WALL_COPY.burgerTitle} sub={WALL_COPY.burgerSub} />
-      <Aside x="296vw" anim="wall-aside3" title={WALL_COPY.burgerTitle2} sub={WALL_COPY.burgerSub2} />
+      {/* واحدٌ على الشاشة الأولى وواحدٌ على الرابعة، والبركر يُبنى بينهما على
+          الثانية والثالثة. كانا على ١٠٤ و٢٩٦ — أي على حدّي الشاشتين الوسطى —
+          فتبقى الطرفيّتان برتقاليّتين فارغتين عشر ثوانٍ، ومن ينظر إليهما يقول
+          «الشاشة لا تعمل». وقد قالها المالك فعلاً وهو ينظر إلى الرابعة. */}
+      <Aside x="50vw" title={WALL_COPY.burgerTitle} sub={WALL_COPY.burgerSub} />
+      <Aside x="350vw" anim="wall-aside3" title={WALL_COPY.burgerTitle2} sub={WALL_COPY.burgerSub2} />
     </div>
   );
 }
@@ -421,6 +423,25 @@ function SceneClean() {
         style={{ ...at(MID), fontSize: `calc(${H1} * 0.9)`, fontWeight: 900, color: "#b63f06", whiteSpace: "nowrap", animationName: "wall-clean2" }}
       >
         {WALL_COPY.cleanBody}
+      </span>
+
+      {/* والشاشة الرابعة تحمل الدعوى نفسها بكلمات المالك — كانت الشاشة
+          الوحيدة الباقية بلا شيءٍ في هذا المشهد */}
+      <span
+        className="wall-anim wall-display"
+        style={{
+          position: "absolute",
+          left: "350vw",
+          top: "50%",
+          transform: "translate(-50%, -50%)",
+          fontSize: `calc(${H1} * 0.72)`,
+          color: "#b63f06",
+          whiteSpace: "nowrap",
+          textShadow: "none",
+          animationName: "wall-invite",
+        }}
+      >
+        {WALL_COPY.cleanHide}
       </span>
 
       {/* الدعوة على الشاشة الأولى — كانت فارغةً والكلام كلّه في المنتصف.
