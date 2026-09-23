@@ -365,8 +365,8 @@ function SceneClean() {
 const BOARD = [
   { x: "0vw", bg: "#2c1e16", img: "burger-whole.webp", word: "بركر" },
   { x: "100vw", bg: "#fffdfb", img: "rizo.webp", word: "ريزو" },
-  { x: "200vw", bg: "#b63f06", img: "chicken.webp", word: "دجاج" },
-  { x: "300vw", bg: "#2c1e16", img: "rizo-motion.webp", word: "ستيشن" },
+  { x: "200vw", bg: "#b63f06", img: "rice.webp", word: "رز" },
+  { x: "300vw", bg: "#2c1e16", img: "chicken.webp", word: "كنتاكي" },
 ];
 
 function SceneBoard() {
@@ -392,7 +392,9 @@ function SceneBoard() {
           <img
             src={`/wallimg/${b.img}`}
             alt=""
-            style={{ position: "absolute", left: "50%", top: "42%", width: "60vh", marginLeft: "-30vh", marginTop: "-30vh" }}
+            // التوسيط بالإزاحة لا بهامشٍ محسوب: هوامش نصف العرض تفترض صورةً
+            // مربّعة، والرزّ أعرض من ارتفاعه فكان يعلو عن مركز كتلته
+            style={{ position: "absolute", left: "50%", top: "42%", width: "60vh", transform: "translate(-50%, -50%)" }}
           />
           <span
             style={{

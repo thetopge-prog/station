@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { canvasWidth, sliceOffset } from "@/lib/cafe/wall";
+import { canvasWidth, SCREENS, sliceOffset } from "@/lib/cafe/wall";
 
 /**
  * نافذةُ شاشةٍ واحدة على لوحةٍ واحدة.
@@ -20,6 +20,7 @@ export function WallCanvas({
   screen,
   phaseMs,
   bezel,
+  preview = false,
   children,
 }: {
   screen: number;
@@ -27,6 +28,14 @@ export function WallCanvas({
   phaseMs: number;
   /** عرض حافّة الإطار بالبكسل — صفرٌ = لا تعويض */
   bezel: number;
+  /**
+   * عرضُ الجدار كلّه مصغَّراً على شاشةٍ واحدة — للاطّلاع لا للتشغيل.
+   *
+   * أربع نوافذ متصفّح لا تُريك التكوين: العين لا تجمع ما تفرّق على أربع
+   * شاشات. وهذا يعرض اللوحة كاملةً بربع حجمها، فيُحكَم على التصميم قبل أن
+   * يُعلَّق على الحائط.
+   */
+  preview?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -50,17 +59,24 @@ export function WallCanvas({
     >
       <div
         className="wall-canvas"
-        style={{
-          position: "absolute",
-          top: 0,
-          left: sliceOffset(screen, bezel),
-          width: canvasWidth(bezel),
-          height: "100%",
-          // الطور يُورَّث إلى كل متحرّك عبر متغيّر مخصّص: يُكتب هنا مرّة،
-          // ويقرؤه كل عنصر. سالبٌ فيقفز بالدورة إلى موضعها بدل أن تبدأ من
-          // رأسها — وبه وحده تتّفق أربع شاشاتٍ على أربعة أجهزة
-          ["--wall-phase" as string]: `-${phaseMs}ms`,
-        } as React.CSSProperties}
+        style={
+          {
+            position: "absolute",
+            top: preview ? "50%" : 0,
+            left: preview ? 0 : sliceOffset(screen, bezel),
+            width: canvasWidth(bezel),
+            height: preview ? "100vh" : "100%",
+            // في العرض المصغَّر: اللوحة كلّها بربع حجمها، ممركزةً رأسياً.
+            // ونقطة التحجيم في اليسار الأعلى فتُقرأ الإزاحة من حافّة الشاشة.
+            ...(preview
+              ? { transform: `scale(${1 / SCREENS}) translateY(-50%)`, transformOrigin: "0 0" }
+              : {}),
+            // الطور يُورَّث إلى كل متحرّك عبر متغيّر مخصّص: يُكتب هنا مرّة،
+            // ويقرؤه كل عنصر. سالبٌ فيقفز بالدورة إلى موضعها بدل أن تبدأ من
+            // رأسها — وبه وحده تتّفق أربع شاشاتٍ على أربعة أجهزة
+            ["--wall-phase"]: `-${phaseMs}ms`,
+          } as React.CSSProperties
+        }
       >
         {children}
       </div>
