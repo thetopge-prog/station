@@ -109,28 +109,36 @@ function WallDebug({ screen, phase }: { screen: number; phase: number }) {
       <script
         dangerouslySetInnerHTML={{
           __html: `try{
-            var el = document.querySelector('.wall-anim');
-            var cs = el ? getComputedStyle(el) : null;
-            // كم إطار @keyframes قرأه المتصفّح فعلاً؟ صفرٌ يعني أن الملفّ وصل
-            // ولم تُقرأ حركاته — وحينها الاسم في النمط صحيح والحركة لا تعمل
+            var t0 = Date.now(), p0 = ${JSON.stringify(String(phase))} | 0;
             var kf = 0, sheets = 0;
             for (var i = 0; i < document.styleSheets.length; i++) {
               try {
                 var rs = document.styleSheets[i].cssRules; sheets++;
-                for (var j = 0; j < rs.length; j++) if (rs[j].type === 7 || (rs[j].name && rs[j].cssText.indexOf('@keyframes') === 0)) kf++;
+                for (var j = 0; j < rs.length; j++) if (rs[j].type === 7) kf++;
               } catch (x) { /* ملفّ من نطاقٍ آخر */ }
             }
-            // وكم عنصراً متحرّكاً هو ظاهرٌ الآن؟ صفرٌ مع وجود الإطارات يعني
-            // أن الحركة لا تُطبَّق، لا أن المشهد فارغ
-            var all = document.querySelectorAll('.wall-anim'), vis = 0;
-            for (var k = 0; k < all.length; k++) if (+getComputedStyle(all[k]).opacity > 0) vis++;
             var cv = document.querySelector('.wall-canvas');
             var r = cv ? cv.getBoundingClientRect() : null;
-            document.getElementById('wd').textContent =
-              innerWidth+'x'+innerHeight+' dpr'+(devicePixelRatio||1)
-              +' | kf '+kf+'/'+sheets+' | vis '+vis+'/'+all.length
-              +' | canvas '+(r? Math.round(r.left)+','+Math.round(r.width) : '-')
-              +' | '+(cs? cs.animationName+' d'+cs.animationDelay : 'no .wall-anim');
+            // **حيٌّ لا لقطة.** كان يُكتب مرّة عند التحميل، فيصوّره المالك بعد
+            // دقائق ويقرأ الطور القديم — ويُشخَّص عطلٌ في لحظةٍ لم تكن هي.
+            // الآن يتحرّك، فما في الصورة هو ما على الشاشة حين صُوّرت.
+            function tick(){
+              var all = document.querySelectorAll('.wall-anim'), vis = 0, here = 0;
+              for (var k = 0; k < all.length; k++) {
+                if (+getComputedStyle(all[k]).opacity > 0.05) {
+                  vis++;
+                  var b = all[k].getBoundingClientRect();
+                  if (b.right > 0 && b.left < innerWidth && b.bottom > 0 && b.top < innerHeight) here++;
+                }
+              }
+              var ph = (p0 + (Date.now() - t0)) % 140000;
+              document.getElementById('wd').textContent =
+                innerWidth+'x'+innerHeight+' | kf '+kf+'/'+sheets
+                +' | phase '+Math.round(ph/1000)+'s'
+                +' | vis '+vis+' على الجدار · '+here+' على هذه الشاشة'
+                +' | canvas '+(r? Math.round(r.left)+','+Math.round(r.width) : '-');
+            }
+            tick(); setInterval(tick, 500);
           }catch(e){ document.getElementById('wd').textContent='JS: '+e.message; }`,
         }}
       />
