@@ -10,8 +10,7 @@ import {
   Pencil,
   Plus,
   Printer,
-  Trash2,
-} from "lucide-react";
+  Trash2, Search } from "lucide-react";
 import type { MenuCategoryView, MenuItemView } from "@/lib/cafe/menu-data";
 import { cheapestVariant } from "@/lib/cafe/variant";
 import { formatIqdLabel } from "@/lib/cafe/money";
@@ -35,6 +34,8 @@ import {
 } from "@/lib/cafe/call-actions";
 import { cleanPhone, normalizeIraqiPhone } from "@/lib/cafe/phone";
 import { needsName } from "@/lib/cafe/customer-required";
+import { useShortcut } from "./use-shortcut";
+import { searchMenu } from "@/lib/cafe/menu-lang";
 import { FridayPrayerNotice } from "./FridayPrayerNotice";
 import { PartnerLogo } from "./PartnerLogo";
 import { cloneMenuItem } from "@/lib/cafe/menu-actions-cashier";
@@ -182,6 +183,10 @@ export function CashierClient({
   const [custName, setCustName] = useState("");
   const [custPhone, setCustPhone] = useState("");
   const [custAddress, setCustAddress] = useState("");
+  // البحث عن صنف: الشاشة لم يكن فيها بحثٌ قطّ، والموظّف ينتقل بين سبعة أقسام
+  // ليجد صنفاً من مئة وخمسة عشر — تسعاً وتسعين مرّة في اليوم
+  const [itemQ, setItemQ] = useState("");
+  const searchBox = useRef<HTMLInputElement>(null);
   // الاسم صار مطلوباً مع كل رقم (قرار المالك): الشاشة تمنع قبل الضغط، والخادم
   // يمنع أيضاً — والقاعدة مكتوبة مرّة في customer-required فلا تفترق النسختان.
   // وداخل المطعم مستثنًى لأن الرقم لا يُرسَل أصلاً في هذا النوع.
@@ -329,6 +334,10 @@ export function CashierClient({
     setExtraPrice(0);
   }
   const cat = menu.find((c) => c.name_ar === activeCat) ?? menu[0];
+  // نتيجة البحث تحلّ محلّ القسم المفتوح، و`null` تعني «لا بحث جارٍ»
+  const found = itemQ.trim() ? searchMenu(menu, itemQ) : null;
+  // الصنف الموجود بالبحث يأتي من قسمٍ آخر، واسم قسمه يلزم عند الإضافة
+  const catOf = useMemo(() => new Map(menu.flatMap((c) => c.items.map((i) => [i.id, c.name_ar] as const))), [menu]);
 
   async function saveEdit() {
     if (!edit) return;
@@ -433,6 +442,34 @@ export function CashierClient({
     setCustomer({ ...customer, points: res.balance });
     setLoyaltyMsg(`تم استبدال مكافأة — خصم ${formatIqdLabel(res.discount)}`);
   }
+
+  /**
+   * اختصارات شاشة الكاشير — هنا لا في القشرة: السلّة وطريقة الدفع ونافذة
+   * النجاح كلّها حالةُ هذا المكوّن، ولا تراها القشرة.
+   *
+   * وكلّها تمرّ بنفس شروط الأزرار: F9 لا يدفع سلّةً فارغة ولا طلباً ينقصه
+   * اسمُ صاحب الرقم، تماماً كالزرّ المعطَّل بجانبه.
+   */
+  const payBlocked =
+    busy ||
+    lines.length === 0 ||
+    (payMethod === "partner" && !partnerId) ||
+    (payMethod === "debt" && !debtorName.trim() && !custName.trim()) ||
+    nameMissing;
+
+  useShortcut("F2", true, () => {
+    searchBox.current?.focus();
+    searchBox.current?.select();
+  });
+  useShortcut("F9", !payBlocked, () => void checkout());
+  useShortcut("F10", success !== null, () => void printCustomerReceipt());
+  // «طلب جديد»: يغلق نافذة النجاح إن كانت مفتوحة — وهي الحالة الشائعة بعد كل
+  // بيع — وإلا يُفرغ سلّةً نصفَ مكتوبة، وذلك يُسأل عنه
+  useShortcut("F8", true, () => {
+    if (success) return setSuccess(null);
+    if (!lines.length) return;
+    if (confirm("إفراغ السلّة والبدء بطلب جديد؟")) dispatch({ type: "clear" });
+  });
 
   async function checkout() {
     // checkoutBusyRef is synchronous — `busy` state updates a tick later, so a
@@ -659,7 +696,18 @@ export function CashierClient({
       <FridayPrayerNotice />
       {/* items */}
       <section className="min-w-0 space-y-4">
-        <div className="flex gap-2 overflow-x-auto pb-1">
+        <div className="relative">
+          <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            ref={searchBox}
+            value={itemQ}
+            onChange={(e) => setItemQ(e.target.value)}
+            onKeyDown={(e) => e.key === "Escape" && setItemQ("")}
+            placeholder="ابحث عن صنف…"
+            className="min-h-11 w-full rounded-xl border border-input bg-background pe-3 ps-9 text-sm outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+        <div className={`flex gap-2 overflow-x-auto pb-1 ${found ? "hidden" : ""}`}>
           {menu.map((c) => (
             <button
               key={c.name_ar}
@@ -678,15 +726,20 @@ export function CashierClient({
           ))}
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-          {cat?.items.map((it) => (
+          {(found ?? cat?.items ?? []).map((it) => (
             <CashierItem
               key={it.id}
               item={it}
-              category={cat?.name_ar}
+              category={catOf.get(it.id) ?? cat?.name_ar}
               onAdd={(line) => dispatch({ type: "add", line })}
             />
           ))}
         </div>
+        {found?.length === 0 && (
+          <p className="rounded-xl border border-border bg-card px-4 py-6 text-center text-sm font-bold text-muted-foreground">
+            لا صنف بهذا الاسم.
+          </p>
+        )}
       </section>
 
       {/* order panel */}

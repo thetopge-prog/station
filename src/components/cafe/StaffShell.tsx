@@ -18,6 +18,8 @@ import { savePushSubscription, removePushSubscription } from "@/lib/cafe/push-ac
 import { StationMark } from "./Logo";
 import { PrintSpooler } from "./PrintSpooler";
 import { GlobalScanner } from "./GlobalScanner";
+import { QuickExpense } from "./QuickExpense";
+import { isTypingTarget, shortcutFor } from "@/lib/cafe/shortcuts";
 
 function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
   const padding = "=".repeat((4 - (base64.length % 4)) % 4);
@@ -90,6 +92,7 @@ export function StaffShell({
   const [now, setNow] = useState(() => Date.now());
   // صفحة بقيت مفتوحة عبر نشر جديد تُعاد وحدها بدل خطأ أحمر بالإنجليزية
   useEffect(() => watchStaleBuild(), []);
+
   useEffect(() => {
     if (!shiftEndsAt) return;
     const t = setInterval(() => setNow(Date.now()), 60_000);
@@ -100,6 +103,38 @@ export function StaffShell({
   const { primary, groups } = navFor(roles, isDeveloper);
   const till = useTillLock();
   const [moreOpen, setMoreOpen] = useState(false);
+  const [quickExpense, setQuickExpense] = useState(false);
+
+  /**
+   * اختصارات الكاونتر.
+   *
+   * هنا لا في مكوّن منفصل: القشرة وحدها تملك `router` و`pathname` وحالة قفل
+   * الدرج و«المزيد». والقرار نفسه في `shortcuts.ts` مُختبَراً — هذا سلكٌ لا
+   * منطق. وما يحتاج بيانات شاشةٍ بعينها (تجهيز الكل، الدفع) يُركَّب في شاشته
+   * عبر `useShortcut`، لأن القشرة لا ترى سلّةً ولا صفوف طلبات.
+   */
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const el = e.target as HTMLElement | null;
+      const action = shortcutFor(e.key, {
+        pathname,
+        roles,
+        locked: till.locked,
+        typing: isTypingTarget(el?.tagName, el?.isContentEditable === true),
+      });
+      if (!action) return;
+      // ما تملكه الشاشة يُترك للشاشة: لا نمنع مفتاحها ولا نبتلعه
+      if (action.kind === "screen") return;
+      e.preventDefault();
+      if (action.kind === "go") return router.push(action.href);
+      if (action.kind === "expense") return setQuickExpense(true);
+      // إغلاق: ما تفتحه القشرة تغلقه القشرة
+      setQuickExpense(false);
+      setMoreOpen(false);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pathname, roles, till.locked, router]);
 
   // Keep the session alive on staff screens: instantiating the browser client
   // starts supabase-js's auto-refresh loop, which renews the access token and
@@ -353,6 +388,7 @@ export function StaffShell({
       {/* الطابعة تتبع الطلب: أي شاشة موظّف على حاسوب الكاشير تطبع ما لم يُطبع */}
       <PrintSpooler />
       <GlobalScanner roles={roles} />
+      {quickExpense && <QuickExpense onClose={() => setQuickExpense(false)} />}
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-5 pb-24 md:pb-5">{children}</main>
 
       {/* app-like bottom tab bar (mobile only) */}

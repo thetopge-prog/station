@@ -28,6 +28,7 @@ import { useLiveOrders } from "./use-live-orders";
 import { parseScan, useBarcodeScanner } from "./use-barcode-scanner";
 import { QrScanner } from "./QrScanner";
 import { PairPanel } from "./PairPanel";
+import { useShortcut } from "./use-shortcut";
 import { chimeNewOrder, chimeReady, unlockAudio } from "@/lib/cafe/chime";
 
 /**
@@ -290,6 +291,10 @@ export function ExpediterClient({ name }: { name: string }) {
 
   const queue = rows.filter((r) => r.prep_status !== "ready");
   const ready = rows.filter((r) => r.prep_status === "ready");
+
+  // F6 — «تجهيز كل الطلبات». هنا لا في القشرة: العمل يحتاج صفوف هذه الشاشة.
+  // ولا يعمل على طابورٍ فارغ، ويمرّ بنفس التأكيد الذي يمرّ به الزرّ
+  useShortcut("F6", queue.length > 0 && !allBusy, () => void readyAll(queue.map((o) => o.id)));
 
   return (
     <div className="touch-pos space-y-5">
