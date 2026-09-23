@@ -166,9 +166,9 @@ export type Database = {
       customers: {
         // address (0047): the last known delivery address, kept on the PERSON so
         // a regular is never asked where they live twice
-        Row: Timestamped & { card_serial: string; phone: string | null; name_ar: string | null; points: number; address: string | null };
+        Row: Timestamped & { card_serial: string; phone: string | null; name_ar: string | null; points: number; address: string | null; auto_seq: number | null };
         Insert: { id?: string; card_serial?: string; phone?: string | null; name_ar?: string | null; points?: number; address?: string | null; created_at?: string };
-        Update: Partial<{ phone: string | null; name_ar: string | null; points: number; address: string | null }>;
+        Update: Partial<{ phone: string | null; name_ar: string | null; points: number; address: string | null; auto_seq: number | null }>;
         Relationships: [];
       };
       // 0047 — a phone rings, the number lands here, the till says who it is
@@ -528,11 +528,31 @@ export type Database = {
         Row: { customer_name: string; phone: string | null; total_debt: number; total_paid: number; balance: number; last_activity: string };
         Relationships: [];
       };
+      // سجلّ أرقام الزبائن (0099): زبونٌ واحد لكل رقم موحَّد، بطلباته وإنفاقه
+      customer_book: {
+        Row: {
+          id: string;
+          phone: string | null;
+          name: string | null;
+          auto_named: boolean;
+          points: number;
+          orders_count: number;
+          total_spent: number;
+          first_order: string | null;
+          last_order: string | null;
+          top_channel: string | null;
+          address: string | null;
+          created_at: string;
+        };
+        Relationships: [];
+      };
     };
     Functions: {
       // يستبدل قائمة مجهّزي اليوم كاملة (0050)
       set_duty_expediters: { Args: { p_day: string; p_ids: string[] }; Returns: undefined };
       log_webhook: { Args: { p_route: string; p_status: number; p_body: string; p_note: string }; Returns: undefined };
+      // سجلّ الزبائن (0099) — قابلة للتكرار بلا أثر
+      sync_customer_book: { Args: Record<string, never>; Returns: { added: number; named: number; auto_named: number }[] };
       // الجرد اليومي (0056)
       save_daily_count: { Args: { p_day: string; p_counted: number; p_deposited: number; p_note: string | null; p_snapshot: Json; p_close?: boolean }; Returns: undefined };
       stock_value: { Args: Record<string, never>; Returns: number };

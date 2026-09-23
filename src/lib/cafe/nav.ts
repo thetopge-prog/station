@@ -33,6 +33,7 @@ export const NAV: NavItem[] = [
   { href: "/history", label: "سجلّ الطلبات", short: "السجلّ", allow: ["cashier"], group: "البيع", icon: History },
   { href: "/tables", label: "الطاولات", short: "الطاولات", allow: ["cashier", "cleaner"], group: "البيع", icon: Armchair },
   // الإدارة: كل ما يمسّ المال أو الأسعار للمدير وحده؛ الكاشير يبيع ويسجّل مصروفاً وديناً
+  { href: "/customers", label: "الزبائن", short: "الزبائن", allow: [], group: "البيع", icon: Users },
   { href: "/loyalty", label: "الولاء", short: "الولاء", allow: [], group: "البيع", icon: CreditCard },
   { href: "/offers", label: "العروض", short: "العروض", allow: [], group: "البيع", icon: Percent },
   { href: "/debts", label: "سجل الديون", short: "الديون", allow: ["cashier"], group: "البيع", icon: HandCoins },
