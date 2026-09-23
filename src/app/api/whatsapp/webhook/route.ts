@@ -331,7 +331,7 @@ async function handoff(waId: string, text: string, ui: Ui | null, msgId: string 
   }
   // يُطمأن كل ربع ساعة لا مع كل رسالة — ولا يُترك بلا جواب ساعة كاملة
   const recently = ui?.humanAt && Date.now() - Date.parse(ui.humanAt) < 15 * 60_000;
-  await note(200, "", `تحويل لموظف — مفاتيح: gemini=${!!process.env.GEMINI_API_KEY} groq=${!!process.env.GROQ_API_KEY}`);
+  await note(200, "", `تحويل لموظف — مفاتيح: claude=${!!process.env.ANTHROPIC_API_KEY} gemini=${!!process.env.GEMINI_API_KEY} groq=${!!process.env.GROQ_API_KEY}`);
   await writeState(uiKey(waId), { ...(ui ?? { buttons: [], text: "" }), lastMsgId: msgId, humanAt: recently ? ui!.humanAt : new Date().toISOString() });
   if (!recently) {
     await humanPause();
@@ -378,7 +378,7 @@ async function turn(msg: WaMsg): Promise<void> {
   // صوت: يُفهم مباشرة (Gemini يسمع) أو يُكتب ثم يُفهم؛ وإن لم يُفهم يُطلب الكتابة — لا موظف
   // (الطلب بالصوت لا يُعلَن في أي نصّ؛ يعمل لمن يعرفه)
   if (raw.kind === "voice") {
-    const keys = { gemini: process.env.GEMINI_API_KEY, groq: process.env.GROQ_API_KEY };
+    const keys = { anthropic: process.env.ANTHROPIC_API_KEY, gemini: process.env.GEMINI_API_KEY, groq: process.env.GROQ_API_KEY };
     const got = (keys.gemini || keys.groq) ? await (async () => { const a = await fetchAudio(msg); return a ? understandAudio(a.audio, a.mime, await loadMenu(), keys, phraseMemory) : null; })() : null;
     await writeState(uiKey(waId), { ...(ui ?? { buttons: [], text: "" }), lastMsgId: msg.id });
     if (got && "lines" in got) {
@@ -408,7 +408,7 @@ async function turn(msg: WaMsg): Promise<void> {
     // «٢ زنجر بوفالو وجبة وبيبسي» → سلّة يؤكّدها بالأزرار (ذاكرة ثم قواعد ثم Gemini/Groq)
     if (prev?.flow !== "order" || !prev.draft?.awaitingNote) {
       const menu = await loadMenu();
-      const got = await understandSmart(t, menu, { gemini: process.env.GEMINI_API_KEY, groq: process.env.GROQ_API_KEY }, phraseMemory);
+      const got = await understandSmart(t, menu, { anthropic: process.env.ANTHROPIC_API_KEY, gemini: process.env.GEMINI_API_KEY, groq: process.env.GROQ_API_KEY }, phraseMemory);
       if (got && "lines" in got) {
         understood = got.lines;
         when = extractWhen(t).when; // «الساعة 11» تُنقل للمطبخ مع الطلب

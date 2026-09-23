@@ -1307,7 +1307,7 @@ async function customerTurn(chatId: number | string, msg: Row, prev: Row | null)
   const state = (prev?.flow === "order" ? prev : null) as OrderState | null;
   // صوت: يُفهم مباشرة (Gemini يسمع مع المنيو) أو يُكتب ثم يُفهم؛ وإلا يُطلب الكتابة
   if (input.kind === "voice" && msg.voice?.file_id) {
-    const keys = { gemini: Deno.env.get("GEMINI_API_KEY"), groq: Deno.env.get("GROQ_API_KEY") };
+    const keys = { anthropic: Deno.env.get("ANTHROPIC_API_KEY"), gemini: Deno.env.get("GEMINI_API_KEY"), groq: Deno.env.get("GROQ_API_KEY") };
     let got: Awaited<ReturnType<typeof understandAudio>> = null;
     try {
       const f = (await tg("getFile", { file_id: msg.voice.file_id })) as { result?: { file_path?: string } };
@@ -1327,7 +1327,7 @@ async function customerTurn(chatId: number | string, msg: Row, prev: Row | null)
   }
   // نصّ حرّ خارج سؤال (ملاحظة/هاتف/عنوان): قواعد ثم Gemini/Groq إن وُجد مفتاح
   if (input.kind === "text" && !/^\//.test(input.text) && !(state && (["phone", "address"].includes(state.step) || state.draft?.awaitingNote))) {
-    const got = await understandSmart(input.text, menu, { gemini: Deno.env.get("GEMINI_API_KEY"), groq: Deno.env.get("GROQ_API_KEY") }, phraseMemory);
+    const got = await understandSmart(input.text, menu, { anthropic: Deno.env.get("ANTHROPIC_API_KEY"), gemini: Deno.env.get("GEMINI_API_KEY"), groq: Deno.env.get("GROQ_API_KEY") }, phraseMemory);
     if (got && "lines" in got) input = { kind: "lines", lines: got.lines };
     else if (got && "intent" in got && got.intent === "menu") {
       await humanPause();

@@ -14,7 +14,7 @@
  */
 import { defaultSize, foldWord, understand, type CartLine, type Menu } from "./order-flow.ts";
 
-export type LlmKeys = { gemini?: string; groq?: string };
+export type LlmKeys = { anthropic?: string; gemini?: string; groq?: string };
 export type Parsed = { intent?: string; reply?: string; lines?: { item_id?: string; size?: string; qty?: number; note?: string }[] };
 export type Understood = { lines: CartLine[] } | { intent: "menu"; reply: string } | { intent: "other" } | null;
 /** الذاكرة: يوفّرها المنادي بحسب بيئته (supabase-js أو REST) */
@@ -34,7 +34,15 @@ function menuRows(menu: Menu): string {
 /** ما يُقال حين يُسأل البوت عن نفسه أو عن التقنية — ثابت، لا يكتبه النموذج */
 export const SELF_REPLY = "آني مساعد ستيشن للطلبات 😊 شتحب تطلب؟";
 
-export function prompt(text: string, menu: Menu): string {
+/**
+ * الجزء الثابت من التعليمات: القواعد والمنيو، بلا رسالة الزبون.
+ *
+ * مفصولٌ عمداً — هذا وحده ما يُخزَّن مؤقّتاً عند Anthropic، والتخزين المؤقّت
+ * مطابقةُ بدايةٍ حرفية: بايتٌ واحد يتغيّر في أوّله يُبطله كلّه. فلا تاريخ ولا
+ * وقت ولا اسم زبونٍ هنا — المنيو والقواعد فقط، وهما لا يتغيّران بين رسالة
+ * وأخرى. وعليه تُقرأ آلاف الرموز بعُشر ثمنها.
+ */
+export function systemPrompt(menu: Menu): string {
   return [
     "أنت موظّف طلبات في مطعم «ستيشن» بالرمادي. تكلّم باللهجة العراقية، بجمل قصيرة وودّية.",
     "قواعد صارمة:",
@@ -51,9 +59,52 @@ export function prompt(text: string, menu: Menu): string {
     "- intent=menu: سؤال عن المنيو أو الأسعار أو الأحجام → lines فارغة، وreply جواب من المنيو فقط (سطر أو سطران) ينتهي بدعوة للطلب.",
     "- intent=other: كل ما عدا ذلك → lines فارغة وreply فارغ.",
     "اللهجة العراقية مقبولة في الأعداد (اثنين، ثلاث، وحدة، جوز).",
-    "",
-    "رسالة الزبون: «" + text.slice(0, 400) + "»",
   ].join("\n");
+}
+
+const userPrompt = (text: string) => "رسالة الزبون: «" + text.slice(0, 400) + "»";
+
+/** النصّ كاملاً في كتلةٍ واحدة — لمن لا يفصل تعليماته عن رسالته */
+export function prompt(text: string, menu: Menu): string {
+  return `${systemPrompt(menu)}\n\n${userPrompt(text)}`;
+}
+
+/**
+ * Claude Haiku — النموذج المدفوع، ويُجرَّب أوّلاً لأنه أفهمهم للهجة الرمادي.
+ *
+ * ثلاثة أشياء تُبقي الحساب صغيراً، وكلٌّ منها مقصود:
+ *
+ * ١. لا يُنادى إلّا بعد أن تعجز الذاكرة والقواعد — وهما يبتلعان أكثر الرسائل
+ *    مجاناً. وكل فهمٍ ينجح يُحفظ في الذاكرة، فالعبارة تُكلّف مرّةً في عمرها.
+ * ٢. التعليمات والمنيو في `system` بعلامة `cache_control`، فتُقرأ من خزين
+ *    Anthropic بعُشر الثمن بدل أن تُحاسَب كاملةً مع كل رسالة.
+ * ٣. `max_tokens` صغير، ولا تفكير: الجواب JSON من سطرين لا مقال.
+ *
+ * وبالحساب: المنيو نحو ثلاثة آلاف رمز، والرسالة والجواب مئتان — فالرسالة
+ * الجديدة دون سنتٍ واحد، والمكرّرة بلا ثمنٍ أصلاً.
+ *
+ * ويُنادى بـ`fetch` لا بحزمة Anthropic: هذا الملفّ يعمل في Deno (تيليغرام)
+ * وNode (واتساب) معاً، ولا يحمل مكتبة — وهي القاعدة المكتوبة في رأسه.
+ */
+async function anthropic(key: string, text: string, menu: Menu): Promise<Parsed | null> {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
+    body: JSON.stringify({
+      model: "claude-haiku-4-5",
+      max_tokens: 400,
+      system: [{ type: "text", text: systemPrompt(menu), cache_control: { type: "ephemeral" } }],
+      messages: [{ role: "user", content: userPrompt(text) }],
+    }),
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!res.ok) return null;
+  const j = (await res.json()) as { content?: { type?: string; text?: string }[] };
+  const raw = j.content?.find((b) => b.type === "text")?.text;
+  if (!raw) return null;
+  // قد يلفّ الجواب بسياج ```json — يُقشَّر قبل التحليل
+  const body = raw.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  return JSON.parse(body) as Parsed;
 }
 
 async function gemini(key: string, text: string, menu: Menu): Promise<Parsed | null> {
@@ -142,7 +193,13 @@ export async function understandSmart(text: string, menu: Menu, keys: LlmKeys, m
   }
 
   // ٣. النموذج
-  for (const call of [keys.gemini ? () => gemini(keys.gemini!, text, menu) : null, keys.groq ? () => groq(keys.groq!, text, menu) : null]) {
+  // المدفوع أوّلاً، والمجّانيان احتياطٌ إن سقط أو نفد رصيده
+  const chain = [
+    keys.anthropic ? () => anthropic(keys.anthropic!, text, menu) : null,
+    keys.gemini ? () => gemini(keys.gemini!, text, menu) : null,
+    keys.groq ? () => groq(keys.groq!, text, menu) : null,
+  ];
+  for (const call of chain) {
     if (!call) continue;
     try {
       const parsed = await call();
