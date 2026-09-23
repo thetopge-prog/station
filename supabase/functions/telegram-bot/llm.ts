@@ -276,6 +276,27 @@ export async function understandSmart(text: string, menu: Menu, keys: LlmKeys, m
  * الصوت → نصّ. Groq (Whisper، مجاني) أولاً، وGemini يسمع الملف مباشرة احتياطاً.
  * النصّ الناتج يمرّ على understandSmart كأنه كُتب — فالصوت لا يزيد قاعدة.
  */
+/**
+ * بايتات الصوت إلى base64 — على دفعات، لا دفعةً واحدة.
+ *
+ * `String.fromCharCode(...new Uint8Array(buf))` ينشر كل بايتٍ وسيطاً مستقلاً،
+ * ومكدّس النداء له سقف: رسالةٌ صوتية من عشر ثوانٍ (نحو ٤٠ كيلوبايت) تمرّ،
+ * ومن نصف دقيقة تُسقط الدالّة بـ`RangeError`. وكان ذلك السقوط يُبتلع في
+ * `catch` صامت، فيردّ البوت «ما فهمت رسالتك الصوتية» على كل رسالةٍ طويلة —
+ * وهي أكثر ما يُرسَل، لأن القصيرة تُكتب.
+ *
+ * ثمانية آلاف بايتٍ في الدفعة: تحت سقف كل محرّك بمراحل، وعدد الدفعات يبقى
+ * صغيراً حتى لرسالةٍ من دقيقتين.
+ */
+function toBase64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  let out = "";
+  for (let i = 0; i < bytes.length; i += 8192) {
+    out += String.fromCharCode(...bytes.subarray(i, i + 8192));
+  }
+  return btoa(out);
+}
+
 export async function transcribe(audio: ArrayBuffer, mime: string, keys: LlmKeys, menu?: Menu): Promise<string | null> {
   if (keys.groq) {
     try {
@@ -299,7 +320,7 @@ export async function transcribe(audio: ArrayBuffer, mime: string, keys: LlmKeys
   }
   if (keys.gemini) {
     try {
-      const b64 = btoa(String.fromCharCode(...new Uint8Array(audio)));
+      const b64 = toBase64(audio);
       const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${keys.gemini}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -326,7 +347,7 @@ export async function transcribe(audio: ArrayBuffer, mime: string, keys: LlmKeys
 export async function understandAudio(audio: ArrayBuffer, mime: string, menu: Menu, keys: LlmKeys, memory?: PhraseMemory): Promise<Understood> {
   if (keys.gemini) {
     try {
-      const b64 = btoa(String.fromCharCode(...new Uint8Array(audio)));
+      const b64 = toBase64(audio);
       const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${keys.gemini}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -310,16 +310,40 @@ function inputOf(msg: WaMsg): Input {
 }
 
 /** الرسالة الصوتية تُنزَّل من Meta كما هي — الفهم في understandAudio */
+/**
+ * تنزيل الرسالة الصوتية من Meta — ويقول لماذا فشل إن فشل.
+ *
+ * كان يبتلع كل خطأ ويعيد `null`، فيردّ البوت «ما فهمت رسالتك الصوتية» سواء
+ * سقط التنزيل، أو انتهى التوكن، أو عجز النموذج. وثلاثتها أعطالٌ مختلفة
+ * علاجها مختلف، وكانت تظهر بوجهٍ واحد.
+ */
 async function fetchAudio(msg: WaMsg): Promise<{ audio: ArrayBuffer; mime: string } | null> {
   const mediaId = msg.audio?.id;
-  if (!mediaId) return null;
+  if (!mediaId) {
+    await note(422, "", "صوت بلا معرّف وسائط");
+    return null;
+  }
   try {
     const meta = await fetch(`${GRAPH}/${mediaId}`, { headers: { Authorization: `Bearer ${TOKEN()}` }, signal: AbortSignal.timeout(8000) });
+    if (!meta.ok) {
+      await note(meta.status, (await meta.text()).slice(0, 300), "Meta رفض وصف الوسائط");
+      return null;
+    }
     const { url, mime_type } = (await meta.json()) as { url?: string; mime_type?: string };
-    if (!url) return null;
+    if (!url) {
+      await note(422, "", "وصف الوسائط بلا رابط");
+      return null;
+    }
     const file = await fetch(url, { headers: { Authorization: `Bearer ${TOKEN()}` }, signal: AbortSignal.timeout(15000) });
-    return { audio: await file.arrayBuffer(), mime: (mime_type ?? msg.audio?.mime_type ?? "audio/ogg").split(";")[0] };
-  } catch {
+    if (!file.ok) {
+      await note(file.status, "", "تعذّر تنزيل الملفّ الصوتي");
+      return null;
+    }
+    const audio = await file.arrayBuffer();
+    await note(200, "", `صوت وصل: ${(audio.byteLength / 1024).toFixed(0)}KB ${mime_type ?? "?"}`);
+    return { audio, mime: (mime_type ?? msg.audio?.mime_type ?? "audio/ogg").split(";")[0] };
+  } catch (e) {
+    await note(599, "", `تنزيل الصوت تعثّر: ${e instanceof Error ? e.message.slice(0, 120) : "?"}`);
     return null;
   }
 }
@@ -444,7 +468,18 @@ async function turn(msg: WaMsg, profileName: string | null = null): Promise<void
   // (الطلب بالصوت لا يُعلَن في أي نصّ؛ يعمل لمن يعرفه)
   if (raw.kind === "voice") {
     const keys = { anthropic: process.env.ANTHROPIC_API_KEY, gemini: process.env.GEMINI_API_KEY, groq: process.env.GROQ_API_KEY };
-    const got = (keys.gemini || keys.groq) ? await (async () => { const a = await fetchAudio(msg); return a ? understandAudio(a.audio, a.mime, await loadMenu(), keys, phraseMemory) : null; })() : null;
+    const got = await (async () => {
+      if (!keys.gemini && !keys.groq) {
+        // Claude لا يستقبل صوتاً — الصوت يحتاج Gemini أو Groq
+        await note(503, "", "صوت بلا مفتاح يسمعه: GEMINI_API_KEY وGROQ_API_KEY ناقصان");
+        return null;
+      }
+      const a = await fetchAudio(msg);
+      if (!a) return null;
+      const out = await understandAudio(a.audio, a.mime, await loadMenu(), keys, phraseMemory);
+      if (!out) await note(422, "", "الصوت نُزِّل ولم يُفهم — النموذج لم يُرجع طلباً");
+      return out;
+    })();
     await writeState(uiKey(waId), { ...(ui ?? { buttons: [], text: "" }), lastMsgId: msg.id });
     if (got && "lines" in got) {
       understood = got.lines;
