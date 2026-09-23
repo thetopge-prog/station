@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { WALL_CLAIM_LEFT, WALL_CLAIM_RIGHT, WALL_COPY, WALL_MENU, WALL_SERVICES } from "@/lib/cafe/wall";
+import { SCREENS, WALL_CLAIM_LEFT, WALL_CLAIM_RIGHT, WALL_COPY, WALL_MENU, WALL_SERVICES } from "@/lib/cafe/wall";
 
 /**
  * مشاهد الجدار — ترميزٌ للتصميم لا منطق.
@@ -207,7 +207,8 @@ function SceneMenu() {
           className="wall-anim wall-display"
           style={{
             position: "absolute",
-            left: `${(((i + 0.5) * 400) / WALL_MENU.length).toFixed(2)}vw`,
+            // من اليمين: العربية تُقرأ يميناً، فأوّل قسمٍ على الشاشة الرابعة
+            left: `${(((WALL_MENU.length - 0.5 - i) * 400) / WALL_MENU.length).toFixed(2)}vw`,
             top: "46%",
             fontSize: `calc(${H1} * 1)`,
             animationName: "wall-menu-item",
@@ -329,7 +330,7 @@ function SceneItems() {
           style={{
             position: "absolute",
             // الصفّ موزّعٌ على اللوحة كلّها: ٤٠٠vw على اثني عشر صنفاً
-            left: `${((i + 0.5) * 400) / DISHES.length}vw`,
+            left: `${(((DISHES.length - 0.5 - i) * 400) / DISHES.length).toFixed(2)}vw`,
             top: "52%",
             textAlign: "center",
             animationName: "wall-dish",
@@ -362,7 +363,7 @@ function SceneServices() {
           className="wall-anim"
           style={{
             position: "absolute",
-            left: CENTERS[i],
+            left: CENTERS[SCREENS - 1 - i],
             top: "50%",
             transform: "translateX(-50%)",
             marginTop: "-12vh",
@@ -441,11 +442,12 @@ function SceneClean() {
 
 /** ٠٩ — اللوحة الرقمية: أربع كتلٍ لونية، واحدةٌ لكل شاشة. ليست شاشة أسعار */
 const BOARD: { x: string; bg: string; img?: string; photo?: string; word: string }[] = [
-  { x: "0vw", bg: "#2c1e16", img: "burger-whole.webp", word: "بركر" },
-  { x: "100vw", bg: "#fffdfb", img: "rizo.webp", word: "ريزو" },
-  { x: "200vw", bg: "#b63f06", img: "chicken.webp", word: "كنتاكي" },
-  // الرابعة صورةُ المحل نفسه تملأ الكتلة: ثلاثة أصنافٍ ثم المكان الذي تُصنع فيه
-  { x: "300vw", bg: "#2c1e16", photo: "1", word: "المحطة" },
+  // من اليمين إلى اليسار كما تُقرأ: أوّلها على الشاشة الرابعة
+  { x: "300vw", bg: "#2c1e16", img: "burger-whole.webp", word: "بركر" },
+  { x: "200vw", bg: "#fffdfb", img: "rizo.webp", word: "ريزو" },
+  { x: "100vw", bg: "#b63f06", img: "chicken.webp", word: "كنتاكي" },
+  // وآخرها صورةُ المحل نفسه تملأ الكتلة: ثلاثة أصنافٍ ثم المكان الذي تُصنع فيه
+  { x: "0vw", bg: "#2c1e16", photo: "1", word: "المحطة" },
 ];
 
 function SceneBoard() {
