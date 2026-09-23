@@ -3,6 +3,7 @@ import { lateCutoffState } from "@/lib/cafe/time";
 
 import { orderAcceptedLink } from "@/lib/brand";
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { FreshBuild } from "@/components/cafe/FreshBuild";
 import {
   Check,
   MessageCircle,
@@ -606,9 +607,17 @@ export function CashierClient({
       setCustName("");
       setCustPhone("");
       setCustAddress("");
-    } catch {
+    } catch (e) {
+      // النسخة القديمة تُقال باسمها، لا «تأكد من الاتصال».
+      //
+      // Next يُبطل معرّفات «إجراءات الخادم» مع كل بناء، فالصفحة المفتوحة منذ
+      // ما قبل النشر تنادي معرّفاً لا وجود له. والرسالة القديمة كانت ترمي
+      // اللوم على الإنترنت وهو سليم، فيقف البيع ولا يُعرف السبب.
+      const why = e instanceof Error ? e.message : String(e);
       setErr(
-        "تعذّر إتمام الطلب — تأكد من الاتصال بالإنترنت وأعد المحاولة. إن تكرّر، حدّث الصفحة (F5).",
+        /server action|deployment|unexpected response/i.test(why)
+          ? "النظام تحدّث والصفحة قديمة — اضغط F5 ثم أعد الطلب. (سلّتك محفوظة على الشاشة)"
+          : "تعذّر إتمام الطلب — تأكد من الاتصال بالإنترنت وأعد المحاولة. إن تكرّر، حدّث الصفحة (F5).",
       );
     } finally {
       checkoutBusyRef.current = false;
@@ -691,6 +700,9 @@ export function CashierClient({
     // minmax(0,1fr) + min-w-0: without them the scrollable pills row's intrinsic
     // width blows the grid past narrow POS screens (1024px) → horizontal cut.
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+      {/* الشاشة تبقى على آخر نسخة — لكن حين تكون فارغةً فقط. سلّةٌ فيها
+          أصناف أو بيعٌ جارٍ يمنع التحديث حتى يُغلَق الطلب */}
+      <FreshBuild idle={() => !lines.length && !busy && !checkoutBusyRef.current} />
       {/* «اختيار المجهّز» كان هنا. أُزيل بطلب صاحب المحل: في هذا المطعم
           التجهيز يجري في المطبخ على تذكرة كاملة، ولا أحد يُعيَّن من الكاشير. */}
       <FridayPrayerNotice />
