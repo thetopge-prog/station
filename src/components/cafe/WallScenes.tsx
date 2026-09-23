@@ -57,6 +57,64 @@ function Arrow() {
 }
 
 /**
+ * الأصناف تتناثر على الشاشتين الطرفيّتين في المشهد الافتتاحي.
+ *
+ * «المحطة تفزعلك» تقع في منتصف اللوحة، فالشاشة الأولى والرابعة تبقيان
+ * فارغتين وقتَ أهمّ مشهدٍ في العرض. فتطير الأصناف من جهة المنتصف إلى
+ * الخارج وتستقرّ متناثرةً عند الطرفين — الاسم في القلب، والطعام حوله.
+ *
+ * والعشوائية مكتوبةٌ بيد: كل قطعةٍ لها مبدؤها ومستقرّها وميلها ومنحنى
+ * توقيتها. ولا `Math.random()` — الشاشات الأربع أربعة أجهزة، ولو اختار كلٌّ
+ * منها أرقامه لاختلف الجداران.
+ */
+const SCATTER = [
+  { img: "kentucky", x: "12vw", y: "15%", h: "20vh", sx: "62vw", sy: "-10vh", r: -14 },
+  { img: "fries", x: "39vw", y: "9%", h: "16vh", sx: "80vw", sy: "7vh", r: 12 },
+  { img: "zinger", x: "7vw", y: "51%", h: "22vh", sx: "96vw", sy: "13vh", r: 9 },
+  { img: "onion", x: "35vw", y: "45%", h: "14vh", sx: "70vw", sy: "-15vh", r: -22 },
+  { img: "popcorn", x: "63vw", y: "21%", h: "18vh", sx: "54vw", sy: "10vh", r: 16 },
+  { img: "sides", x: "58vw", y: "64%", h: "15vh", sx: "66vw", sy: "-9vh", r: -10 },
+  { img: "pepperoni", x: "341vw", y: "13%", h: "21vh", sx: "-70vw", sy: "8vh", r: 13 },
+  { img: "twister", x: "369vw", y: "43%", h: "18vh", sx: "-88vw", sy: "-12vh", r: -16 },
+  { img: "strips", x: "314vw", y: "25%", h: "16vh", sx: "-58vw", sy: "-7vh", r: 20 },
+  { img: "rizo-super", x: "345vw", y: "61%", h: "17vh", sx: "-76vw", sy: "12vh", r: -9 },
+  { img: "mushroom", x: "383vw", y: "17%", h: "15vh", sx: "-62vw", sy: "14vh", r: 11 },
+  { img: "sauce", x: "318vw", y: "68%", h: "14vh", sx: "-50vw", sy: "-11vh", r: -18 },
+];
+
+function Scatter() {
+  return (
+    <>
+      {SCATTER.map((d, i) => (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          key={d.img}
+          className="wall-anim"
+          src={`/wallimg/dish-${d.img}.webp`}
+          alt=""
+          style={
+            {
+              position: "absolute",
+              left: d.x,
+              top: d.y,
+              height: d.h,
+              width: "auto",
+              animationName: "wall-scatter",
+              animationTimingFunction: `cubic-bezier(${(0.06 + i * 0.045).toFixed(3)}, 0.88, 0.32, 1)`,
+              ["--sx"]: d.sx,
+              ["--sy"]: d.sy,
+              // تبدأ مائلةً أكثر ثم تستقرّ على ميلها — تدحرجٌ قصير لا دوران
+              ["--sr"]: `${d.r * 3}deg`,
+              ["--er"]: `${d.r}deg`,
+            } as CSSProperties
+          }
+        />
+      ))}
+    </>
+  );
+}
+
+/**
  * ٠١ — «المحطة تفزعلك».
  *
  * الاسم والوعد **جنباً إلى جنب**، تكويناً واحداً كما على العلبة. وكان الاسم
@@ -66,6 +124,7 @@ function Arrow() {
 function SceneLockup() {
   return (
     <div className="wall-scene">
+      <Scatter />
       <div style={{ ...at(MID), display: "flex", alignItems: "baseline", gap: "3vw", transform: "translateX(-50%)" }}>
         {/* اللوحة `dir="rtl"` فأوّل ابنٍ يقع يميناً — والاسم يُقرأ أولاً */}
         <span className="wall-anim wall-display" style={{ fontSize: H1, animationName: "wall-name" }}>
@@ -222,7 +281,10 @@ function SceneBurger() {
       ))}
 
       {/* الكلام بجانبه — على الشاشة الثانية، فيقرؤه الواقف أمامها */}
-      <Aside x="112vw" title={WALL_COPY.burgerTitle} sub={WALL_COPY.burgerSub} />
+      {/* واحدٌ عن يساره وواحدٌ عن يمينه، والبركر يُبنى بينهما. والثاني يدخل
+          بعد الأول بلحظةٍ فتُقرأ الجملتان لا تُزاحمان */}
+      <Aside x="104vw" title={WALL_COPY.burgerTitle} sub={WALL_COPY.burgerSub} />
+      <Aside x="296vw" anim="wall-aside3" title={WALL_COPY.burgerTitle2} sub={WALL_COPY.burgerSub2} />
     </div>
   );
 }
@@ -518,7 +580,7 @@ function Aside({ x, title, sub, anim = "wall-aside" }: { x: string; title: strin
         animationName: anim,
       }}
     >
-      <span className="wall-stamp" style={{ display: "block", fontSize: `calc(${H1} * 0.78)` }}>
+      <span className="wall-stamp" style={{ display: "block", fontSize: `calc(${H1} * 0.62)` }}>
         {title}
       </span>
       <span className="wall-display" style={{ display: "block", marginTop: "2.5vh", fontSize: `calc(${H1} * 0.4)` }}>

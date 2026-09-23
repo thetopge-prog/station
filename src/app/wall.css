@@ -75,6 +75,15 @@
 
 /* ═══ ٠١ · «المحطة تفزعلك»  0% → 7.14% ═════════════════════════════════
    الاسم والوعد جنباً إلى جنب — تكوينٌ واحد كما على العلبة. */
+/* الأصناف تتناثر إلى الطرفين — تطير من جهة المنتصف وتستقرّ عند الحواف */
+@keyframes wall-scatter {
+  0% { opacity: 0; transform: translate3d(var(--sx), var(--sy), 0) scale(0.35) rotate(var(--sr)); }
+  1.1% { opacity: 1; }
+  5.4% { opacity: 1; transform: translate3d(0, 0, 0) scale(1) rotate(var(--er)); }
+  6.4% { opacity: 1; transform: translate3d(0, 0, 0) scale(1) rotate(var(--er)); }
+  7.14%, 100% { opacity: 0; transform: translate3d(0, 0, 0) scale(1) rotate(var(--er)); }
+}
+
 @keyframes wall-name {
   0% { opacity: 0; transform: translate3d(6vw, 0, 0) scale(0.92); }
   1.54% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
@@ -139,16 +148,23 @@
 
 /* الكلام بجانب الطبق — نافذةٌ لكل مشهد، وإلا ظهر كلامُ الريزو فوق البركر */
 @keyframes wall-aside {
-  0%, 28.71% { opacity: 0; transform: translate3d(0, 0.5em, 0); }
-  30.43% { opacity: 1; transform: translate3d(0, 0, 0); }
-  33.77% { opacity: 1; transform: translate3d(0, 0, 0); }
-  34.29%, 100% { opacity: 0; transform: translate3d(0, 0, 0); }
+  0%, 28.71% { opacity: 0; transform: translate3d(-50%, 0.5em, 0); }
+  30.43% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  33.77% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  34.29%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0); }
 }
+@keyframes wall-aside3 {
+  0%, 29.6% { opacity: 0; transform: translate3d(-50%, 0.5em, 0); }
+  31.3% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  33.77% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  34.29%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0); }
+}
+
 @keyframes wall-aside2 {
-  0%, 36.86% { opacity: 0; transform: translate3d(0, 0.5em, 0); }
-  38.57% { opacity: 1; transform: translate3d(0, 0, 0); }
-  42% { opacity: 1; transform: translate3d(0, 0, 0); }
-  42.86%, 100% { opacity: 0; transform: translate3d(0, 0, 0); }
+  0%, 36.86% { opacity: 0; transform: translate3d(-50%, 0.5em, 0); }
+  38.57% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  42% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  42.86%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0); }
 }
 
 /* ═══ ٠٥ · الريزو تتطاير منه الحبّات  34.29% → 42.86% ═════════════════════════ */
