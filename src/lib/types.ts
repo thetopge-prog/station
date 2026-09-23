@@ -166,8 +166,10 @@ export type Database = {
       customers: {
         // address (0047): the last known delivery address, kept on the PERSON so
         // a regular is never asked where they live twice
-        Row: Timestamped & { card_serial: string; phone: string | null; name_ar: string | null; points: number; address: string | null; auto_seq: number | null };
-        Insert: { id?: string; card_serial?: string; phone?: string | null; name_ar?: string | null; points?: number; address?: string | null; created_at?: string };
+        // source (0102): من أي بابٍ دخل الزبون — «بوت واتساب»، «مكالمة»… يُكتب
+        // عند الإنشاء ولا يُبدَّل، فيُعرف من يصحّ مراسلته على واتساب ومن لا
+        Row: Timestamped & { card_serial: string; phone: string | null; name_ar: string | null; points: number; address: string | null; auto_seq: number | null; source: string | null };
+        Insert: { id?: string; card_serial?: string; phone?: string | null; name_ar?: string | null; points?: number; address?: string | null; created_at?: string; source?: string | null };
         Update: Partial<{ phone: string | null; name_ar: string | null; points: number; address: string | null; auto_seq: number | null }>;
         Relationships: [];
       };

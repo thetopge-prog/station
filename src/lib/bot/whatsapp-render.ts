@@ -28,12 +28,15 @@ export type WaMessage =
  * الويب يفعلها بضغطتين وبالصور، والرقم يُملأ من واتساب نفسه. فالبوت يستقبل
  * ويدلّ — والطلب هناك.
  */
-export function renderWelcome(hasSaved = false): WaMessage {
+export function renderWelcome(hasSaved = false, name: string | null = null): WaMessage {
+  // اسمه إن عرفناه — واتساب يعطينا اسم ملفّه، ومناداته به تفتح المحادثة.
+  // ولا يُنادى بلقبٍ اختاره لنفسه: `customerNameFrom` تردّ ما ليس اسماً
+  const hail = name ? `هلا ${name}! 🌟` : "هلا بيك!";
   return {
     type: "interactive",
     interactive: {
       type: "button",
-      body: { text: "🍔 *ستيشن* — هلا بيك!\nشلون تحب تطلب؟" },
+      body: { text: `🍔 *ستيشن* — ${hail}\nشلون تحب تطلب؟` },
       action: {
         buttons: [
           { type: "reply", reply: { id: "w|link", title: btn("🛵 المنيو بالصور") } },

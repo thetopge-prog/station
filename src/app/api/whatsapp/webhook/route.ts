@@ -5,6 +5,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/types";
 import { renderMenuLink, renderMessage, renderRateScale, renderReply, renderSavedOrders, renderWelcome, type WaMessage } from "@/lib/bot/whatsapp-render";
 import { isShopOpen } from "@/lib/cafe/shop-open";
+import { customerNameFrom } from "@/lib/cafe/wa-name";
 import { rateStep, type RateState } from "../../../../../supabase/functions/telegram-bot/rating-flow";
 import { savedOrderLabel, savedOrderToLines, type SavedOrder } from "../../../../../supabase/functions/telegram-bot/reorder";
 import { humanPause, TEXT_UNCLEAR, VOICE_UNCLEAR, understandAudio, understandSmart, type LlmBudget, type Parsed, type PhraseMemory } from "../../../../../supabase/functions/telegram-bot/llm";
@@ -230,6 +231,39 @@ async function knownCustomer(phone: string | null): Promise<Known> {
   }
 }
 
+/**
+ * أوّل رسالةٍ من رقمٍ جديد تكتبه في دفتر الزبائن — بلا أن ينتظر طلباً.
+ *
+ * الزبون الذي كتب «هلو» ثم انصرف كان يضيع: لا طلب فلا صفّ في الدفتر، ولا
+ * وسيلة لمعاودته. وواتساب يعطينا اسمه ورقمه في الرسالة الأولى نفسها، فتُكتب
+ * هنا قبل أي شيء آخر.
+ *
+ * والاسم لا يُستبدل إن كان الدفتر يحمل اسماً كتبه موظّف — ما كتبه إنسانٌ
+ * أصدق مما اختاره الزبون لملفّه. أمّا الأسماء التلقائية («عميل ستيشن ١٢»)
+ * فتُستبدل باسمٍ حقيقي متى عُرف.
+ *
+ * ويعيد الاسم الذي يُنادى به في التحيّة، أو `null` فتحيّةٌ عامّة.
+ */
+async function rememberCustomer(waId: string, profileName: string | null): Promise<string | null> {
+  const phone = normalizeIraqiPhone(waId);
+  const name = customerNameFrom(profileName);
+  if (!phone) return name;
+  try {
+    const svc = createSupabaseServiceClient();
+    const { data } = await svc.from("customers").select("id, name_ar").eq("phone", phone).maybeSingle();
+    const auto = (n: string | null) => !n || /^عميل ستيشن/.test(n.trim());
+    if (!data) {
+      await svc.from("customers").insert({ phone, name_ar: name, source: "بوت واتساب" });
+    } else if (name && auto(data.name_ar)) {
+      await svc.from("customers").update({ name_ar: name }).eq("id", data.id);
+    }
+    // اسم الدفتر يسبق اسم الملفّ: كتبه موظّفٌ عن معرفة
+    return (!auto(data?.name_ar ?? null) ? (data?.name_ar ?? null) : null) ?? name;
+  } catch {
+    return name;
+  }
+}
+
 async function submitOrder(waId: string, order: OrderPayload): Promise<void> {
   const secret = process.env.STATION_WEBHOOK_SECRET;
   if (!secret) return void sendText(waId, "⚠️ المطعم لم يُفعّل الطلب عبر واتساب بعد.");
@@ -368,9 +402,11 @@ async function handoff(waId: string, text: string, ui: Ui | null, msgId: string 
   }
 }
 
-async function turn(msg: WaMsg): Promise<void> {
+async function turn(msg: WaMsg, profileName: string | null = null): Promise<void> {
   const waId = String(msg.from ?? "");
   if (!waId) return;
+  // يُحفظ الاسم أوّلاً فيراه دفتر الزبائن ولو انقطعت المحادثة بعد حرف
+  const hailName = await rememberCustomer(waId, profileName);
 
   const [prev, ui] = await Promise.all([readState<State>(key(waId), STATE_TTL_MS), readState<Ui>(uiKey(waId))]);
   // واتساب يعيد إرسال ما لم يُجَب عنه بسرعة — رسالة مرّتين تعني طلباً مرّتين
@@ -426,7 +462,7 @@ async function turn(msg: WaMsg): Promise<void> {
     const welcome = async () => {
       await writeState(uiKey(waId), { ...(ui ?? { buttons: [], text: "" }), lastMsgId: msg.id });
       await humanPause();
-      await send(waId, renderWelcome((await savedOrders(waId)).length > 0));
+      await send(waId, renderWelcome((await savedOrders(waId)).length > 0, hailName));
     };
     // تحيّة صِرفة → الترحيب. أما «أريد أطلب ٢ زنجر» فليست تحيّة: تُفهم أولاً
     const pureGreeting = !t || t.length <= 2 || /^\/?(start|order)\b/i.test(t) || /^(مرحبا|مرحباً|هلا|هلو|السلام عليكم|السلام|سلام|hi|hello|hey|صباح الخير|مساء الخير)\s*[!.؟?]*$/i.test(t);
@@ -586,14 +622,19 @@ export async function POST(req: Request) {
     let seen = 0;
     try {
       const body = JSON.parse(raw) as {
-        entry?: { changes?: { value?: { messages?: WaMsg[]; statuses?: WaStatus[] } }[] }[];
+        entry?: { changes?: { value?: { messages?: WaMsg[]; statuses?: WaStatus[]; contacts?: { wa_id?: string; profile?: { name?: string } }[] } }[] }[];
       };
       const states: string[] = [];
       for (const entry of body.entry ?? []) {
         for (const change of entry.changes ?? []) {
+          // اسم الزبون يأتي في `contacts` لا مع الرسالة — يُربط برقمه هنا
+          const names = new Map<string, string>();
+          for (const c of change.value?.contacts ?? []) {
+            if (c.wa_id && c.profile?.name) names.set(c.wa_id, c.profile.name);
+          }
           for (const msg of change.value?.messages ?? []) {
             seen++;
-            await turn(msg);
+            await turn(msg, names.get(String(msg.from ?? "")) ?? null);
           }
           for (const st of change.value?.statuses ?? []) states.push(describeStatus(st));
         }
