@@ -133,7 +133,9 @@ export function WallCanvas({
                 })
                 .catch(function(){});
             }
-            sync(); setInterval(sync, 120000);
+            // إلّا حين تُجمَّد اللوحة بـ`?t=` للفحص: المزامن يجرّها إلى الآن
+            // فيضيع التجميد، ويصير إثبات الاتّصال بين الشاشات مستحيلاً
+            if (location.search.indexOf('t=') < 0) { sync(); setInterval(sync, 120000); }
             // وتجديدٌ كامل كل عشر دقائق بعنوانٍ لم يره الخزين — يلتقط أي نشرٍ
             // جديد، ويُخرج الصفحة من أي حالةٍ عَلِقت فيها
             setTimeout(function(){
