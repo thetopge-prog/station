@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { WALL_COPY } from "@/lib/cafe/wall";
+import { WALL_COPY, WALL_MENU, WALL_SERVICES } from "@/lib/cafe/wall";
 
 /**
  * مشاهد الجدار — ترميزٌ للتصميم لا منطق.
@@ -10,196 +10,208 @@ import { WALL_COPY } from "@/lib/cafe/wall";
  *
  * والمواضع كلّها **مطلقة بـ`vw` من يسار اللوحة**: `50vw` منتصف الشاشة الأولى،
  * و`200vw` مركز الجدار (حدّ الشاشتين الوسطى، حيث يقف الناظر)، و`400vw` طرفه.
- * لا تخطيطَ مرناً ولا نِسَبَ عناصر — النسبة في `translate` تُحسب من عرض العنصر
- * نفسه لا من الشاشة، فكلمةٌ صغيرة تبقى مكانها مهما كتبتَ.
  */
 
 /** مركز الجدار: حدّ الشاشتين ٢ و٣ */
 const MID = "200vw";
 
 /** ارتفاع الخطّ الرئيسي — بالارتفاع لا بالعرض، فلا يتضخّم على جدارٍ أعرض */
-const H1 = "22vh";
+const H1 = "20vh";
 
-/**
- * كم يُمطّ حرف التطويل.
- *
- * الحرف الواحد عرضه نحو نصف ارتفاع الخطّ، والمطلوب أن يملأ ما بين الشطرين.
- * الرقم يُضبط بالعين مرّة على الجدار، ومكتوبٌ هنا باسمه لا رقماً سحرياً في
- * ملفّ الأنماط.
- */
-const TATWEEL_SCALE = 150;
+/** منتصف كل شاشة — عليه تُبنى المشاهد التي تعطي كل شاشةٍ محتواها */
+const CENTERS = ["50vw", "150vw", "250vw", "350vw"];
 
 export function WallScenes() {
   return (
     <>
-      <SceneName />
       <SceneLockup />
-      <SceneFood />
+      <SceneSystem />
+      <SceneMenu />
       <SceneBurger />
+      <SceneRizo />
+      <SceneServices />
       <SceneFresh />
       <SceneClean />
       <SceneBoard />
       <SceneStrip />
+      {/* السهم آخر شيء فيمرّ فوق الجميع */}
+      <Arrow />
     </>
   );
 }
 
 /**
- * ٠١ — «المحطة» تدخل في مركز الجدار على فراغٍ واسع.
+ * السهم الرابط بين الشاشات.
  *
- * فراغٌ كبير عمداً: الجمهور يقرأ من بعيد، والمشهد المزدحم من تلك المسافة
- * ضجيجٌ لا رسالة.
+ * عنصرٌ واحد يخرج من الشاشة الأولى ويدخل الثانية ثم الثالثة ثم الرابعة عند
+ * كل انتقال. وهو ما يجعل العين تقرأ الأربع لوحةً واحدة: الحدّ ليس نهايةَ
+ * شيء، بل شيءٌ يعبره أمامك.
  */
-function SceneName() {
+function Arrow() {
   return (
-    <div className="wall-scene">
-      <span className="wall-anim wall-display" style={{ ...at(MID), fontSize: H1, animationName: "wall-name" }}>
-        {WALL_COPY.name}
-      </span>
+    <div className="wall-scene" style={{ pointerEvents: "none" }}>
+      <span className="wall-anim wall-arrow" style={{ left: 0, top: "46%", animationName: "wall-arrow" }} />
     </div>
   );
 }
 
 /**
- * ٠٢–٠٤ — التمدّد، ثم «تفزعلك» فوقها، ثم سفر التكوين.
+ * ٠١ — «المحطة تفزعلك».
  *
- * ثلاثة مشاهد في طبقةٍ واحدة لأنها حركةٌ واحدة متّصلة: الكلمة نفسها تتمدّد
- * فيُختم فوقها فتسافر. فصلُها لأدّى إلى وميضٍ عند كل انتقال.
- *
- * والشطران ينفتحان كما لو ضُغط التطويل بينهما: «المحـ» تنزلق يميناً و«ـطة»
- * يساراً، وحرف «ـ» بينهما يُمطّ. الثلاثة من الخطّ نفسه وعلى خطّ الأساس نفسه،
- * فلا يُرى إلا كلمةً واحدة استطالت — لا خطّاً برتقالياً وُضع تحتها.
+ * الاسم والوعد **جنباً إلى جنب**، تكويناً واحداً كما على العلبة. وكان الاسم
+ * يُمطّ بتطويلٍ عبر الشاشات الأربع فبدا نشازاً — الحرف الممدود على أربعة
+ * أمتار خطٌّ لا كلمة.
  */
 function SceneLockup() {
   return (
-    // طبقةٌ تحمل سفر التكوين كلّه، وأبناؤها يتحرّكون داخلها
-    <div className="wall-scene wall-anim" style={{ animationName: "wall-lockup" }}>
-      {/* الظهور والاختفاء على هذا الغلاف، وحركة الأجزاء على أبنائه: خاصيّة
-          `transform` واحدة لا تحتمل حركتين معاً */}
-      <div className="wall-anim" style={{ ...at(MID), animationName: "wall-word" }}>
-        <span style={{ position: "relative", display: "block", fontSize: H1, width: 0, height: "1em" }}>
-          <Part text={WALL_COPY.nameHead} anim="wall-head" />
-
-          {/* حرف التطويل نفسه، مُمطّاً. لا شريطَ مرسوماً: هذا ما يُكتب بـ
-              Shift+J، وسماكته ووصله بالحاء والطاء من الخطّ لا من تقديرنا */}
-          <span
-            className="wall-anim wall-display"
-            style={
-              {
-                position: "absolute",
-                left: 0,
-                top: 0,
-                transformOrigin: "50% 50%",
-                animationName: "wall-tatweel",
-                ["--tw-max"]: TATWEEL_SCALE,
-              } as CSSProperties
-            }
-          >
-            {WALL_COPY.tatweel}
-          </span>
-
-          <Part text={WALL_COPY.nameTail} anim="wall-tail" />
+    <div className="wall-scene">
+      <div style={{ ...at(MID), display: "flex", alignItems: "baseline", gap: "3vw", transform: "translateX(-50%)" }}>
+        {/* اللوحة `dir="rtl"` فأوّل ابنٍ يقع يميناً — والاسم يُقرأ أولاً */}
+        <span className="wall-anim wall-display" style={{ fontSize: H1, animationName: "wall-name" }}>
+          {WALL_COPY.name}
+        </span>
+        <span className="wall-anim wall-stamp" style={{ fontSize: `calc(${H1} * 1.5)`, animationName: "wall-verb" }}>
+          {WALL_COPY.verb}
         </span>
       </div>
-
-      {/* «تفزعلك» فوق الاسم وأكبر منه — كما على ملصقات المحطة: الاسم يُعرَف،
-          والوعد هو ما يُقرأ من آخر الصالة. وحولها نجومٌ ترتعش من زينة الملصق */}
-      <span
-        className="wall-anim wall-stamp"
-        style={{
-          position: "absolute",
-          left: MID,
-          top: `calc(50% - ${H1} * 1.75)`,
-          fontSize: `calc(${H1} * 1.4)`,
-          display: "block",
-          animationName: "wall-verb",
-        }}
-      >
-        {WALL_COPY.verb}
-      </span>
-      <Star x="178vw" y={`calc(50% - ${H1} * 2.05)`} size="2.6vh" />
-      <Star x="224vw" y={`calc(50% - ${H1} * 2.15)`} size="3.4vh" />
-      <Star x="207vw" y={`calc(50% - ${H1} * 0.62)`} size="2.2vh" />
-      <Star x="191vw" y={`calc(50% - ${H1} * 0.55)`} size="1.8vh" />
+      <Star x="176vw" y="24%" size="3vh" />
+      <Star x="228vw" y="21%" size="3.8vh" />
+      <Star x="205vw" y="70%" size="2.4vh" />
     </div>
   );
 }
 
 /**
- * ٠٥ — الطعام يتداخل مع الحروف.
+ * ٠٢ — صور المحلّ تملأ الجدار.
  *
- * البركر يمرّ **أمام** الاسم كبيراً وسريعاً، والريزو **خلفه** أصغر وأبطأ،
- * والدجاجة تعبر شاشتين. اختلافُ السرعة مع اختلاف الحجم هو العمق — parallax
- * حقيقي بلا مرشّحٍ ضبابي يتعثّر به التلفزيون.
+ * ثمانِ بطاقاتٍ تدخل من اليسار إلى اليمين فتمتلئ الشاشات الأربع تباعاً.
+ * والصور من ملصقات المحلّ نفسه (`public/posters`) لا من مخزونٍ مشترى — وهي
+ * الصور الموجودة في المشروع أصلاً.
  */
-function SceneFood() {
+const POSTERS: (number | string)[] = [1, 2, 3, 4, 5, 6, 7, "m1"];
+
+function SceneSystem() {
   return (
     <div className="wall-scene">
-      {/* الخلف أولاً، فالاسم، فالأمام — ترتيب الرسم هو ترتيب العمق */}
-      <Food src="rizo.webp" anim="wall-pass-back" size="62vh" y="16%" />
-      <span
-        className="wall-anim wall-display"
-        style={{ position: "absolute", left: MID, top: "50%", marginTop: "-0.5em", display: "block", fontSize: `calc(${H1} * 0.95)`, animationName: "wall-word-bg" }}
-      >
-        {WALL_COPY.name}
-      </span>
-      <Food src="chicken.webp" anim="wall-pass-mid" size="52vh" y="46%" />
-      <Food src="burger-whole.webp" anim="wall-pass-front" size="88vh" y="18%" />
+      {POSTERS.map((p, i) => (
+        <span
+          key={String(p)}
+          className="wall-anim"
+          style={{
+            position: "absolute",
+            // ثمانٍ على أربع شاشات: بطاقتان لكل شاشة
+            left: `${5 + i * 49}vw`,
+            top: "14%",
+            width: "44vw",
+            height: "72%",
+            overflow: "hidden",
+            borderRadius: "1.6vh",
+            animationName: "wall-card",
+            // كلٌّ تدخل بعد التي قبلها. و`animation-delay` محجوزٌ لطور الدورة،
+            // فالتتابع يُصنع بمنحنى توقيتٍ مختلف لا بتأخيرٍ ثانٍ
+            animationTimingFunction: `cubic-bezier(${(0.2 + i * 0.07).toFixed(2)}, 0.7, 0.3, 1)`,
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={`/posters/${p}.jpg`} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        </span>
+      ))}
     </div>
   );
 }
 
 /**
- * ٠٦ — تجميع البركر.
+ * ٠٣ — أقسام المنيو مكتوبة.
  *
- * ستّ طبقاتٍ تدخل من جهاتٍ مختلفة من الجدار — من الشاشة الأولى، ومن الرابعة،
- * ومن الأعلى — ثم تستقرّ في المركز بالترتيب من الأسفل إلى الأعلى. وكلّها في
- * الموضع الأفقي نفسه، فتنطبق طبقةً على طبقة كما صُوّرت.
+ * مكتوبةٌ لا مصوَّرة: صورةُ طعامٍ تمرّ بلا اسمٍ تبدو عشوائية، والاسم يقول
+ * للواقف ما الذي يُباع هنا. والأقسام هي المفعَّلة نفسها في المنيو.
  */
-const BURGER_W = 56;
+function SceneMenu() {
+  return (
+    <div className="wall-scene">
+      <span
+        className="wall-anim wall-stamp"
+        style={{ position: "absolute", left: MID, top: "16%", fontSize: `calc(${H1} * 1.1)`, display: "block", animationName: "wall-menu-title" }}
+      >
+        {WALL_COPY.menuTitle}
+      </span>
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          top: "46%",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          gap: "5vw",
+        }}
+      >
+        {WALL_MENU.map((c, i) => (
+          <span
+            key={c}
+            className="wall-anim wall-display"
+            style={{
+              fontSize: `calc(${H1} * 0.92)`,
+              animationName: "wall-menu-item",
+              animationTimingFunction: `cubic-bezier(${(0.15 + i * 0.07).toFixed(2)}, 0.8, 0.25, 1)`,
+            }}
+          >
+            {c}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 /**
- * ترتيب بناء البركر وموضع كل طبقة.
+ * ٠٤ — البركر يتفكّك.
  *
- * `file` ليس بترتيب أرقام الملفّات: أرقامُ التصدير ليست ترتيبَ الأكل. الترتيب
- * هنا كما يُركَّب في اليد — خبزةٌ سفلى، فالقطعة، فالجبن، فالطماطة، فالخسّ،
- * فالخبزة العليا.
+ * يبدأ بركراً كاملاً كما يُقدَّم للزبون، ثم تنفصل طبقاته الستّ وتتباعد عبر
+ * الشاشات فيُرى ما بداخله. عكسُ ما يفعله إعلانٌ عادي، ولذلك يُشاهَد.
  *
- * و`bottom` ارتفاعُ قاعدة الطبقة فوق قاعدة البركر بوحدة `vh`. الطبقات مقصوصةٌ
- * إلى محتواها في `scripts/wall-assets.mjs`، فارتفاع كلٍّ منها = العرض ÷ نسبتها،
- * وهذه الأرقام محسوبةٌ منها بتداخلٍ يسير بين كل طبقةٍ وما تحتها.
- *
- * وقبل القصّ كانت الطبقات تُوسَّط رأسياً جميعاً، فتتكوّم مراكزها في مكانٍ واحد
- * بدل أن تُبنى بركراً — وهو ما رآه المالك.
+ * والمدى لكل طبقة في `--lx` و`--ly`، فتتفرّق في جهاتٍ مختلفة بإطارٍ واحد
+ * لا ستّة.
  */
-const BURGER_STACK = [
-  { file: 1, bottom: 0 },
-  { file: 4, bottom: 11 },
-  { file: 2, bottom: 23 },
-  { file: 3, bottom: 33 },
-  { file: 5, bottom: 38 },
-  { file: 6, bottom: 48 },
+const BURGER_SPREAD = [
+  { file: 1, x: "0vw", y: "30vh" },
+  { file: 4, x: "-22vw", y: "15vh" },
+  { file: 2, x: "22vw", y: "4vh" },
+  { file: 3, x: "-42vw", y: "-9vh" },
+  { file: 5, x: "42vw", y: "-20vh" },
+  { file: 6, x: "0vw", y: "-34vh" },
 ];
 
 function SceneBurger() {
   return (
     <div className="wall-scene">
-      {BURGER_STACK.map((l, i) => (
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        className="wall-anim"
+        src="/wallimg/burger-whole.webp"
+        alt=""
+        style={{ position: "absolute", left: MID, top: "50%", width: "84vh", marginTop: "-42vh", animationName: "wall-whole" }}
+      />
+      {BURGER_SPREAD.map((l) => (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           key={l.file}
           className="wall-anim"
           src={`/wallimg/burger-${l.file}.webp`}
           alt=""
-          style={{
-            position: "absolute",
-            left: MID,
-            // من أسفل الشاشة لا من وسطها: البركر يُبنى على قاعدةٍ واحدة
-            bottom: `calc(13vh + ${l.bottom}vh)`,
-            width: `${BURGER_W}vh`,
-            // ترتيب الوصول يتبع ترتيب البناء لا ترتيب الملفّات
-            animationName: `wall-l${i + 1}`,
-          }}
+          style={
+            {
+              position: "absolute",
+              left: MID,
+              top: "50%",
+              width: "72vh",
+              marginTop: "-12vh",
+              animationName: "wall-layer",
+              ["--lx"]: l.x,
+              ["--ly"]: l.y,
+            } as CSSProperties
+          }
         />
       ))}
     </div>
@@ -207,65 +219,127 @@ function SceneBurger() {
 }
 
 /**
- * ٠٧ — «كل شيء طازج / ومن الرمادي».
+ * ٠٥ — الريزو تتطاير منه الحبّات.
  *
- * سطران: الأول يظهر لحظةَ انطباق آخر طبقة، والثاني بعد حركةٍ قصيرة. والكلمتان
- * المميَّزتان أكبر — فتُقرأ الرسالة من بعيد ولو فات الناظرَ باقي السطر.
+ * الطبق في المركز، ومنه تخرج حبّات الرزّ وقطع الدجاج إلى جهاتٍ مختلفة عبر
+ * الشاشات. المدى لكل حبّة في متغيّرات، فإطارٌ واحد يخدمها جميعاً.
  */
-function SceneFresh() {
+const GRAINS = [
+  { img: "rice.webp", h: "17vh", x: "-58vw", y: "-18vh", r: "-24deg" },
+  { img: "chicken.webp", h: "30vh", x: "-34vw", y: "-28vh", r: "18deg" },
+  { img: "rice.webp", h: "13vh", x: "-16vw", y: "-34vh", r: "40deg" },
+  { img: "chicken.webp", h: "26vh", x: "20vw", y: "-30vh", r: "-30deg" },
+  { img: "rice.webp", h: "19vh", x: "44vw", y: "-20vh", r: "12deg" },
+  { img: "chicken.webp", h: "28vh", x: "66vw", y: "-6vh", r: "-14deg" },
+  { img: "rice.webp", h: "15vh", x: "-70vw", y: "8vh", r: "30deg" },
+  { img: "rice.webp", h: "12vh", x: "82vw", y: "12vh", r: "-40deg" },
+];
+
+function SceneRizo() {
   return (
     <div className="wall-scene">
-      <Line anim="wall-fresh1" y={`calc(50% - ${H1} * 1.45)`} text={WALL_COPY.freshTop} accent={WALL_COPY.freshAccentTop} />
-      <Line anim="wall-fresh2" y={`calc(50% + ${H1} * 0.55)`} text={WALL_COPY.freshBottom} accent={WALL_COPY.freshAccentBottom} />
+      {GRAINS.map((g, i) => (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          key={i}
+          className="wall-anim"
+          src={`/wallimg/${g.img}`}
+          alt=""
+          style={
+            {
+              position: "absolute",
+              left: MID,
+              top: "44%",
+              height: g.h,
+              width: "auto",
+              animationName: "wall-grain",
+              animationTimingFunction: `cubic-bezier(${(0.12 + i * 0.05).toFixed(2)}, 0.85, 0.3, 1)`,
+              ["--gx"]: g.x,
+              ["--gy"]: g.y,
+              ["--gr"]: g.r,
+            } as CSSProperties
+          }
+        />
+      ))}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        className="wall-anim"
+        src="/wallimg/rizo.webp"
+        alt=""
+        style={{ position: "absolute", left: MID, top: "50%", height: "56vh", marginTop: "-22vh", animationName: "wall-plate" }}
+      />
     </div>
   );
 }
 
 /**
- * ٠٨–٠٩ — المسح ورسالة النظافة.
+ * ٠٦ — كيف تطلب.
+ *
+ * أربع بطاقات، **واحدةٌ لكل شاشة** — فيقرأ الواقف أمام أي شاشةٍ طريقةً كاملة
+ * لا نصفَ جملة. وهي أوضاع الاستلام نفسها في النظام، لا وعودٌ على جدار.
+ */
+function SceneServices() {
+  return (
+    <div className="wall-scene">
+      {WALL_SERVICES.map((s, i) => (
+        <div
+          key={s.title}
+          className="wall-anim"
+          style={{
+            position: "absolute",
+            left: CENTERS[i],
+            top: "50%",
+            transform: "translateX(-50%)",
+            marginTop: "-12vh",
+            textAlign: "center",
+            animationName: "wall-svc",
+            animationTimingFunction: `cubic-bezier(${(0.18 + i * 0.1).toFixed(2)}, 0.8, 0.3, 1)`,
+          }}
+        >
+          <span className="wall-stamp" style={{ display: "block", fontSize: `calc(${H1} * 0.62)` }}>
+            {s.title}
+          </span>
+          <span className="wall-display" style={{ display: "block", marginTop: "2.5vh", fontSize: `calc(${H1} * 0.4)` }}>
+            {s.hint}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** ٠٧ — «كل شيء طازج / ومن الرمادي» */
+function SceneFresh() {
+  return (
+    <div className="wall-scene">
+      <Line anim="wall-fresh1" y={`calc(50% - ${H1} * 1.5)`} text={WALL_COPY.freshTop} accent={WALL_COPY.freshAccentTop} />
+      <Line anim="wall-fresh2" y={`calc(50% + ${H1} * 0.5)`} text={WALL_COPY.freshBottom} accent={WALL_COPY.freshAccentBottom} />
+    </div>
+  );
+}
+
+/**
+ * ٠٨ — المسح ورسالة النظافة.
  *
  * الجدار كلّه ينقلب إلى فاتحٍ هادئ: الإيقاع يتغيّر تماماً قبل رسالةٍ عن
- * الشفافية، فلا تُقال بلهجة إعلانٍ عن طعام. والمسح يزحف من اليمين لأن العربية
- * تُقرأ من اليمين.
+ * الشفافية، فلا تُقال بلهجة إعلانٍ عن طعام.
  */
 function SceneClean() {
   return (
     <div className="wall-scene" style={{ overflow: "hidden" }}>
       <div
         className="wall-anim"
-        style={{
-          position: "absolute",
-          top: 0,
-          right: 0,
-          bottom: 0,
-          left: 0,
-          background: "#fffdfb",
-          animationName: "wall-wipe",
-        }}
+        style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, background: "#fffdfb", animationName: "wall-wipe" }}
       />
       <span
         className="wall-anim"
-        style={{
-          ...at(MID),
-          fontSize: `calc(${H1} * 1.35)`,
-          fontWeight: 900,
-          color: "#2c1e16",
-          whiteSpace: "nowrap",
-          animationName: "wall-clean1",
-        }}
+        style={{ ...at(MID), fontSize: `calc(${H1} * 1.3)`, fontWeight: 900, color: "#2c1e16", whiteSpace: "nowrap", animationName: "wall-clean1" }}
       >
         {WALL_COPY.cleanLead}
       </span>
       <span
         className="wall-anim"
-        style={{
-          ...at(MID),
-          fontSize: `calc(${H1} * 0.92)`,
-          fontWeight: 900,
-          color: "#b63f06",
-          whiteSpace: "nowrap",
-          animationName: "wall-clean2",
-        }}
+        style={{ ...at(MID), fontSize: `calc(${H1} * 0.9)`, fontWeight: 900, color: "#b63f06", whiteSpace: "nowrap", animationName: "wall-clean2" }}
       >
         {WALL_COPY.cleanBody}
       </span>
@@ -273,12 +347,7 @@ function SceneClean() {
   );
 }
 
-/**
- * ١٠ — اللوحة الرقمية.
- *
- * أربع كتلٍ لونية تصعد فتبني لوحةً معاصرة: برتقالي وكاكاوي ومحايد، وصورةٌ في
- * كل كتلة وكلمةٌ واحدة. ليست شاشة أسعار — لا رقم فيها.
- */
+/** ٠٩ — اللوحة الرقمية: أربع كتلٍ لونية، واحدةٌ لكل شاشة. ليست شاشة أسعار */
 const BOARD = [
   { x: "0vw", bg: "#2c1e16", img: "burger-whole.webp", word: "بركر" },
   { x: "100vw", bg: "#fffdfb", img: "rizo.webp", word: "ريزو" },
@@ -289,7 +358,7 @@ const BOARD = [
 function SceneBoard() {
   return (
     <div className="wall-scene">
-      {BOARD.map((b) => (
+      {BOARD.map((b, i) => (
         <div
           key={b.x}
           className="wall-anim"
@@ -302,21 +371,22 @@ function SceneBoard() {
             background: b.bg,
             overflow: "hidden",
             animationName: "wall-block",
+            animationTimingFunction: `cubic-bezier(${(0.2 + i * 0.08).toFixed(2)}, 0.8, 0.3, 1)`,
           }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={`/wallimg/${b.img}`}
             alt=""
-            style={{ position: "absolute", left: "50%", top: "42%", width: "64vh", marginLeft: "-32vh", marginTop: "-32vh" }}
+            style={{ position: "absolute", left: "50%", top: "42%", width: "60vh", marginLeft: "-30vh", marginTop: "-30vh" }}
           />
           <span
             style={{
               position: "absolute",
               left: "50%",
-              bottom: "8%",
+              bottom: "9%",
               transform: "translateX(-50%)",
-              fontSize: `calc(${H1} * 0.62)`,
+              fontSize: `calc(${H1} * 0.66)`,
               fontWeight: 900,
               color: b.bg === "#fffdfb" ? "#2c1e16" : "#ffffff",
               whiteSpace: "nowrap",
@@ -330,20 +400,13 @@ function SceneBoard() {
   );
 }
 
-/**
- * ١١ — الشريط المستمرّ.
- *
- * أطعمةٌ تمرّ بأحجامٍ مختلفة: كبيرةٌ جداً، وأصغر، ونصفُ ظاهرة — فلا يبدو شريط
- * صورٍ متساوية. القائمة مكرّرة مرّتين والإزاحة `-50%` بالضبط، فيعود إلى نقطة
- * البداية بلا قفزة: نفس حيلة `st-drift` القائمة في `globals.css`.
- */
+/** ١٠ — الشريط المستمرّ بأحجامٍ متفاوتة */
 const STRIP = [
-  { img: "burger-whole.webp", h: "86vh" },
-  { img: "rizo.webp", h: "54vh" },
-  { img: "chicken.webp", h: "72vh" },
-  { img: "burger-4.webp", h: "78vh" },
-  { img: "rice.webp", h: "38vh" },
-  { img: "burger-6.webp", h: "44vh" },
+  { img: "burger-whole.webp", h: "80vh" },
+  { img: "rizo.webp", h: "50vh" },
+  { img: "chicken.webp", h: "68vh" },
+  { img: "rizo-motion.webp", h: "44vh" },
+  { img: "rice.webp", h: "34vh" },
 ];
 
 function SceneStrip() {
@@ -360,7 +423,7 @@ function SceneStrip() {
           alignItems: "center",
           gap: "12vh",
           width: "max-content",
-          marginTop: "-44vh",
+          marginTop: "-42vh",
           animationName: "wall-strip",
         }}
       >
@@ -373,19 +436,6 @@ function SceneStrip() {
   );
 }
 
-/** صنفٌ يعبر الجدار */
-function Food({ src, anim, size, y }: { src: string; anim: string; size: string; y: string }) {
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      className="wall-anim"
-      src={`/wallimg/${src}`}
-      alt=""
-      style={{ position: "absolute", left: 0, top: y, height: size, width: "auto", animationName: anim }}
-    />
-  );
-}
-
 /** سطرٌ فيه كلمةٌ مميَّزة أكبر */
 function Line({ anim, y, text, accent }: { anim: string; y: string; text: string; accent: string }) {
   const [before, after] = text.split(accent);
@@ -395,7 +445,9 @@ function Line({ anim, y, text, accent }: { anim: string; y: string; text: string
       style={{ position: "absolute", left: MID, top: y, fontSize: H1, display: "block", animationName: anim }}
     >
       {before}
-      <span className="wall-stamp" style={{ fontSize: "1.5em" }}>{accent}</span>
+      <span className="wall-stamp" style={{ fontSize: "1.5em" }}>
+        {accent}
+      </span>
       {after}
     </span>
   );
@@ -409,23 +461,6 @@ function Star({ x, y, size }: { x: string; y: string; size: string }) {
       className="wall-anim wall-star"
       style={{ left: x, top: y, width: size, height: size, animationName: "wall-twinkle" }}
     />
-  );
-}
-
-/** شطرٌ من الاسم ينزلق إلى طرف الجدار */
-function Part({ text, anim }: { text: string; anim: string }) {
-  return (
-    <span
-      className="wall-anim wall-display"
-      style={{
-        position: "absolute",
-        left: 0,
-        top: 0,
-        animationName: anim,
-      }}
-    >
-      {text}
-    </span>
   );
 }
 

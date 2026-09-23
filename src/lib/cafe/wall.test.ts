@@ -13,7 +13,9 @@ import {
   SCREENS,
   sliceOffset,
   WALL_COPY,
+  WALL_MENU,
   WALL_NAME,
+  WALL_SERVICES,
 } from "./wall";
 
 /**
@@ -94,13 +96,8 @@ describe("تعويض الحافّة", () => {
 });
 
 describe("نصوص الجدار", () => {
-  it("شطرا الاسم — بنزع التطويل — يعودان الاسمَ نفسه", () => {
-    expect(WALL_NAME).toBe(WALL_COPY.name);
-  });
-
-  it("الشطران بصيغة الوصل، وإلا بدوا كلمتين لا كلمةً انفتحت", () => {
-    expect(WALL_COPY.nameHead.endsWith(WALL_COPY.tatweel)).toBe(true);
-    expect(WALL_COPY.nameTail.startsWith(WALL_COPY.tatweel)).toBe(true);
+  it("التكوين يُقرأ «المحطة تفزعلك»", () => {
+    expect(WALL_NAME).toBe("المحطة تفزعلك");
   });
 
   it("لا نصّ فارغ", () => {
@@ -110,6 +107,16 @@ describe("نصوص الجدار", () => {
   it("الكلمة المميَّزة جزءٌ من سطرها فعلاً", () => {
     expect(WALL_COPY.freshTop).toContain(WALL_COPY.freshAccentTop);
     expect(WALL_COPY.freshBottom).toContain(WALL_COPY.freshAccentBottom);
+  });
+
+  it("أقسام المنيو وطرق الطلب مكتوبة لا فارغة", () => {
+    expect(WALL_MENU.length).toBeGreaterThan(3);
+    for (const c of WALL_MENU) expect(c.trim()).not.toBe("");
+    expect(WALL_SERVICES).toHaveLength(SCREENS);
+    for (const s of WALL_SERVICES) {
+      expect(s.title.trim()).not.toBe("");
+      expect(s.hint.trim()).not.toBe("");
+    }
   });
 });
 
@@ -164,17 +171,17 @@ describe("جدول المشاهد", () => {
 
   it("البدايات تُشتقّ متتابعة من الصفر", () => {
     const starts = sceneStarts();
-    expect(starts.name).toBe(0);
-    expect(starts.stretch).toBe(SCENES[0].ms);
-    expect(starts.reveal).toBe(SCENES[0].ms + SCENES[1].ms);
+    expect(starts[SCENES[0].id]).toBe(0);
+    expect(starts[SCENES[1].id]).toBe(SCENES[0].ms);
+    expect(starts[SCENES[2].id]).toBe(SCENES[0].ms + SCENES[1].ms);
   });
 
   it("sceneAt يعطي المشهد الصحيح على حدوده", () => {
     const starts = sceneStarts();
-    expect(sceneAt(0).id).toBe("name");
-    expect(sceneAt(SCENES[0].ms - 1).id).toBe("name");
-    expect(sceneAt(SCENES[0].ms).id).toBe("stretch");
+    expect(sceneAt(0).id).toBe(SCENES[0].id);
+    expect(sceneAt(SCENES[0].ms - 1).id).toBe(SCENES[0].id);
+    expect(sceneAt(SCENES[0].ms).id).toBe(SCENES[1].id);
     expect(sceneAt(starts.burger).id).toBe("burger");
-    expect(sceneAt(LOOP_MS - 1).id).toBe("strip");
+    expect(sceneAt(LOOP_MS - 1).id).toBe(SCENES[SCENES.length - 1].id);
   });
 });
