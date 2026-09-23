@@ -39,6 +39,29 @@ import {
 
 export const dynamic = "force-dynamic";
 
+/**
+ * حدث حالة من Meta: أُرسلت؟ سُلّمت؟ قُرئت؟ أم فشلت ولماذا؟
+ *
+ * كانت تُسجَّل كلّها سطراً واحداً بلا تفصيل — «حدث بلا رسائل» — فحين قال المالك
+ * «أرسلت ولم يردّ» لم يكن في السجلّ ما يجيب. ورقم التجربة من Meta لا يُسلّم إلا
+ * إلى الأرقام المضافة يدوياً، وفشلُه يأتي هنا **حدثَ حالة لا خطأَ API**: أي
+ * بالضبط في السطر الذي كنّا نرميه. والرقم يُقصّ إلى آخر أربع خانات — يكفي
+ * لتمييز المستلم ولا يُفرغ دفتر أرقام الزبائن في سجلّ تشخيص.
+ */
+type WaStatus = {
+  status?: string;
+  recipient_id?: string;
+  errors?: { code?: number; title?: string; message?: string; error_data?: { details?: string } }[];
+};
+
+function describeStatus(st: WaStatus): string {
+  const who = st.recipient_id ? `…${st.recipient_id.slice(-4)}` : "—";
+  const err = st.errors?.[0];
+  const why = err ? ` (${err.code ?? "?"}: ${err.error_data?.details ?? err.title ?? err.message ?? "بلا تفصيل"})` : "";
+  return `${st.status ?? "؟"} → ${who}${why}`;
+}
+
+
 const GRAPH = "https://graph.facebook.com/v21.0";
 // trimmed: a value pasted into a dashboard field carries a trailing newline more
 // often than anyone admits, and an HMAC over the wrong secret fails silently
@@ -509,18 +532,21 @@ export async function POST(req: Request) {
   after(async () => {
     let seen = 0;
     try {
-      const body = JSON.parse(raw) as { entry?: { changes?: { value?: { messages?: WaMsg[] } }[] }[] };
+      const body = JSON.parse(raw) as {
+        entry?: { changes?: { value?: { messages?: WaMsg[]; statuses?: WaStatus[] } }[] }[];
+      };
+      const states: string[] = [];
       for (const entry of body.entry ?? []) {
         for (const change of entry.changes ?? []) {
-          // statuses (تسليم/قراءة) تصل هنا أيضاً ولا تعنينا
           for (const msg of change.value?.messages ?? []) {
             seen++;
             await turn(msg);
           }
+          for (const st of change.value?.statuses ?? []) states.push(describeStatus(st));
         }
       }
       // النجاح لا يحفظ الجسم: فيه رقم الزبون ونصّ رسالته، ولا يفيد التشخيص
-      await note(200, "", seen ? `${seen} رسالة عولجت` : "حدث بلا رسائل (حالة تسليم/قراءة)");
+      await note(200, "", seen ? `${seen} رسالة عولجت` : states.length ? states.join(" · ").slice(0, 300) : "حدث بلا رسائل");
     } catch (e) {
       await note(500, raw, e instanceof Error ? e.message.slice(0, 200) : "خطأ غير معروف");
     }

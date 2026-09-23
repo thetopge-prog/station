@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Tajawal, Pacifico } from "next/font/google";
+import { Tajawal, Pacifico, Noto_Kufi_Arabic } from "next/font/google";
 import "./globals.css";
 import { CafeUIProvider } from "@/components/CafeUIProvider";
 import { RegisterSW } from "@/components/RegisterSW";
@@ -20,6 +20,22 @@ const pacifico = Pacifico({
   subsets: ["latin"],
   weight: "400",
   variable: "--font-pacifico",
+  display: "swap",
+});
+
+/**
+ * الخطّ الكردي — للصفحة الكردية وحدها.
+ *
+ * Tajawal خطٌّ عربيٌّ لاتيني، وقياسُ الرسوم في المتصفّح أثبت أنه لا يملك
+ * ک گ ە ڕ ڵ ۆ ێ چ ژ — وهي في كل كلمة سورانية تقريباً. فكان المتصفّح يسقط
+ * بها **حرفاً حرفاً** إلى خطّ النظام بوزن آخر ووصلٍ مكسور، وهو ما رآه المالك.
+ * Noto Kufi Arabic يغطّيها كلّها (مقيسةً كذلك)، ويُحمَّل على `/ku` فقط:
+ * بقيّة النظام عربية ولا سبب لتحميل خطّ ثانٍ لها.
+ */
+const kurdish = Noto_Kufi_Arabic({
+  subsets: ["arabic"],
+  weight: ["400", "500", "700", "800", "900"],
+  variable: "--font-kurdish",
   display: "swap",
 });
 
@@ -55,7 +71,7 @@ export default async function RootLayout({
   // These are public values (anon key + URL) — safe to embed in the HTML.
   const publicEnv = getPublicSupabaseConfig();
   return (
-    <html lang="ar" dir="rtl" className={`${tajawal.variable} ${pacifico.variable} h-full antialiased`}>
+    <html lang="ar" dir="rtl" className={`${tajawal.variable} ${pacifico.variable} ${kurdish.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <script
           dangerouslySetInnerHTML={{

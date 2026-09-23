@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SITE, SITE_LANGS, type SiteLang } from "./copy";
+import { bcp47, SITE, SITE_LANGS, type SiteLang } from "./copy";
 
 /** وسوم الصفحة التعريفية لكل لغة: عنوانها، ووصفها، وأخواتها في اللغات الأخرى */
 export function siteMetadata(lang: SiteLang): Metadata {
@@ -10,7 +10,8 @@ export function siteMetadata(lang: SiteLang): Metadata {
     description: c.metaDescription,
     alternates: {
       canonical: path(lang),
-      languages: Object.fromEntries(SITE_LANGS.map((l) => [l, path(l)])),
+      // x-default للزائر الذي لا تطابق لغتُه أياً منها — وإلا اختار جوجل عنه
+      languages: { ...Object.fromEntries(SITE_LANGS.map((l) => [bcp47(l), path(l)])), "x-default": "/" },
     },
     openGraph: {
       title: c.metaTitle,

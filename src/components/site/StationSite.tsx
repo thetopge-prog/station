@@ -5,7 +5,7 @@ import { StationSmiley } from "@/components/cafe/Logo";
 import { FranchiseForm } from "./FranchiseForm";
 import { Reveal } from "./Reveal";
 import { HtmlLang } from "./HtmlLang";
-import { isRtl, LANG_LABEL, SITE, SITE_LANGS, type SiteLang } from "@/lib/site/copy";
+import { bcp47, isRtl, LANG_LABEL, SITE, SITE_LANGS, type SiteLang } from "@/lib/site/copy";
 
 /**
  * واجهة ستيشن على الإنترنت.
@@ -38,7 +38,11 @@ export function StationSite({ lang }: { lang: SiteLang }) {
   ] as const;
 
   return (
-    <div dir={rtl ? "rtl" : "ltr"} lang={lang} className="min-h-dvh overflow-x-hidden bg-background text-foreground">
+    <div
+      dir={rtl ? "rtl" : "ltr"}
+      lang={bcp47(lang)}
+      className={`min-h-dvh overflow-x-hidden bg-background text-foreground ${lang === "ku" ? "font-kurdish" : ""}`}
+    >
       <HtmlLang lang={lang} />
       {/* ── الترويسة ─────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-50 border-b border-border/70 bg-background/95 backdrop-blur-md">
@@ -67,7 +71,7 @@ export function StationSite({ lang }: { lang: SiteLang }) {
                   <li key={l}>
                     <Link
                       href={href(l)}
-                      hrefLang={l}
+                      hrefLang={bcp47(l)}
                       className={`block px-3 py-2 text-sm font-black transition hover:bg-secondary ${l === lang ? "text-primary" : ""}`}
                     >
                       {LANG_LABEL[l]}
@@ -118,7 +122,7 @@ export function StationSite({ lang }: { lang: SiteLang }) {
         </div>
       </section>
 
-      <Ticker items={c.ticker} />
+      <Ticker items={c.ticker} rtl={rtl} />
 
       {/* ── من نحن ───────────────────────────────────────────────────── */}
       <section id="about" className="mx-auto max-w-6xl scroll-mt-16 px-5 py-14">
@@ -388,12 +392,23 @@ function HeroDisc() {
   );
 }
 
-/** شريط ينساب بكلمات المطعم — يفصل الواجهة عمّا بعدها بلا خطّ ميت */
-function Ticker({ items }: { items: string[] }) {
-  const line = [...items, ...items];
+/**
+ * شريط ينساب بكلمات المطعم — يفصل الواجهة عمّا بعدها بلا خطّ ميت.
+ *
+ * والجهة تتبع اللغة: `translateX` إزاحةٌ فيزيائية لا يعكسها `dir`، فالشريط كان
+ * يمشي يساراً في اللغات الخمس — والعربية تُقرأ من اليمين، فالكلمات تدخل من
+ * الجهة الخطأ وتخرج قبل أن تُقرأ. `st-drift-rev` موجود أصلاً ويمشي يميناً.
+ *
+ * والترتيب يُعكس معه: الغلاف `dir="ltr"` هندسةٌ لازمة (صفٌّ مرن في RTL يمتدّ
+ * خارج الإطار فتُفرغه الإزاحة بدل أن تُدوّره)، لكنه يرسم العنصر الأول أقصى
+ * اليسار — فالقارئ العربي يبدأ من آخر الكلمات. عكسُ المصفوفة يردّها إلى نصابها.
+ */
+function Ticker({ items, rtl }: { items: string[]; rtl: boolean }) {
+  const one = rtl ? [...items].reverse() : items;
+  const line = [...one, ...one];
   return (
     <div aria-hidden dir="ltr" className="overflow-hidden border-y-2 border-primary/20 bg-primary/10 py-2.5">
-      <div className="flex w-max items-center gap-6 st-drift">
+      <div className={`flex w-max items-center gap-6 ${rtl ? "st-drift-rev" : "st-drift"}`}>
         {line.map((t, i) => (
           <span key={`${t}-${i}`} className="flex items-center gap-6 whitespace-nowrap text-sm font-black text-primary">
             {t}

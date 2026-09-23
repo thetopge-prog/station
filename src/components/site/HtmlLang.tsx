@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { isRtl, type SiteLang } from "@/lib/site/copy";
+import { bcp47, isRtl, type SiteLang } from "@/lib/site/copy";
 
 /**
  * لغة المستند على <html> نفسه.
@@ -19,7 +19,7 @@ export function HtmlLang({ lang }: { lang: SiteLang }) {
   useEffect(() => {
     const el = document.documentElement;
     const was = { lang: el.lang, dir: el.dir };
-    el.lang = lang;
+    el.lang = bcp47(lang);
     el.dir = isRtl(lang) ? "rtl" : "ltr";
     // CafeUIProvider يكتب لغة واجهة الموظّفين على <html> أيضاً — هذه الراية
     // تقول له إن الصفحة تملك لغتها، فيتركها

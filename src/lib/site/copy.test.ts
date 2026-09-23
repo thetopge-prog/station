@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isRtl, SITE, SITE_LANGS, type SiteCopy } from "./copy";
+import { bcp47, isRtl, SITE, SITE_LANGS, type SiteCopy } from "./copy";
 
 /**
  * لا نصّ ناقص على صفحة عامة: لو نسيت لغةٌ سطراً لظهر فراغ لزائر لا نعرف أنه زار.
@@ -33,5 +33,23 @@ describe("site copy — five languages, nothing missing", () => {
 
   it("writes Arabic and Kurdish right-to-left, the rest left-to-right", () => {
     expect(SITE_LANGS.filter(isRtl)).toEqual(["ar", "ku"]);
+  });
+});
+
+/**
+ * رمز اللغة المُعلَن ليس دائماً حرفَ المسار: `/ku` سوراني، ورمزه `ckb`.
+ */
+describe("bcp47", () => {
+  it("يعلن السوراني ckb لا ku", () => {
+    expect(bcp47("ku")).toBe("ckb");
+  });
+
+  it("يترك بقية اللغات كما هي", () => {
+    for (const l of SITE_LANGS) if (l !== "ku") expect(bcp47(l)).toBe(l);
+  });
+
+  it("لا يُصدر رمزين متطابقين", () => {
+    const codes = SITE_LANGS.map(bcp47);
+    expect(new Set(codes).size).toBe(codes.length);
   });
 });

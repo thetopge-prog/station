@@ -144,6 +144,8 @@
   --font-sans: var(--font-tajawal), "Tajawal", ui-sans-serif, system-ui, sans-serif;
   /* the Latin word "Station" only — Pacifico has no Arabic coverage */
   --font-script: var(--font-pacifico), "Pacifico", cursive;
+  /* السوراني: Tajawal لا يملك ک گ ە ڕ ڵ ۆ ێ چ ژ، وهذا يملكها */
+  --font-ku: var(--font-kurdish), "Noto Kufi Arabic", ui-sans-serif, system-ui, sans-serif;
 }
 
 * {
@@ -154,6 +156,12 @@ body {
   font-family: var(--font-sans);
   background: var(--background);
   color: var(--foreground);
+}
+
+/* الصفحة الكردية وحدها — وإلا حُمّل خطٌّ ثانٍ لنظامٍ عربيّ كلّه.
+   بلا `*`: الوراثة تكفي، و`.station-script` يبقى لاتينياً كما أُريد له. */
+.font-kurdish {
+  font-family: var(--font-ku);
 }
 
 /* ── Brand helpers ────────────────────────────────────────────────────────── */
