@@ -476,7 +476,7 @@ async function turn(msg: WaMsg, profileName: string | null = null): Promise<void
       }
       const a = await fetchAudio(msg);
       if (!a) return null;
-      const out = await understandAudio(a.audio, a.mime, await loadMenu(), keys, phraseMemory);
+      const out = await understandAudio(a.audio, a.mime, await loadMenu(), keys, phraseMemory, (m) => void note(200, "", `صوت: ${m}`));
       if (!out) await note(422, "", "الصوت نُزِّل ولم يُفهم — النموذج لم يُرجع طلباً");
       return out;
     })();

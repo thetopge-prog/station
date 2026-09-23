@@ -39,6 +39,15 @@ export type PhraseMemory = {
 export type LlmBudget = { take(): Promise<boolean> };
 
 /**
+ * مسربُ تشخيصٍ اختياري — يكتبه المنادي بحسب بيئته.
+ *
+ * طبقات الصوت تبتلع أخطاءها عمداً: رسالةٌ ضاعت لا تُسقط المحادثة. لكن
+ * الابتلاع الصامت جعل أربعة أعطالٍ مختلفة تظهر بجملةٍ واحدة، وكلّف يوماً.
+ * فما يُبتلع يُقال هنا، ولا يُغيَّر السلوك.
+ */
+export type LlmLog = (msg: string) => void;
+
+/**
  * ما يُعرَض للنموذج: رقمٌ قصير والاسم والأحجام بأسعارها — لا شيء غير المنيو.
  *
  * والرقم بدل المعرّف الكامل توفيرٌ محسوب: معرّف القاعدة ستّة وثلاثون حرفاً
@@ -297,7 +306,7 @@ function toBase64(buf: ArrayBuffer): string {
   return btoa(out);
 }
 
-export async function transcribe(audio: ArrayBuffer, mime: string, keys: LlmKeys, menu?: Menu): Promise<string | null> {
+export async function transcribe(audio: ArrayBuffer, mime: string, keys: LlmKeys, menu?: Menu, log?: LlmLog): Promise<string | null> {
   if (keys.groq) {
     try {
       const form = new FormData();
@@ -313,9 +322,12 @@ export async function transcribe(audio: ArrayBuffer, mime: string, keys: LlmKeys
         const j = (await res.json()) as { text?: string };
         const t = (j.text ?? "").trim();
         if (t) return t;
+        log?.("Groq فرّغ نصّاً فارغاً");
+      } else {
+        log?.(`Groq تفريغ ${res.status}: ${(await res.text()).slice(0, 160)}`);
       }
-    } catch {
-      /* الطبقة التالية */
+    } catch (e) {
+      log?.(`Groq تفريغ تعثّر: ${e instanceof Error ? e.message.slice(0, 120) : "?"}`);
     }
   }
   if (keys.gemini) {
@@ -344,7 +356,7 @@ export async function transcribe(audio: ArrayBuffer, mime: string, keys: LlmKeys
  * ويعيد JSON الطلب — أدقّ من «نصّ ثم فهم» مع المتكلّم السريع واللهجة. إن لم
  * ينجح: Whisper بمفردات المنيو ثم مسار النصّ المعتاد.
  */
-export async function understandAudio(audio: ArrayBuffer, mime: string, menu: Menu, keys: LlmKeys, memory?: PhraseMemory): Promise<Understood> {
+export async function understandAudio(audio: ArrayBuffer, mime: string, menu: Menu, keys: LlmKeys, memory?: PhraseMemory, log?: LlmLog): Promise<Understood> {
   if (keys.gemini) {
     try {
       const b64 = toBase64(audio);
@@ -357,7 +369,9 @@ export async function understandAudio(audio: ArrayBuffer, mime: string, menu: Me
         }),
         signal: AbortSignal.timeout(15000),
       });
-      if (res.ok) {
+      if (!res.ok) {
+        log?.(`Gemini صوت ${res.status}: ${(await res.text()).slice(0, 160)}`);
+      } else {
         const j = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
         const raw = j.candidates?.[0]?.content?.parts?.[0]?.text;
         const parsed = raw ? (JSON.parse(raw) as Parsed) : null;
@@ -366,14 +380,24 @@ export async function understandAudio(audio: ArrayBuffer, mime: string, menu: Me
           if (lines.length) return { lines };
           const reply = safeReply(parsed.reply);
           if (parsed.intent === "menu" && reply) return { intent: "menu", reply };
+          log?.(`Gemini سمع وردّ intent=${parsed.intent ?? "?"} بلا أصناف`);
+        } else {
+          log?.("Gemini ردّ بلا نصّ يُحلَّل");
         }
       }
-    } catch {
-      /* الطبقة التالية */
+    } catch (e) {
+      log?.(`Gemini صوت تعثّر: ${e instanceof Error ? e.message.slice(0, 120) : "?"}`);
     }
   }
-  const text = await transcribe(audio, mime, keys, menu);
-  return text ? understandSmart(text, menu, keys, memory) : null;
+  const text = await transcribe(audio, mime, keys, menu, log);
+  if (!text) {
+    log?.("لم يُفرَّغ الصوت نصّاً");
+    return null;
+  }
+  log?.(`فُرِّغ الصوت (${text.length} حرفاً): ${text.slice(0, 60)}`);
+  const out = await understandSmart(text, menu, keys, memory);
+  if (!out) log?.("النصّ المفرَّغ لم يُفهم طلباً");
+  return out;
 }
 
 /** ما يُقال حين لا يُفهم الصوت — لا تحويل لموظف من أول محاولة */
