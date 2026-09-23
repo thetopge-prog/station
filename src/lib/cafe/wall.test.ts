@@ -189,7 +189,7 @@ describe("جدول المشاهد", () => {
     expect(sceneAt(0).id).toBe(SCENES[0].id);
     expect(sceneAt(SCENES[0].ms - 1).id).toBe(SCENES[0].id);
     expect(sceneAt(SCENES[0].ms).id).toBe(SCENES[1].id);
-    expect(sceneAt(starts.burger).id).toBe("burger");
+    expect(sceneAt(starts.hero).id).toBe("hero");
     expect(sceneAt(LOOP_MS - 1).id).toBe(SCENES[SCENES.length - 1].id);
   });
 });

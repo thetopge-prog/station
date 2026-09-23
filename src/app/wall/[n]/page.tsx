@@ -34,6 +34,8 @@ const WALL_IMAGES = [
   "rizo.webp",
   "chicken.webp",
   ...[1, 2, 3, 4, 5, 6].map((n) => `pizza-${n}.webp`),
+  "bucket.webp",
+  ...[1, 2, 3, 4].map((n) => `kfc-${n}.webp`),
   // ملصقات المحل: في أعمدة الأطراف وفي مشهد الصور وفي الشريط. مصغَّرةٌ إلى
   // `wallimg/` — الأصل في `public/posters/` ١٫٤ ميغابايت، وهذه ٣٩٢ كيلوبايت
   ...[1, 2, 3, 4, 5, 6, 7].map((n) => `poster-${n}.webp`),

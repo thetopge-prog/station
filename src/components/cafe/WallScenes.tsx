@@ -262,10 +262,10 @@ function SceneBurger() {
           alt=""
           style={{
             position: "absolute",
-            left: MID,
+            left: CENTERS[1],
             // من أسفل الشاشة لا من وسطها: البركر يُبنى على قاعدةٍ واحدة
-            bottom: `calc(14vh + ${l.bottom}vh)`,
-            width: "58vh",
+            bottom: `calc(20vh + ${l.bottom}vh)`,
+            width: "52vh",
             animationName: "wall-drop",
             // التتابع بمنحنى التوقيت لا بتأخيرٍ ثانٍ — `animation-delay`
             // محجوزٌ لطور الدورة وحده
@@ -279,8 +279,21 @@ function SceneBurger() {
           الثانية والثالثة. كانا على ١٠٤ و٢٩٦ — أي على حدّي الشاشتين الوسطى —
           فتبقى الطرفيّتان برتقاليّتين فارغتين عشر ثوانٍ، ومن ينظر إليهما يقول
           «الشاشة لا تعمل». وقد قالها المالك فعلاً وهو ينظر إلى الرابعة. */}
-      <Aside x="50vw" title={WALL_COPY.burgerTitle} sub={WALL_COPY.burgerSub} />
-      <Aside x="350vw" anim="wall-aside3" title={WALL_COPY.burgerTitle2} sub={WALL_COPY.burgerSub2} />
+      {/* الكلام كلّه على الشاشة الأولى: الثلاث الباقيات للطعام وحده */}
+      <div className="wall-anim" style={{ position: "absolute", left: CENTERS[0], top: "50%", transform: "translate(-50%, -50%)", textAlign: "center", animationName: "wall-aside" }}>
+        <span className="wall-stamp" style={{ display: "block", fontSize: `calc(${H1} * 0.7)` }}>
+          {WALL_COPY.heroTitle}
+        </span>
+        <span className="wall-display" style={{ display: "block", marginTop: "3vh", fontSize: `calc(${H1} * 0.4)` }}>
+          {WALL_COPY.burgerTitle}
+        </span>
+        <span className="wall-display" style={{ display: "block", marginTop: "1.4vh", fontSize: `calc(${H1} * 0.4)` }}>
+          {WALL_COPY.pizzaTitle}
+        </span>
+        <span className="wall-display" style={{ display: "block", marginTop: "1.4vh", fontSize: `calc(${H1} * 0.4)` }}>
+          {WALL_COPY.kfcTitle}
+        </span>
+      </div>
     </div>
   );
 }
@@ -576,6 +589,59 @@ function SceneStrip() {
 }
 
 /**
+ * الكنتاكي — السطل يقف، والقطع تنزل فيه.
+ *
+ * عكس البركر والبيتزا: لا تُبنى طبقاتٌ بل تُملأ علبة. فالسطل يدخل أولاً
+ * ويثبت، ثم تسقط القطع الأربع فيه واحدةً بعد أخرى، كلٌّ إلى ركنها —
+ * فتُقرأ «تُملأ لك الآن» لا «صورة سطلٍ ممتلئ».
+ *
+ * والقطع مفصولةٌ من صورةٍ واحدة بتتبّع الوصل لا بأرباعٍ عمياء: لم تكن في
+ * شبكةٍ منتظمة، والربع الأعمى كان يقصّ قطعةً نصفين.
+ */
+const KFC = [
+  { file: 1, x: -9, y: 4, h: 19, r: -12, at: 0 },
+  { file: 2, x: 8, y: 1, h: 17, r: 14, at: 1 },
+  { file: 3, x: -3, y: -6, h: 16, r: -6, at: 2 },
+  { file: 4, x: 11, y: -8, h: 15, r: 20, at: 3 },
+];
+
+function SceneKfc() {
+  return (
+    <>
+      {KFC.map((k) => (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          key={k.file}
+          className="wall-anim"
+          src={`/wallimg/kfc-${k.file}.webp`}
+          alt=""
+          style={
+            {
+              position: "absolute",
+              left: `calc(${CENTERS[3]} + ${k.x}vh)`,
+              bottom: `calc(34vh + ${k.y}vh)`,
+              height: `${k.h}vh`,
+              width: "auto",
+              animationName: "wall-fill",
+              animationTimingFunction: `cubic-bezier(${(0.1 + k.at * 0.17).toFixed(2)}, 0.9, 0.3, 1)`,
+              ["--kr"]: `${k.r}deg`,
+            } as CSSProperties
+          }
+        />
+      ))}
+      {/* السطل آخراً فيغطّي أسفل القطع — فتبدو داخله لا أمامه */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        className="wall-anim"
+        src="/wallimg/bucket.webp"
+        alt=""
+        style={{ position: "absolute", left: CENTERS[3], bottom: "14vh", height: "34vh", width: "auto", transform: "translateX(-50%)", animationName: "wall-bucket" }}
+      />
+    </>
+  );
+}
+
+/**
  * ١١ — البيتزا تتكوّن طبقةً طبقة.
  *
  * أخت مشهد البركر وبنفس منطقه: كل طبقةٍ تنزل من فوق الشاشة وتستقرّ على
@@ -602,6 +668,7 @@ const PIZZA_STACK = [
 function ScenePizza() {
   return (
     <div className="wall-scene">
+      <SceneKfc />
       {PIZZA_STACK.map((l) => (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -611,18 +678,15 @@ function ScenePizza() {
           alt=""
           style={{
             position: "absolute",
-            left: MID,
+            left: CENTERS[2],
             bottom: `calc(30vh + ${l.bottom}vh)`,
-            width: "88vh",
+            width: "68vh",
             animationName: "wall-slice",
             animationTimingFunction: `cubic-bezier(${(0.08 + l.at * 0.16).toFixed(2)}, 0.9, 0.35, 1)`,
           }}
         />
       ))}
 
-      {/* على الشاشتين الطرفيّتين، كما في البركر */}
-      <Aside x="50vw" anim="wall-aside4" title={WALL_COPY.pizzaTitle} sub={WALL_COPY.pizzaSub} />
-      <Aside x="350vw" anim="wall-aside4" title={WALL_COPY.freshTop} sub={WALL_COPY.freshBottom} />
     </div>
   );
 }
