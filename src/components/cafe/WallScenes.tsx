@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { WALL_COPY, WALL_MENU, WALL_SERVICES } from "@/lib/cafe/wall";
+import { WALL_CLAIM_LEFT, WALL_CLAIM_RIGHT, WALL_COPY, WALL_MENU, WALL_SERVICES } from "@/lib/cafe/wall";
 
 /**
  * مشاهد الجدار — ترميزٌ للتصميم لا منطق.
@@ -396,6 +396,11 @@ function SceneFresh() {
     <div className="wall-scene">
       <Line anim="wall-fresh1" y={`calc(50% - ${H1} * 1.5)`} text={WALL_COPY.freshTop} accent={WALL_COPY.freshAccentTop} />
       <Line anim="wall-fresh2" y={`calc(50% + ${H1} * 0.5)`} text={WALL_COPY.freshBottom} accent={WALL_COPY.freshAccentBottom} />
+
+      {/* الشاشتان الطرفيّتان كانتا فارغتين والدعوى كلّها في المنتصف. فتقولان
+          من أين يأتي الطعام: الخضار على اليمين واللحم على اليسار */}
+      <Claim x="50vw" anim="wall-fresh3" lines={WALL_CLAIM_LEFT} />
+      <Claim x="350vw" anim="wall-fresh4" lines={WALL_CLAIM_RIGHT} />
     </div>
   );
 }
@@ -575,6 +580,35 @@ function Backdrop() {
         className="wall-anim"
         style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, background: "#ff6b00", animationName: "wall-fill-orange" }}
       />
+    </div>
+  );
+}
+
+/** دعوى مسطورةٌ على شاشةٍ طرفية — سطرٌ تحت سطر، أوّلها الأكبر */
+function Claim({ x, anim, lines }: { x: string; anim: string; lines: readonly string[] }) {
+  return (
+    <div
+      className="wall-anim"
+      style={{
+        position: "absolute",
+        left: x,
+        top: "50%",
+        transform: "translate(-50%, -50%)",
+        textAlign: "center",
+        animationName: anim,
+      }}
+    >
+      {lines.map((t, i) => (
+        <span
+          key={t}
+          className="wall-display"
+          // السطر الأول أكبر، وكلّها تسع الشاشة: «لحومنا عراقية طازجة ١٠٠٪»
+          // أربعةٌ وعشرون حرفاً، وبحجمٍ أكبر تخرج من حافّة الشاشة الأولى
+          style={{ display: "block", marginTop: i === 0 ? 0 : "2.4vh", fontSize: `calc(${H1} * ${i === 0 ? 0.5 : 0.36})` }}
+        >
+          {t}
+        </span>
+      ))}
     </div>
   );
 }

@@ -12,6 +12,8 @@ import {
   screenIndex,
   SCREENS,
   sliceOffset,
+  WALL_CLAIM_LEFT,
+  WALL_CLAIM_RIGHT,
   WALL_COPY,
   WALL_MENU,
   WALL_NAME,
@@ -107,6 +109,12 @@ describe("نصوص الجدار", () => {
   it("الكلمة المميَّزة جزءٌ من سطرها فعلاً", () => {
     expect(WALL_COPY.freshTop).toContain(WALL_COPY.freshAccentTop);
     expect(WALL_COPY.freshBottom).toContain(WALL_COPY.freshAccentBottom);
+  });
+
+  it("دعوى المصدر على الطرفين مكتوبة لا فارغة", () => {
+    for (const t of [...WALL_CLAIM_LEFT, ...WALL_CLAIM_RIGHT]) expect(t.trim()).not.toBe("");
+    expect(WALL_CLAIM_LEFT.length).toBeGreaterThan(1);
+    expect(WALL_CLAIM_RIGHT.length).toBeGreaterThan(1);
   });
 
   it("أقسام المنيو وطرق الطلب مكتوبة لا فارغة", () => {
