@@ -17,12 +17,38 @@ import { chimeReady } from "@/lib/cafe/chime";
  * The decoded text is shown LARGE the instant it is read — «908-73S» — so
  * the person sees what the machine saw, before the screen does anything.
  */
-export function QrScanner({ onScan, onClose, title = "امسح بطاقة الولاء" }: { onScan: (text: string) => void; onClose: () => void; title?: string }) {
+export function QrScanner({
+  onScan,
+  onClose,
+  title = "امسح بطاقة الولاء",
+  continuous = false,
+}: {
+  onScan: (text: string) => void;
+  onClose: () => void;
+  title?: string;
+  /**
+   * يبقى يقرأ بدل أن يتوقّف بعد واحدة.
+   *
+   * القراءة الواحدة هي الصواب لبطاقة ولاء: تُمسح مرّة ثم تُغلق الورقة. أما
+   * هاتفٌ صار قارئاً بدل الجهاز المعطّل فيمسح عشرين تذكرة متتالية، وفتحُ
+   * الكاميرا وإغلاقها بينها يجعله أبطأ من الفأرة التي جاء ليستغني عنها.
+   * والتكرار يُكبَح في من ينادي (shouldSend)، لا هنا.
+   */
+  continuous?: boolean;
+}) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [flash, setFlash] = useState<"none" | "off" | "on">("none");
   const [read, setRead] = useState<string | null>(null);
   const scannerRef = useRef<{ toggleFlash: () => Promise<void>; isFlashOn: () => boolean; stop: () => void; destroy: () => void } | null>(null);
+  // المناداة في مرجع لا في التبعيات: المنادون الثلاثة يمرّرون سهماً يُكتب في كل
+  // رسم، فلو بقي في `deps` لأُغلقت الكاميرا وأُعيد فتحها مع كل رسمة للأب —
+  // وهو ما لم يظهر ما دامت اللوحة تُغلق بعد قراءة واحدة، ويصير عطلاً ظاهراً
+  // في الوضع المستمرّ
+  const onScanRef = useRef(onScan);
+  useEffect(() => {
+    onScanRef.current = onScan;
+  }, [onScan]);
 
   useEffect(() => {
     let stopped = false;
@@ -36,12 +62,16 @@ export function QrScanner({ onScan, onClose, title = "امسح بطاقة الو
           video,
           (result) => {
             if (stopped) return;
-            stopped = true;
             setRead(result.data);
             chimeReady();
+            if (continuous) {
+              onScanRef.current(result.data);
+              return;
+            }
+            stopped = true;
             s.stop();
             // a beat so the number is seen on screen before the sheet closes
-            setTimeout(() => onScan(result.data), 350);
+            setTimeout(() => onScanRef.current(result.data), 350);
           },
           {
             preferredCamera: "environment",
@@ -65,7 +95,7 @@ export function QrScanner({ onScan, onClose, title = "امسح بطاقة الو
       scanner?.destroy();
       scannerRef.current = null;
     };
-  }, [onScan]);
+  }, [continuous]);
 
   async function toggleFlash() {
     const s = scannerRef.current;

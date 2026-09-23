@@ -9,8 +9,7 @@ import {
   MessageCircle,
   PackageCheck,
   ScanLine,
-  Timer,
-} from "lucide-react";
+  Timer, Smartphone } from "lucide-react";
 import {
   confirmAssembled,
   confirmAssembledByCode,
@@ -28,6 +27,7 @@ import { curbsideReadyLink, deliveryOnWayLink } from "@/lib/brand";
 import { useLiveOrders } from "./use-live-orders";
 import { parseScan, useBarcodeScanner } from "./use-barcode-scanner";
 import { QrScanner } from "./QrScanner";
+import { PairPanel } from "./PairPanel";
 import { chimeNewOrder, chimeReady, unlockAudio } from "@/lib/cafe/chime";
 
 /**
@@ -67,6 +67,7 @@ export function ExpediterClient({ name }: { name: string }) {
   );
   // camera fallback for when the hardware scanner is flat, lost, or refuses
   const [camOpen, setCamOpen] = useState(false);
+  const [pairOpen, setPairOpen] = useState(false);
   // one clock for the whole board: card age must not be read during render
   const [now, setNow] = useState(() => Date.now());
   const seen = useRef<Set<string>>(new Set());
@@ -233,10 +234,22 @@ export function ExpediterClient({ name }: { name: string }) {
    * toast is the only feedback, and it has to be loud enough to read from arm's
    * length while already reaching for the next bag.
    */
+  /**
+   * تذكرةٌ قُرئت — من القارئ السلكي، أو من كاميرا الشاشة، أو من هاتف مقترن.
+   *
+   * مسارٌ واحد للثلاثة، وتُرجع سطر النتيجة كي يُرسَل إلى الهاتف أيضاً: الموظّف
+   * يقف عند رفّ التجهيز لا أمام الشاشة، فلو لم يرَ النتيجة في يده لمسح
+   * التذكرة مرّتين.
+   */
   const onScan = useCallback(
-    async (raw: string) => {
+    async (raw: string): Promise<{ ok: boolean; text: string }> => {
+      const say = (ok: boolean, text: string) => {
+        setScan({ kind: ok ? "ok" : "err", text });
+        return { ok, text };
+      };
+
       const scan = parseScan(raw);
-      if (!scan) return setScan({ kind: "err", text: `رمز غير معروف: ${raw.trim().slice(0, 24)}` });
+      if (!scan) return say(false, `رمز غير معروف: ${raw.trim().slice(0, 24)}`);
 
       // A ticket printed a second ago may not be in the last poll yet. The
       // scan is sent anyway — the server knows the order — and the row is
@@ -250,22 +263,15 @@ export function ExpediterClient({ name }: { name: string }) {
                 (r.pickup_code ?? "").toUpperCase() === scan.code,
             );
       if (target?.prep_status === "ready") {
-        return setScan({
-          kind: "ok",
-          text: `طلب ${String(target.order_seq).padStart(3, "0")} جاهز مسبقاً`,
-        });
+        return say(true, `طلب ${String(target.order_seq).padStart(3, "0")} جاهز مسبقاً`);
       }
 
       const res =
         scan.kind === "uuid"
           ? await confirmAssembled(scan.id)
           : await confirmAssembledByCode(scan.seq, scan.code);
-      if (!res.ok) {
-        return setScan({
-          kind: "err",
-          text: (res as { error?: string }).error ?? "تعذّر التأكيد",
-        });
-      }
+      if (!res.ok) return say(false, (res as { error?: string }).error ?? "تعذّر التأكيد");
+
       const seq =
         target?.order_seq ??
         (scan.kind === "code"
@@ -276,10 +282,7 @@ export function ExpediterClient({ name }: { name: string }) {
       if (target) patchRow(target.id, { prep_status: "ready" });
       else void refresh();
       chimeReady();
-      setScan({
-        kind: "ok",
-        text: `طلب ${seq != null ? String(seq).padStart(3, "0") : ""} → جاهز ✓`,
-      });
+      return say(true, `طلب ${seq != null ? String(seq).padStart(3, "0") : ""} → جاهز ✓`);
     },
     [rows, refresh, patchRow],
   );
@@ -330,6 +333,15 @@ export function ExpediterClient({ name }: { name: string }) {
           >
             <Camera className="size-4" />
             الكاميرا
+          </button>
+          {/* القارئ جهازٌ واحد لا بديل له: إن مات أو نفد شحنه صار هاتف الموظّف
+              قارئاً بلا تسجيل دخول ولا تركيب شيء */}
+          <button
+            onClick={() => setPairOpen(true)}
+            className="flex min-h-11 items-center gap-1.5 rounded-full border-2 border-border px-3 text-xs font-black transition hover:bg-secondary"
+          >
+            <Smartphone className="size-4" />
+            هاتفك بدل القارئ
           </button>
           <span
             className={`rounded-full px-3 py-1 text-xs font-bold ${
@@ -393,6 +405,8 @@ export function ExpediterClient({ name }: { name: string }) {
           ))}
         </div>
       )}
+
+      {pairOpen && <PairPanel onClose={() => setPairOpen(false)} onScan={onScan} />}
 
       {camOpen && (
         <QrScanner
