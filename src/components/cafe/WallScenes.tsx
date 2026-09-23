@@ -24,6 +24,7 @@ const CENTERS = ["50vw", "150vw", "250vw", "350vw"];
 export function WallScenes() {
   return (
     <>
+      <Backdrop />
       <SceneLockup />
       <SceneSystem />
       <SceneMenu />
@@ -174,46 +175,60 @@ function SceneMenu() {
  * والمدى لكل طبقة في `--lx` و`--ly`، فتتفرّق في جهاتٍ مختلفة بإطارٍ واحد
  * لا ستّة.
  */
-const BURGER_SPREAD = [
-  { file: 1, x: "0vw", y: "30vh" },
-  { file: 4, x: "-22vw", y: "15vh" },
-  { file: 2, x: "22vw", y: "4vh" },
-  { file: 3, x: "-42vw", y: "-9vh" },
-  { file: 5, x: "42vw", y: "-20vh" },
-  { file: 6, x: "0vw", y: "-34vh" },
+/**
+ * ترتيب بناء البركر وارتفاع كل طبقة فوق قاعدته.
+ *
+ * `file` ليس بترتيب أرقام الملفّات: أرقامُ التصدير ليست ترتيبَ الأكل. الترتيب
+ * كما يُركَّب في اليد — خبزةٌ سفلى، فالقطعة، فالجبن، فالطماطة، فالخسّ، فالخبزة
+ * العليا. والطبقات مقصوصةٌ إلى محتواها في `scripts/wall-assets.mjs`، فارتفاع
+ * كلٍّ = العرض ÷ نسبتها، وهذه الأرقام محسوبةٌ منها بتداخلٍ يسير.
+ *
+ * و`in` لحظةُ نزولها: كلٌّ تنزل بعد التي تحتها، فيُبنى البركر أمام الناظر.
+ */
+const BURGER_STACK = [
+  { file: 1, bottom: 0, at: 0 },
+  { file: 4, bottom: 11, at: 1 },
+  { file: 2, bottom: 23, at: 2 },
+  { file: 3, bottom: 33, at: 3 },
+  { file: 5, bottom: 38, at: 4 },
+  { file: 6, bottom: 48, at: 5 },
 ];
 
 function SceneBurger() {
   return (
     <div className="wall-scene">
+      {/* البركر كاملاً كما يُقدَّم، ثم يختفي ليُبنى أمامك */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         className="wall-anim"
         src="/wallimg/burger-whole.webp"
         alt=""
-        style={{ position: "absolute", left: MID, top: "50%", width: "84vh", marginTop: "-42vh", animationName: "wall-whole" }}
+        style={{ position: "absolute", left: MID, top: "50%", width: "78vh", marginTop: "-39vh", animationName: "wall-whole" }}
       />
-      {BURGER_SPREAD.map((l) => (
+
+      {BURGER_STACK.map((l) => (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           key={l.file}
           className="wall-anim"
           src={`/wallimg/burger-${l.file}.webp`}
           alt=""
-          style={
-            {
-              position: "absolute",
-              left: MID,
-              top: "50%",
-              width: "72vh",
-              marginTop: "-12vh",
-              animationName: "wall-layer",
-              ["--lx"]: l.x,
-              ["--ly"]: l.y,
-            } as CSSProperties
-          }
+          style={{
+            position: "absolute",
+            left: MID,
+            // من أسفل الشاشة لا من وسطها: البركر يُبنى على قاعدةٍ واحدة
+            bottom: `calc(14vh + ${l.bottom}vh)`,
+            width: "58vh",
+            animationName: "wall-drop",
+            // التتابع بمنحنى التوقيت لا بتأخيرٍ ثانٍ — `animation-delay`
+            // محجوزٌ لطور الدورة وحده
+            animationTimingFunction: `cubic-bezier(${(0.08 + l.at * 0.16).toFixed(2)}, 0.9, 0.35, 1)`,
+          }}
         />
       ))}
+
+      {/* الكلام بجانبه — على الشاشة الثانية، فيقرؤه الواقف أمامها */}
+      <Aside x="112vw" title={WALL_COPY.burgerTitle} sub={WALL_COPY.burgerSub} />
     </div>
   );
 }
@@ -261,6 +276,7 @@ function SceneRizo() {
           }
         />
       ))}
+      <Aside x="298vw" anim="wall-aside2" title={WALL_COPY.rizoTitle} sub={WALL_COPY.rizoSub} />
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         className="wall-anim"
@@ -325,12 +341,10 @@ function SceneFresh() {
  * الشفافية، فلا تُقال بلهجة إعلانٍ عن طعام.
  */
 function SceneClean() {
+  // الخلفية البيضاء يرفعها `Backdrop` صعوداً كالماء — كان هنا مسحٌ أفقي ثانٍ
+  // يغطّي عليه، فصار غطاءين على مشهدٍ واحد
   return (
     <div className="wall-scene" style={{ overflow: "hidden" }}>
-      <div
-        className="wall-anim"
-        style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, background: "#fffdfb", animationName: "wall-wipe" }}
-      />
       <span
         className="wall-anim"
         style={{ ...at(MID), fontSize: `calc(${H1} * 1.3)`, fontWeight: 900, color: "#2c1e16", whiteSpace: "nowrap", animationName: "wall-clean1" }}
@@ -432,6 +446,54 @@ function SceneStrip() {
           <img key={`${it.img}-${i}`} src={`/wallimg/${it.img}`} alt="" style={{ height: it.h, width: "auto", flexShrink: 0 }} />
         ))}
       </div>
+    </div>
+  );
+}
+
+/**
+ * خلفية الجدار المتحرّكة.
+ *
+ * البرتقالي وحده ساكن، فيُطعَّم بالأبيض بحركاتٍ واضحة تُرى من بعيد: موجةٌ
+ * تتموّج في أسفل الجدار، ثم ماءٌ أبيض يملأ الشاشات صعوداً، ثم يعود البرتقالي
+ * صاعداً فوقه. كلّها إزاحةٌ وشفافية — لا مرشّح ولا رسمٌ في كل إطار.
+ */
+function Backdrop() {
+  return (
+    <div className="wall-scene" style={{ pointerEvents: "none" }}>
+      <span className="wall-anim wall-wave" style={{ bottom: 0, height: "34vh", animationName: "wall-wave" }} />
+      <span
+        className="wall-anim"
+        style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, background: "#fffdfb", animationName: "wall-fill-white" }}
+      />
+      <span
+        className="wall-anim"
+        style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, background: "#ff6b00", animationName: "wall-fill-orange" }}
+      />
+    </div>
+  );
+}
+
+/** كلامٌ بجانب الطبق — عنوانٌ وسطرٌ تحته */
+function Aside({ x, title, sub, anim = "wall-aside" }: { x: string; title: string; sub: string; anim?: string }) {
+  return (
+    <div
+      className="wall-anim"
+      style={{
+        position: "absolute",
+        left: x,
+        top: "50%",
+        transform: "translateX(-50%)",
+        marginTop: "-6vh",
+        textAlign: "center",
+        animationName: anim,
+      }}
+    >
+      <span className="wall-stamp" style={{ display: "block", fontSize: `calc(${H1} * 0.78)` }}>
+        {title}
+      </span>
+      <span className="wall-display" style={{ display: "block", marginTop: "2.5vh", fontSize: `calc(${H1} * 0.4)` }}>
+        {sub}
+      </span>
     </div>
   );
 }

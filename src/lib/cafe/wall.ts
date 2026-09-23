@@ -193,6 +193,11 @@ export const WALL_COPY = {
   freshAccentBottom: "الرمادي",
   cleanLead: "ما عدنا شي نظمه عليك",
   menuTitle: "المنيو",
+  /** يُقال بجانب البركر وهو يتكوّن — وهو وعد المحل نفسه لا شعارٌ مخترع */
+  burgerTitle: "يُقلى عند الطلب",
+  burgerSub: "طبقةً طبقة، وأنت تنتظر",
+  rizoTitle: "ريزو ستيشن",
+  rizoSub: "رزٌّ وحبّات دجاج مقرمشة",
   servicesTitle: "كيف تطلب",
   cleanBody: "تكدر تدخل للمطبخ هسة وتشوف النظافة بعينك",
 } as const;

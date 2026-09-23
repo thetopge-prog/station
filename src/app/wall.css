@@ -132,14 +132,30 @@
   32.6% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
   33.4%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(1); }
 }
-/* الطبقات تظهر مكانه ثم تتباعد. المدى من متغيّر، فلكلٍّ مسارها بلا إطارٍ
-   جديد لكل واحدة. */
-@keyframes wall-layer {
-  0%, 32.8% { opacity: 0; transform: translate3d(-50%, 0, 0); }
-  33.6% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  37.8% { opacity: 1; transform: translate3d(calc(-50% + var(--lx)), var(--ly), 0); }
-  39.2% { opacity: 1; transform: translate3d(calc(-50% + var(--lx)), var(--ly), 0); }
-  40%, 100% { opacity: 0; transform: translate3d(calc(-50% + var(--lx)), var(--ly), 0); }
+/* الطبقات تنزل من الأعلى وتستقرّ في المركز، واحدةً بعد أخرى.
+   كانت تتفرّق أفقياً عبر الشاشات فبدت متناثرةً بلا روح — والبركر يُبنى
+   عمودياً لا يُنثر. و`--ld` تأخير نزول كل طبقة، فإطارٌ واحد يخدم الستّ. */
+@keyframes wall-drop {
+  0% { opacity: 0; transform: translate3d(-50%, -70vh, 0); }
+  32.6% { opacity: 0; transform: translate3d(-50%, -70vh, 0); }
+  33.2% { opacity: 1; transform: translate3d(-50%, -70vh, 0); }
+  37.6% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  39.4% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  40%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0); }
+}
+
+/* الكلام بجانب الطبق — نافذةٌ لكل مشهد، وإلا ظهر كلامُ الريزو فوق البركر */
+@keyframes wall-aside {
+  0%, 33.5% { opacity: 0; transform: translate3d(0, 0.5em, 0); }
+  35.5% { opacity: 1; transform: translate3d(0, 0, 0); }
+  39.4% { opacity: 1; transform: translate3d(0, 0, 0); }
+  40%, 100% { opacity: 0; transform: translate3d(0, 0, 0); }
+}
+@keyframes wall-aside2 {
+  0%, 43% { opacity: 0; transform: translate3d(0, 0.5em, 0); }
+  45% { opacity: 1; transform: translate3d(0, 0, 0); }
+  49% { opacity: 1; transform: translate3d(0, 0, 0); }
+  50%, 100% { opacity: 0; transform: translate3d(0, 0, 0); }
 }
 
 /* ═══ ٠٥ · الريزو تتطاير منه الحبّات  40% → 50% ═════════════════════════ */
@@ -179,13 +195,54 @@
   68.33%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0); }
 }
 
-/* ═══ ٠٨ · المسح ورسالة النظافة  68.33% → 80% ══════════════════════════ */
-@keyframes wall-wipe {
-  0%, 68.33% { transform: translate3d(100%, 0, 0); }
-  71% { transform: translate3d(0, 0, 0); }
-  79% { transform: translate3d(0, 0, 0); }
-  80.5%, 100% { transform: translate3d(-100%, 0, 0); }
+/* ═══ الخلفية: تموّجٌ أبيض وامتلاءٌ كالماء ══════════════════════════════
+   الخلفية البرتقالية وحدها ساكنة، فتُطعَّم بالأبيض بحركاتٍ واضحة تُرى من
+   بعيد — وكلّها إزاحةٌ وشفافية، فلا مرشّح ولا رسمٌ في كل إطار.
+
+   الموجة شريطٌ بحافّةٍ متعرّجة أعرض من الجدار، يزحف أفقياً فتبدو الحافّة
+   وكأنها تتموّج. حيلةٌ قديمة وصادقة: العين ترى تموّجاً والجهاز يزيح مستطيلاً. */
+@keyframes wall-wave {
+  0% { opacity: 0; transform: translate3d(0, 0, 0); }
+  2% { opacity: 0.16; }
+  8.33% { opacity: 0.16; transform: translate3d(-14vw, 0, 0); }
+  9.5% { opacity: 0; transform: translate3d(-14vw, 0, 0); }
+  18.33% { opacity: 0; transform: translate3d(0, 0, 0); }
+  20% { opacity: 0.16; }
+  28.33% { opacity: 0.16; transform: translate3d(-18vw, 0, 0); }
+  29.5%, 100% { opacity: 0; transform: translate3d(-18vw, 0, 0); }
 }
+
+/* الماء يملأ الشاشة: أبيضُ يصعد من الأسفل، ثم يصعد البرتقالي فوقه فيعيد
+   الجدار إلى لونه. صعودٌ لا مسحٌ أفقي — الامتلاء يُقرأ كماءٍ لا كستارة. */
+@keyframes wall-fill-white {
+  0%, 68.33% { transform: translate3d(0, 101%, 0); }
+  71.5% { transform: translate3d(0, 0, 0); }
+  79.5% { transform: translate3d(0, 0, 0); }
+  80%, 100% { transform: translate3d(0, 0, 0); }
+}
+@keyframes wall-fill-orange {
+  0%, 79% { transform: translate3d(0, 101%, 0); }
+  81.5% { transform: translate3d(0, 0, 0); }
+  99.6% { transform: translate3d(0, 0, 0); }
+  100% { transform: translate3d(0, 101%, 0); }
+}
+
+/* حافّة متعرّجة — موجةٌ مرسومة بالقصّ لا بصورة */
+.wall-wave {
+  position: absolute;
+  left: -20vw;
+  width: 440vw;
+  clip-path: polygon(
+    0% 40%, 5% 22%, 10% 12%, 15% 14%, 20% 28%, 25% 42%, 30% 48%, 35% 44%, 40% 30%,
+    45% 16%, 50% 12%, 55% 18%, 60% 32%, 65% 45%, 70% 48%, 75% 40%, 80% 26%,
+    85% 14%, 90% 12%, 95% 22%, 100% 38%, 100% 100%, 0% 100%
+  );
+  background: #ffffff;
+}
+
+/* ═══ ٠٨ · رسالة النظافة  68.33% → 80% ═════════════════════════════════
+   المسح الأفقي حُذف: الخلفية صارت تمتلئ صعوداً كالماء في `Backdrop`، وكان
+   الاثنان يغطّيان المشهد نفسه. */
 @keyframes wall-clean1 {
   0%, 71% { opacity: 0; transform: translate3d(-50%, 0.3em, 0); }
   73% { opacity: 1; transform: translate3d(-50%, 0, 0); }
