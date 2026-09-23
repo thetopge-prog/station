@@ -567,13 +567,41 @@ function Backdrop() {
   return (
     <div className="wall-scene" style={{ pointerEvents: "none" }}>
       <span className="wall-anim wall-wave" style={{ bottom: 0, height: "34vh", animationName: "wall-wave" }} />
+      {/* الماء الأبيض والبرتقالي — وكلاهما **يبدأ مزاحاً خارج الشاشة في نمطه
+          الخاصّ**، لا في إطار الحركة وحده.
+
+          لوحٌ أبيض يملأ الشاشة `inset: 0`، وما يرفعه عنها هو `transform` في
+          أول لقطةٍ من الحركة. فإن لم تعمل الحركة على متصفّح التلفزيون — وهو
+          المتصفّح الذي لم يُختبر بعد — بقي اللوح في مكانه الطبيعي: **شاشةٌ
+          بيضاء كاملة، طول اليوم**. وهذا بالضبط ما رآه المالك.
+
+          فالإزاحة تُكتب في النمط نفسه: بلا حركةٍ يبقى الجدار برتقالياً ساكناً،
+          ومع الحركة تعمل كما صُمّمت. الفشل يُختار وجهه بدل أن يُترك للصدفة. */}
       <span
         className="wall-anim"
-        style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, background: "#fffdfb", animationName: "wall-fill-white" }}
+        style={{
+          position: "absolute",
+          top: 0,
+          right: 0,
+          bottom: 0,
+          left: 0,
+          background: "#fffdfb",
+          transform: "translate3d(0, 101%, 0)",
+          animationName: "wall-fill-white",
+        }}
       />
       <span
         className="wall-anim"
-        style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, background: "#ff6b00", animationName: "wall-fill-orange" }}
+        style={{
+          position: "absolute",
+          top: 0,
+          right: 0,
+          bottom: 0,
+          left: 0,
+          background: "#ff6b00",
+          transform: "translate3d(0, 101%, 0)",
+          animationName: "wall-fill-orange",
+        }}
       />
     </div>
   );

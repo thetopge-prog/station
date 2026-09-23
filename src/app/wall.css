@@ -23,6 +23,12 @@
 
 /* كل متحرّك يأخذ هذه — بما فيهم أبناء المشهد */
 .wall-anim {
+  /* مخفيٌّ حتى تُظهره حركته.
+     بلا هذا، متصفّحٌ لا يشغّل `@keyframes` يرسم المشاهد العشرة فوق بعضها
+     ويملأ الجدار بما لا يُقرأ. ومعه: جدارٌ برتقاليّ ساكن — عطلٌ يُرى ويُفهم.
+     وكل إطارٍ هنا يكتب `opacity` في كل لقطةٍ من لقطاته، فلا يُخفي هذا شيئاً
+     حين تعمل الحركة. */
+  opacity: 0;
   animation-duration: 140s;
   animation-iteration-count: infinite;
   animation-timing-function: linear;
@@ -241,16 +247,16 @@
 /* الماء يملأ الشاشة: أبيضُ يصعد من الأسفل، ثم يصعد البرتقالي فوقه فيعيد
    الجدار إلى لونه. صعودٌ لا مسحٌ أفقي — الامتلاء يُقرأ كماءٍ لا كستارة. */
 @keyframes wall-fill-white {
-  0%, 58.57% { transform: translate3d(0, 101%, 0); }
-  61.29% { transform: translate3d(0, 0, 0); }
-  68.14% { transform: translate3d(0, 0, 0); }
-  68.57%, 100% { transform: translate3d(0, 0, 0); }
+  0%, 58.57% { opacity: 1; transform: translate3d(0, 101%, 0); }
+  61.29% { opacity: 1; transform: translate3d(0, 0, 0); }
+  68.14% { opacity: 1; transform: translate3d(0, 0, 0); }
+  68.57%, 100% { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 @keyframes wall-fill-orange {
-  0%, 67.71% { transform: translate3d(0, 101%, 0); }
-  69.86% { transform: translate3d(0, 0, 0); }
-  99.6% { transform: translate3d(0, 0, 0); }
-  100% { transform: translate3d(0, 101%, 0); }
+  0%, 67.71% { opacity: 1; transform: translate3d(0, 101%, 0); }
+  69.86% { opacity: 1; transform: translate3d(0, 0, 0); }
+  99.6% { opacity: 1; transform: translate3d(0, 0, 0); }
+  100% { opacity: 1; transform: translate3d(0, 101%, 0); }
 }
 
 /* حافّة متعرّجة — موجةٌ مرسومة بالقصّ لا بصورة */
