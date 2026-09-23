@@ -46,73 +46,64 @@
 
 /* ── 01 · ظهور «المحطة»  0% → 5.83% ────────────────────────────────────── */
 @keyframes wall-name {
-  0% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(1.18); }
+  0% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(1.16); }
   1.8% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
   5.0% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
   5.83%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(1); }
 }
 
 /* ── 02 · التمدّد  5.83% → 13.33% ───────────────────────────────────────
-   الشطران يتباعدان حتى يبلغ كلٌّ منهما طرف الجدار. «المح» يميناً و«طة»
-   يساراً — فالعربية تُقرأ من اليمين. والتوقيت ليس خطّياً: يندفع ثم يهدأ،
-   فتبدو الكلمة وكأن يداً تسحبها لا محرّكاً يدفعها. */
+   الشطران يتباعدان حتى يبلغ كلٌّ منهما طرف الجدار، ويمتدّ بينهما **حرف
+   التطويل نفسه**. «المحـ» يميناً و«ـطة» يساراً — فالعربية تُقرأ من اليمين. */
 @keyframes wall-head {
-  0% { opacity: 0; transform: translate3d(-50%, 0, 0); }
-  5.83% { opacity: 0; transform: translate3d(-50%, 0, 0); }
-  6.3% { opacity: 1; }
-  13.33% { opacity: 1; transform: translate3d(calc(-50% + 128vw), 0, 0); }
-  30% { opacity: 1; transform: translate3d(calc(-50% + 128vw), 0, 0); }
-  31.5%, 100% { opacity: 0; transform: translate3d(calc(-50% + 128vw), 0, 0); }
+  0%, 5.83% { transform: translate3d(0, 0, 0); }
+  13.33% { transform: translate3d(128vw, 0, 0); }
+  30% { transform: translate3d(128vw, 0, 0); }
+  100% { transform: translate3d(128vw, 0, 0); }
 }
 @keyframes wall-tail {
-  0% { opacity: 0; transform: translate3d(-50%, 0, 0); }
-  5.83% { opacity: 0; transform: translate3d(-50%, 0, 0); }
-  6.3% { opacity: 1; }
-  13.33% { opacity: 1; transform: translate3d(calc(-50% - 128vw), 0, 0); }
-  30% { opacity: 1; transform: translate3d(calc(-50% - 128vw), 0, 0); }
-  31.5%, 100% { opacity: 0; transform: translate3d(calc(-50% - 128vw), 0, 0); }
+  0%, 5.83% { transform: translate3d(0, 0, 0); }
+  13.33% { transform: translate3d(-128vw, 0, 0); }
+  30% { transform: translate3d(-128vw, 0, 0); }
+  100% { transform: translate3d(-128vw, 0, 0); }
 }
 
-/* الوصل: شطران يخرجان من المركز، بسماكة خطّ الأساس وعلى ارتفاعه.
-   بصرياً هو امتداد الحرف نفسه — لأن الوصل العربي خطٌّ أفقي لا أكثر — لا «ـ»
-   مكرّرة.
-
-   وشطران لا شريطٌ واحد لأن المشهد التالي يقتضي أن **ينفتح الوصل من وسطه**
-   فتخرج العبارة من الفتحة. شريطٌ واحد كان يمرّ خلف الكلمة فيبدو شطباً عليها
-   — جرّبتُه ورأيتُه. والانفتاح هنا انحسارُ كلّ شطرٍ عن المركز، وهو `scaleX`
-   خالص. */
-@keyframes wall-kashida-r {
-  0% { opacity: 0; transform: translate3d(0, 0, 0) scaleX(0.001); }
-  5.83% { opacity: 0; transform: translate3d(0, 0, 0) scaleX(0.001); }
-  6.3% { opacity: 1; }
-  13.33% { opacity: 1; transform: translate3d(0, 0, 0) scaleX(1); }
-  /* ينزاح عن المركز فيفتح مكان العبارة. إزاحةٌ لا تصغيرٌ: منشأ التحجيم عند
-     المركز — وهو ما يجعله ينبت من الكلمة — فلو صغّرناه لانحسر إلى المركز
-     نفسه لا عنه، وبقيت العبارة مشطوبةً بالخطّ. */
-  16.5% { opacity: 1; transform: translate3d(21vw, 0, 0) scaleX(1); }
-  30% { opacity: 1; transform: translate3d(21vw, 0, 0) scaleX(1); }
-  31.5%, 100% { opacity: 0; transform: translate3d(21vw, 0, 0) scaleX(1); }
-}
-@keyframes wall-kashida-l {
-  0% { opacity: 0; transform: translate3d(0, 0, 0) scaleX(0.001); }
-  5.83% { opacity: 0; transform: translate3d(0, 0, 0) scaleX(0.001); }
-  6.3% { opacity: 1; }
-  13.33% { opacity: 1; transform: translate3d(0, 0, 0) scaleX(1); }
-  16.5% { opacity: 1; transform: translate3d(-21vw, 0, 0) scaleX(1); }
-  30% { opacity: 1; transform: translate3d(-21vw, 0, 0) scaleX(1); }
-  31.5%, 100% { opacity: 0; transform: translate3d(-21vw, 0, 0) scaleX(1); }
+/* التطويل: حرف «ـ» من الخطّ نفسه، يُمطّ أفقياً.
+   ليس شريطاً مرسوماً — جرّبتُ ذلك فبدا خطّاً برتقالياً موضوعاً تحت الكلمة لا
+   امتداداً لها. وهذا هو الحرف الذي يُكتب بـShift+J: سماكته وارتفاعه ووصله
+   بالحاء والطاء كلّها من الخطّ، فلا شيء يُحاكى. و`scaleX` تمطّه بلا إعادة
+   تخطيط — أنعم ما يُطلب من متصفّح تلفزيون. */
+@keyframes wall-tatweel {
+  0%, 5.83% { transform: translate3d(-50%, 0, 0) scaleX(1); }
+  13.33% { transform: translate3d(-50%, 0, 0) scaleX(var(--tw-max)); }
+  30% { transform: translate3d(-50%, 0, 0) scaleX(var(--tw-max)); }
+  100% { transform: translate3d(-50%, 0, 0) scaleX(var(--tw-max)); }
 }
 
-/* ── 03 · خروج «تفزعلك»  13.33% → 20.83% ────────────────────────────────
-   تخرج من جوف الوصل: تكبر من لا شيء وتتجاوز حجمها قليلاً ثم تستقرّ — فتبدو
-   وكأنها كانت مخبوءةً في الكلمة لا مكتوبةً فوقها. */
+/* الكلمة كلّها تظهر مع بداية التمدّد وتبقى إلى آخر مشهد الطباعة */
+@keyframes wall-word {
+  0% { opacity: 0; }
+  5.83% { opacity: 0; }
+  6.3% { opacity: 1; }
+  30% { opacity: 1; }
+  31.5%, 100% { opacity: 0; }
+}
+
+/* ── 03 · «تفزعلك» فوق الكلمة  13.33% → 20.83% ──────────────────────────
+   تظهر مباشرةً فوق النصّ بأسلوبٍ مختلف — كأنها خَتمٌ وُضع لا حرفٌ كُتب — ثم
+   تنبض: تكبر وتصغر نبضاً هادئاً لا يتوقّف ما دامت على الشاشة. */
 @keyframes wall-verb {
-  0% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(0.3); }
-  13.33% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(0.3); }
-  16.5% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1.12); }
-  18.5% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-  30% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-  31.5%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(1); }
+  0%, 13.33% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(0.55) rotate(-3deg); }
+  14.6% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1.14) rotate(-3deg); }
+  15.6% { transform: translate3d(-50%, 0, 0) scale(0.98) rotate(-3deg); }
+  16.6% { transform: translate3d(-50%, 0, 0) scale(1.06) rotate(-3deg); }
+  18.0% { transform: translate3d(-50%, 0, 0) scale(0.99) rotate(-3deg); }
+  19.5% { transform: translate3d(-50%, 0, 0) scale(1.05) rotate(-3deg); }
+  21.5% { transform: translate3d(-50%, 0, 0) scale(0.99) rotate(-3deg); }
+  24% { transform: translate3d(-50%, 0, 0) scale(1.05) rotate(-3deg); }
+  27% { transform: translate3d(-50%, 0, 0) scale(0.99) rotate(-3deg); }
+  30% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1.04) rotate(-3deg); }
+  31.5%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(1.04) rotate(-3deg); }
 }
 
 /* ── 04 · سفر التكوين  20.83% → 30% ─────────────────────────────────────
@@ -120,18 +111,32 @@
    أوسع من الشاشات الأربع. */
 @keyframes wall-lockup {
   0%, 20.83% { transform: translate3d(0, 0, 0); }
-  25.5% { transform: translate3d(14vw, 0, 0); }
-  30% { transform: translate3d(-11vw, 0, 0); }
-  100% { transform: translate3d(-11vw, 0, 0); }
+  25.5% { transform: translate3d(13vw, 0, 0); }
+  30% { transform: translate3d(-10vw, 0, 0); }
+  100% { transform: translate3d(-10vw, 0, 0); }
 }
 
 /* ── الخطّ الضخم ───────────────────────────────────────────────────────
-   .station-display تكتب حدّاً بـ3px وهي قيمة مطلقة — على حرفٍ بارتفاع مئتي
-   بكسل تصير شعرة. فالحدّ هنا متناسب مع الحجم. */
+   أبيض على البرتقالي — وهو زوج الهوية نفسه (`--primary-foreground` على
+   `--primary`). وكانت الخلفية داكنة فاستُبدلت: البرتقالي هو المحطة، والأسود
+   ليس من هويتها.
+
+   والظلّ لا حدّ: حدٌّ أبيض على نصٍّ أبيض لا يُرى، والظلّ الكاكاوي الخفيف يرفع
+   الحرف عن الخلفية البرتقالية من مسافة ثلاثة أمتار. */
 .wall-display {
   font-weight: 900;
-  color: #ff6b00;
-  -webkit-text-stroke: 0.04em #ffffff;
+  color: #ffffff;
+  line-height: 0.95;
+  white-space: nowrap;
+  text-shadow: 0 0.035em 0 rgba(44, 30, 22, 0.28);
+}
+
+/* «تفزعلك» بأسلوبٍ آخر: كاكاويّ بحدٍّ أبيض، مائلٌ قليلاً — فيقرؤه الناظر
+   خَتماً فوق الاسم لا جزءاً منه. */
+.wall-stamp {
+  font-weight: 900;
+  color: #2c1e16;
+  -webkit-text-stroke: 0.05em #ffffff;
   paint-order: stroke fill;
   line-height: 0.95;
   white-space: nowrap;

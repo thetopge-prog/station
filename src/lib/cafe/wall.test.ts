@@ -94,8 +94,13 @@ describe("تعويض الحافّة", () => {
 });
 
 describe("نصوص الجدار", () => {
-  it("شطرا الاسم يؤلّفان «المحطة» — لو انفرط أحدهما لظهر اسمٌ مكسور", () => {
-    expect(WALL_NAME).toBe("المحطة");
+  it("شطرا الاسم — بنزع التطويل — يعودان الاسمَ نفسه", () => {
+    expect(WALL_NAME).toBe(WALL_COPY.name);
+  });
+
+  it("الشطران بصيغة الوصل، وإلا بدوا كلمتين لا كلمةً انفتحت", () => {
+    expect(WALL_COPY.nameHead.endsWith(WALL_COPY.tatweel)).toBe(true);
+    expect(WALL_COPY.nameTail.startsWith(WALL_COPY.tatweel)).toBe(true);
   });
 
   it("لا نصّ فارغ", () => {

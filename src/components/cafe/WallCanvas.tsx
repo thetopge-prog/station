@@ -42,7 +42,9 @@ export function WallCanvas({
         bottom: 0,
         left: 0,
         overflow: "hidden",
-        background: "#2c1e16",
+        // برتقالي الهوية. كانت داكنة فاستُبدلت: الأسود ليس من هوية المحطة،
+        // و#ff6b00 هو اللون المطبوع على العلب نفسها (--primary)
+        background: "#ff6b00",
         cursor: "none",
       }}
     >

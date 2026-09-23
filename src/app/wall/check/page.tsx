@@ -18,10 +18,10 @@ const BOX = { border: "2px solid #fff", background: "rgba(255,255,255,0.13)", wi
 
 export default function WallCheckPage() {
   return (
-    <div dir="rtl" style={{ background: "#2c1e16", color: "#fff", minHeight: "100vh", padding: 24, fontFamily: "sans-serif" }}>
+    <div dir="rtl" style={{ background: "#ff6b00", color: "#fff", minHeight: "100vh", padding: 24, fontFamily: "sans-serif" }}>
       <p style={{ fontSize: 34, fontWeight: 900, margin: "0 0 4px" }}>فحص جدار الشاشات</p>
       <p style={{ fontSize: 20, margin: "0 0 6px" }}>انتظر دقيقتين بلا لمس، ثم صوّر هذه الصفحة وأرسلها.</p>
-      <p style={{ fontSize: 20, margin: "0 0 20px", color: "#ffb37a" }}>المربّع الواقف أو الفارغ هو العطل.</p>
+      <p style={{ fontSize: 20, margin: "0 0 20px", color: "#2c1e16", fontWeight: 900 }}>المربّع الواقف أو الفارغ هو العطل.</p>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 18 }}>
         {/* الأخطر: إن وقف هذا بعد دقيقتين فالمتصفّح يعلّق الحركة على صفحة لا
@@ -35,7 +35,7 @@ export default function WallCheckPage() {
                 right: 45,
                 width: 60,
                 height: 60,
-                background: "#ff6b00",
+                background: "#2c1e16",
                 animation: "wallspin 2s linear infinite",
               }}
             />
@@ -44,7 +44,7 @@ export default function WallCheckPage() {
 
         {/* عليه يقوم التزامن كلّه: تأخيرٌ سالب يقفز إلى منتصف الدورة، فتتّفق
             الشاشات الأربع مهما تفرّقت أوقات فتحها */}
-        <Cell n="٢" label="تأخير سالب — يجب أن يكون برتقالياً الآن">
+        <Cell n="٢" label="تأخير سالب — يجب أن يكون داكناً الآن">
           <div style={{ ...BOX, position: "relative", overflow: "hidden" }}>
             <div
               style={{
@@ -53,7 +53,7 @@ export default function WallCheckPage() {
                 right: 0,
                 bottom: 0,
                 left: 0,
-                background: "#ff6b00",
+                background: "#2c1e16",
                 animation: "wallhalf 20s steps(1, end) infinite",
                 animationDelay: "-10s",
               }}
@@ -104,7 +104,7 @@ export default function WallCheckPage() {
                 right: 65,
                 width: 100,
                 height: 80,
-                background: "#ff6b00",
+                background: "#2c1e16",
                 filter: "blur(12px)",
               }}
             />
@@ -120,7 +120,7 @@ export default function WallCheckPage() {
                 right: 0,
                 bottom: 0,
                 left: 0,
-                background: "#ff6b00",
+                background: "#2c1e16",
                 clipPath: "inset(0 0 0 50%)",
               }}
             />
@@ -128,13 +128,13 @@ export default function WallCheckPage() {
         </Cell>
 
         {/* الخطّ العربي الثقيل هو هوية الجدار كلّه */}
-        <Cell n="٨" label="الخطّ الثقيل — «المحطة» بحدٍّ أبيض">
+        <Cell n="٨" label="الخطّ الثقيل — «المحطة»">
           <div style={{ ...BOX, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <span
               style={{
                 fontSize: 54,
                 fontWeight: 900,
-                color: "#ff6b00",
+                color: "#2c1e16",
                 WebkitTextStroke: "3px #ffffff",
                 paintOrder: "stroke fill",
               }}
@@ -150,7 +150,7 @@ export default function WallCheckPage() {
       <div style={{ marginTop: 26, border: "2px solid #fff", padding: 16 }}>
         <p style={{ fontSize: 22, fontWeight: 700, margin: "0 0 10px" }}>٩ — قياس الشاشة (يُكتب وحده)</p>
         <div style={{ position: "relative", height: 60, background: "rgba(255,255,255,0.13)", overflow: "hidden" }}>
-          <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: "50vw", background: "#ff6b00" }} />
+          <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: "50vw", background: "#2c1e16" }} />
           <p style={{ position: "absolute", top: 14, right: 12, margin: 0, fontSize: 26, fontWeight: 900 }}>
             نصف الشاشة بالضبط؟
           </p>
@@ -166,7 +166,7 @@ export default function WallCheckPage() {
         dangerouslySetInnerHTML={{
           __html: `
 @keyframes wallspin { to { transform: rotate(360deg); } }
-@keyframes wallhalf { 0% { background: #3d2c20; } 50% { background: #ff6b00; } }
+@keyframes wallhalf { 0% { background: rgba(255,255,255,0.13); } 50% { background: #2c1e16; } }
 @keyframes wallslide { from { transform: translate3d(0,0,0); } to { transform: translate3d(-150px,0,0); } }
 `,
         }}
