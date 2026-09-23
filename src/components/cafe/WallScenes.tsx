@@ -243,11 +243,11 @@ function SceneMenu() {
  */
 const BURGER_STACK = [
   { file: 1, bottom: 0, at: 0 },
-  { file: 4, bottom: 11, at: 1 },
-  { file: 2, bottom: 23, at: 2 },
-  { file: 3, bottom: 33, at: 3 },
-  { file: 5, bottom: 38, at: 4 },
-  { file: 6, bottom: 48, at: 5 },
+  { file: 4, bottom: 9.9, at: 1 },
+  { file: 2, bottom: 20.6, at: 2 },
+  { file: 3, bottom: 29.6, at: 3 },
+  { file: 5, bottom: 34.1, at: 4 },
+  { file: 6, bottom: 43, at: 5 },
 ];
 
 function SceneBurger() {
@@ -607,6 +607,14 @@ const KFC = [
 function SceneKfc() {
   return (
     <>
+      {/* السطل أولاً فتنزل القطع أمامه وتفيض من حافّته */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        className="wall-anim"
+        src="/wallimg/bucket.webp"
+        alt=""
+        style={{ position: "absolute", left: CENTERS[3], bottom: "14vh", height: "34vh", width: "auto", transform: "translateX(-50%)", animationName: "wall-bucket" }}
+      />
       {KFC.map((k) => (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -618,7 +626,7 @@ function SceneKfc() {
             {
               position: "absolute",
               left: `calc(${CENTERS[3]} + ${k.x}vh)`,
-              bottom: `calc(41vh + ${k.y}vh)`,
+              bottom: `calc(38vh + ${k.y}vh)`,
               height: `${k.h}vh`,
               width: "auto",
               animationName: "wall-fill",
@@ -628,14 +636,6 @@ function SceneKfc() {
           }
         />
       ))}
-      {/* السطل آخراً فيغطّي أسفل القطع — فتبدو داخله لا أمامه */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        className="wall-anim"
-        src="/wallimg/bucket.webp"
-        alt=""
-        style={{ position: "absolute", left: CENTERS[3], bottom: "14vh", height: "34vh", width: "auto", transform: "translateX(-50%)", animationName: "wall-bucket" }}
-      />
     </>
   );
 }
