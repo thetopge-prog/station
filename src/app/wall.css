@@ -198,14 +198,14 @@
 @keyframes wall-svc {
   0%, 42.86% { opacity: 0; transform: translate3d(-50%, 12vh, 0); }
   43.46% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  50.57% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  51.43%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0); }
+  51.43% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  52.2%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0); }
 }
 
 /* ═══ ٠٧ · «كل شيء طازج / ومن الرمادي»  51.43% → 58.57% ═══════════════════ */
 @keyframes wall-fresh1 {
-  0%, 51.43% { opacity: 0; transform: translate3d(-50%, 0.35em, 0); }
-  52.03% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  0%, 51% { opacity: 0; transform: translate3d(-50%, 0.35em, 0); }
+  51.6% { opacity: 1; transform: translate3d(-50%, 0, 0); }
   57.77% { opacity: 1; transform: translate3d(-50%, 0, 0); }
   58.57%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0); }
 }
@@ -224,15 +224,15 @@
    وكأنها تتموّج. حيلةٌ قديمة وصادقة: العين ترى تموّجاً والجهاز يزيح مستطيلاً. */
 /* دعويا الشاشتين الطرفيّتين — اليسرى أولاً ثم اليمنى، فتُقرأ الواحدة بعد الأخرى */
 @keyframes wall-fresh3 {
-  0%, 52.2% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
-  52.8% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  0%, 51.3% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+  51.9% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
   57.77% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
   58.57%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
 }
 
 @keyframes wall-fresh4 {
-  0%, 53.4% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
-  54.0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  0%, 51.6% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+  52.2% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
   57.77% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
   58.57%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
 }
