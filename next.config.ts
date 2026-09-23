@@ -27,6 +27,25 @@ const nextConfig: NextConfig = {
       { source: "/car", destination: "/menu?mode=curbside", permanent: false },
     ];
   },
+  /*
+   * صور جدار الإعلان تُخزَّن على الجهاز أسبوعاً.
+   *
+   * Next يخدم `public/` بـ`max-age=0`، فكل شاشةٍ تسأل عن الواحدة والثلاثين
+   * صورة كلّما أعادت التحميل — وهي تُعيدها كل نصف ساعة، على أربعة أجهزة،
+   * طول اليوم. الردّ 304 رخيصٌ على خادمنا، لكن متصفّح التلفزيون هو الذي
+   * أسقط تسع صورٍ من قبل، ولا داعي لأن يسأل أصلاً.
+   *
+   * وأسبوعٌ لا أبدية: الاسم لا يحمل بصمةً، فتغييرُ صورةٍ باسمها نفسه يظهر
+   * خلال أسبوع. ومن أراد أسرع فليغيّر الاسم.
+   */
+  async headers() {
+    return [
+      {
+        source: "/wallimg/:file*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=604800" }],
+      },
+    ];
+  },
   async rewrites() {
     const supa = process.env.NEXT_PUBLIC_SUPABASE_URL;
     return supa
