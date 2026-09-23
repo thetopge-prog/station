@@ -5,11 +5,16 @@ import { cacheMenu, cachedMenu } from "@/lib/hub/snapshot";
 import { hubEnabled } from "@/lib/hub/store";
 import { cloudReachable } from "@/lib/hub/net";
 
-export type MenuVariantView = { id: string; name_ar: string; price: number };
+export type MenuVariantView = { id: string; name_ar: string; name_en?: string | null; price: number };
 export type MenuItemView = {
   id: string;
   name_ar: string;
+  /** غائب أو null = لا ترجمة بعد؛ المنيو الإنكليزي يعرض العربي بدل الفراغ.
+   *  واختياريٌّ لا مطلوب: لقطة المنيو المحفوظة على جهاز المحل (hub) كُتبت
+   *  قبل هذا العمود، وهي تُقرأ كما هي حين ينقطع الإنترنت. */
+  name_en?: string | null;
   description: string | null;
+  description_en?: string | null;
   image_url: string | null;
   price: number;
   flavors: string[];
@@ -17,6 +22,7 @@ export type MenuItemView = {
 };
 export type MenuCategoryView = {
   name_ar: string;
+  name_en?: string | null;
   image_url: string | null;
   /** يغلق 02:00 فجراً (0092) — المنيو يعدّ تنازلياً ويمنع الطلب حتى 09:00 */
   lateCutoff?: boolean;
@@ -59,7 +65,7 @@ export async function getPublicMenu(): Promise<MenuCategoryView[]> {
   const varsByItem = new Map<string, MenuVariantView[]>();
   for (const v of vars ?? []) {
     const arr = varsByItem.get(v.item_id) ?? [];
-    arr.push({ id: v.id, name_ar: v.name_ar, price: v.price });
+    arr.push({ id: v.id, name_ar: v.name_ar, name_en: v.name_en, price: v.price });
     varsByItem.set(v.item_id, arr);
   }
 
@@ -67,13 +73,15 @@ export async function getPublicMenu(): Promise<MenuCategoryView[]> {
   for (const r of rows ?? []) {
     let c = cats.get(r.category_name);
     if (!c) {
-      c = { name_ar: r.category_name, image_url: r.category_image, lateCutoff: !!r.category_late_cutoff, items: [] };
+      c = { name_ar: r.category_name, name_en: r.category_name_en, image_url: r.category_image, lateCutoff: !!r.category_late_cutoff, items: [] };
       cats.set(r.category_name, c);
     }
     c.items.push({
       id: r.id,
       name_ar: r.name_ar,
+      name_en: r.name_en,
       description: r.description_ar,
+      description_en: r.description_en,
       image_url: r.image_url,
       price: r.price,
       flavors: r.flavors ?? [],

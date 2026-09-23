@@ -145,7 +145,7 @@
   /* the Latin word "Station" only — Pacifico has no Arabic coverage */
   --font-script: var(--font-pacifico), "Pacifico", cursive;
   /* السوراني: Tajawal لا يملك ک گ ە ڕ ڵ ۆ ێ چ ژ، وهذا يملكها */
-  --font-ku: var(--font-kurdish), "Noto Kufi Arabic", ui-sans-serif, system-ui, sans-serif;
+  --font-ku: var(--font-kurdish), "Noto Sans Arabic", "Noto Kufi Arabic", ui-sans-serif, system-ui, sans-serif;
 }
 
 * {
