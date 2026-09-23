@@ -74,7 +74,7 @@ const DISHES = [
   ["كنتاكي", "kentucky"], ["زنكر", "zinger"], ["ببروني", "pepperoni"],
   ["كرسبي-فرايز", "fries"], ["حلقات-بصل-1", "onion"], ["ستربس-1", "strips"],
   ["تويستر-كلاسك", "twister"], ["ريزو-سوبر", "rizo-super"], ["سوبر-صوص", "sauce"],
-  ["مقبلات", "sides"], ["بوب-كورن-1", "popcorn"], ["مشروم-جكن", "mushroom"],
+  ["بوب-كورن-1", "popcorn"], ["مشروم-جكن", "mushroom"],
 ];
 for (const [ar, en] of DISHES) {
   const res = await fetch(`${SRC}/2025/03/${encodeURIComponent(ar)}.webp`);

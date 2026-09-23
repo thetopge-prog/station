@@ -73,7 +73,6 @@ const SCATTER = [
   { img: "zinger", x: "7vw", y: "51%", h: "22vh", sx: "96vw", sy: "13vh", r: 9 },
   { img: "onion", x: "35vw", y: "45%", h: "14vh", sx: "70vw", sy: "-15vh", r: -22 },
   { img: "popcorn", x: "63vw", y: "21%", h: "18vh", sx: "54vw", sy: "10vh", r: 16 },
-  { img: "sides", x: "58vw", y: "64%", h: "15vh", sx: "66vw", sy: "-9vh", r: -10 },
   { img: "pepperoni", x: "341vw", y: "13%", h: "21vh", sx: "-70vw", sy: "8vh", r: 13 },
   { img: "twister", x: "369vw", y: "43%", h: "18vh", sx: "-88vw", sy: "-12vh", r: -16 },
   { img: "strips", x: "314vw", y: "25%", h: "16vh", sx: "-58vw", sy: "-7vh", r: 20 },
@@ -305,7 +304,6 @@ const DISHES = [
   { img: "popcorn", name: "بوب كورن" },
   { img: "fries", name: "كرسبي فرايز" },
   { img: "onion", name: "حلقات بصل" },
-  { img: "sides", name: "مقبّلات" },
   { img: "sauce", name: "صوصات" },
 ];
 
@@ -542,7 +540,6 @@ const STRIP = [
   { img: "dish-onion.webp", h: "34vh" },
   { img: "dish-mushroom.webp", h: "42vh" },
   { img: "dish-strips.webp", h: "36vh" },
-  { img: "dish-sides.webp", h: "44vh" },
 ];
 
 function SceneStrip() {
