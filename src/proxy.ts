@@ -83,6 +83,12 @@ export function proxy(request: NextRequest) {
       // وأي جمودٍ فيها يدوم نصف ساعة. والطلب الواحد كل عشر دقائق على أربع
       // شاشات ستّة وخمسون طلباً في اليوم: لا شيء.
       res.headers.set("Refresh", "600");
+      // ولا يُخزَّن أبداً. متصفّح التلفزيون كان يعيد نفس المستند من خزينه بعد
+      // كل نشر — فبقيت الشاشات على نسخةٍ قديمة ساعاتٍ، وكل إصلاحٍ يُنشر لا
+      // يصلها. والصفحة `force-dynamic` أصلاً، فلا شيء يُخسر بمنع تخزينها.
+      res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+      res.headers.set("Pragma", "no-cache");
+      res.headers.set("Expires", "0");
       return res;
     }
 

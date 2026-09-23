@@ -102,7 +102,19 @@ export function WallCanvas({
           يلمسها أحد، فهذا لا يغني عن الترويسة بل يسندها: أيّهما عمل كفى. */}
       <script
         dangerouslySetInnerHTML={{
-          __html: `try{setTimeout(function(){location.reload();}, 600000);}catch(e){}`,
+          __html: `try{setTimeout(function(){
+            // **عنوانٌ جديد في كل مرّة، لا `+"`reload`"+`.**
+            //
+            // إعادة التحميل تسأل المتصفّح عن نفس العنوان، ومتصفّح التلفزيون
+            // يجيب من خزينه: شاشةٌ بقيت على نفس الطور الذي فُتحت عليه رغم
+            // الترويسة ورغم النشر. وكل إصلاحٍ نُشر لم يصل إليها.
+            //
+            // ورقمُ اللحظة في العنوان يجعله عنواناً لم يره الخزين من قبل،
+            // فلا يملك إلّا أن يسأل الخادم.
+            var u = location.pathname + '?r=' + Date.now();
+            if (location.search.indexOf('debug') > -1) u += '&debug=1';
+            location.href = u;
+          }, 600000);}catch(e){}`,
         }}
       />
       </div>
