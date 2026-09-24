@@ -194,6 +194,31 @@ export async function cancelMyOrder(orderId: string): Promise<"cancelled" | "sta
   }
 }
 
+/**
+ * «وين طابك؟» — الزبون يقول أين وقف بعد وصوله.
+ *
+ * مواقف المطعم لا تكفي دائماً، فيركن في الشارع الخلفي أو مقابل المحل. ووصفُ
+ * السيارة الذي كتبه وهو يطلب لا يكفي الساعي ليجدها إن لم يعرف أين يبحث.
+ *
+ * ويُكتب في ملاحظة الطلب حيث تظهر بقيّة تفاصيل الاستلام أصلاً — فيصل إلى كل
+ * شاشةٍ وكل تذكرةٍ تعرض الملاحظات، بلا عمودٍ جديد ولا شاشةٍ جديدة. والاستبدال
+ * في الخادم: الزبون ينتقل من موقفٍ إلى آخر وهو ينتظر، والأخير هو الصحيح.
+ */
+export async function tellMySpot(
+  orderId: string,
+  spot: string,
+): Promise<"saved" | "empty" | "gone" | "error"> {
+  if (isDemoServer()) return "saved";
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc("park_my_order", { p_order: orderId, p_spot: spot });
+    if (error) return "error";
+    return (data as "saved" | "empty" | "gone") ?? "error";
+  } catch {
+    return "error";
+  }
+}
+
 /** Customer-side order tracking — looks up their own orders by unguessable id. */
 export async function getMyOrders(ids: string[]): Promise<PublicOrder[]> {
   if (!ids.length || isDemoServer()) return [];

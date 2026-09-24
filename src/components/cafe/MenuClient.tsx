@@ -9,6 +9,7 @@ import {
   cancelMyOrder,
   getMyOrders,
   submitOrder,
+  tellMySpot,
   type OrderLineInput,
 } from "@/lib/cafe/order-actions";
 import type { CartLine } from "./use-cart";
@@ -57,9 +58,18 @@ const NEXT_STEP: Record<FulfilmentMode, (table: string | null) => string> = {
       : "سيدلّك موظفنا على طاولتك",
   pickup: () => "سنجهّزه خلال ١٥ دقيقة تقريباً — أبرِز الرمز عند الاستلام",
   delivery: () => "سنتصل بك لتأكيد العنوان ثم ينطلق الطلب إليك",
-  curbside: () =>
-    "سنراسلك على واتساب عند الجاهزية — اتصل بنا قبل وصولك بدقيقتين",
+  // لم تعد تقول «اتصل بنا»: صار تحتها حقلٌ يقول فيه أين وقف، وهو أسرع من
+  // مكالمةٍ يشرح فيها مكانه لموظّفٍ يكتبها بيده
+  curbside: () => "سنراسلك على واتساب عند الجاهزية — ولمّا توصل گلنا وين طابك",
 };
+
+/**
+ * أماكن الوقوف الشائعة حول المحل — ضغطةٌ بدل كتابة.
+ *
+ * الزبون يكتب بيدٍ واحدة وهو في سيارته، فالخيار الجاهز أسرع وأدقّ من نصٍّ
+ * حرّ. والحقل الحرّ يبقى تحتها لمن وقف في مكانٍ ليس فيها.
+ */
+const SPOTS = ["قدّام المطعم", "مقابل المطعم", "الشارع الخلفي", "جنب المحل", "بالساحة"];
 
 type Sheet = {
   item: MenuItemView;
@@ -178,6 +188,9 @@ export function MenuClient({
     "open" | "started" | "cancelled" | "busy"
   >("open");
   const [lastLines, setLastLines] = useState<CartLine[]>([]);
+  // «وين طابك؟» — يُملأ بعد الوصول لا قبله، فمواقف المطعم لا تكفي دائماً
+  const [spot, setSpot] = useState("");
+  const [spotState, setSpotState] = useState<"idle" | "busy" | "sent">("idle");
 
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
   const pillRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -637,6 +650,17 @@ export function MenuClient({
     }
     setOrderPhase(r === "started" ? "started" : "open");
     if (r === "error") setErr("لا اتصال — اتصل بالمطعم " + BRAND.phoneDisplay);
+  }
+
+  async function sendSpot() {
+    if (!confirmed?.orderId || !spot.trim()) return;
+    setSpotState("busy");
+    const r = await tellMySpot(confirmed.orderId, spot.trim());
+    if (r === "saved") setSpotState("sent");
+    else {
+      setSpotState("idle");
+      setErr(r === "gone" ? "الطلب لم يعد مفتوحاً" : "لا اتصال — اتصل بالمطعم " + BRAND.phoneDisplay);
+    }
   }
 
   // «داخل المطعم» خيار فقط لمن جاء برابطه؛ من الشارع يختار من ثلاثة
@@ -1321,6 +1345,66 @@ export function MenuClient({
                 {NEXT_STEP[confirmed.mode](confirmed.table)}
               </p>
             )}
+            {/*
+              «وين طابك؟» — يظهر لطلب السيارة وحده، بعد التأكيد.
+              وصفُ السيارة كُتب وهو يطلب من بيته؛ أما مكانه فلا يعرفه إلا بعد
+              أن يصل ويركن — ومواقف المطعم لا تكفي دائماً، فيقف في الشارع
+              الخلفي أو مقابل المحل. سطرٌ منه يوفّر مكالمةً ودورةً حول البناية.
+            */}
+            {confirmed.mode === "curbside" &&
+              confirmed.orderId &&
+              orderPhase !== "cancelled" && (
+                <div className="mt-4 rounded-2xl border-2 border-primary/40 bg-secondary p-3 text-start">
+                  {spotState === "sent" ? (
+                    <p className="text-center text-sm font-black text-primary">
+                      وصلنا مكانك ✅ — الساعي طالع إلك
+                      <button
+                        onClick={() => setSpotState("idle")}
+                        className="mx-auto mt-2 block text-xs font-bold text-muted-foreground underline"
+                      >
+                        غيّرت مكانك؟ عدّله
+                      </button>
+                    </p>
+                  ) : (
+                    <>
+                      <p className="text-center text-base font-black">وين طابك؟</p>
+                      <p className="mt-0.5 text-center text-xs font-bold text-muted-foreground">
+                        إذا وصلت، گلنا وين واقف حتى نلگاك بسرعة
+                      </p>
+                      <div className="mt-2 flex flex-wrap justify-center gap-1.5">
+                        {SPOTS.map((s) => (
+                          <button
+                            key={s}
+                            onClick={() => setSpot(s)}
+                            className={
+                              "min-h-9 rounded-full border px-3 text-xs font-black " +
+                              (spot === s
+                                ? "border-primary bg-primary text-primary-foreground"
+                                : "border-border bg-card")
+                            }
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                      <input
+                        value={spot}
+                        onChange={(e) => setSpot(e.target.value)}
+                        placeholder="أو اكتبها — مثلاً: مقابل الصيدلية، سيارة بيضاء"
+                        className={FIELD + " mt-2"}
+                      />
+                      <button
+                        onClick={() => void sendSpot()}
+                        disabled={spotState === "busy" || !spot.trim()}
+                        className="mt-2 min-h-12 w-full rounded-2xl bg-primary font-black text-primary-foreground disabled:opacity-50"
+                      >
+                        {spotState === "busy" ? "جارٍ الإرسال…" : "أرسل مكاني"}
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+
             {/* التعديل والإلغاء بيد الزبون حتى يبدأ المطبخ — لا رسالة تُقرأ متأخرة */}
             {confirmed.orderId && orderPhase === "started" && (
               <p className="mt-3 text-sm font-black text-primary">

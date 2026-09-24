@@ -645,6 +645,7 @@ export type Database = {
       };
       sync_hub_prep: { Args: { p_id: string; p_status: PrepStatus; p_at: string }; Returns: boolean };
       cancel_my_order: { Args: { p_order: string }; Returns: string };
+      park_my_order: { Args: { p_order: string; p_spot: string }; Returns: string };
       cancel_paid_order: { Args: { p_order: string; p_reason?: string | null }; Returns: undefined };
       set_session_cashier_name: { Args: { p_session: string; p_name: string | null }; Returns: undefined };
       expire_ready: { Args: { p_minutes?: number }; Returns: number[] };
