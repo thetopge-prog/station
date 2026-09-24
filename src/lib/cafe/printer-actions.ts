@@ -150,6 +150,19 @@ export async function buildDailyCountJob(doc: TicketDoc): Promise<PrintJob | nul
 }
 
 /**
+ * نفس `buildDailyCountJob` لكن لطابعة المطبخ.
+ *
+ * والدور لا المعرّف: الطابعات تُبدَّل ويُعاد ضبطها من صفحة الطابعات، والمعرّف
+ * المكتوب في الشيفرة يصير كذباً بعد أول تبديل.
+ */
+export async function buildStationDocJob(doc: TicketDoc): Promise<PrintJob | null> {
+  await requireStaff();
+  const p = (await listPrinters()).find((x) => x.kind === "station" && x.is_active);
+  if (!p) return null;
+  return { printerId: p.id, printerName: p.name_ar, host: p.host, port: p.port, share: p.share, copies: 1, doc };
+}
+
+/**
  * The main event: split one paid order across the printers.
  *
  * Reads through the SERVICE client because it joins menu_items → categories to

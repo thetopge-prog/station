@@ -4,6 +4,8 @@ import { lateCutoffState } from "@/lib/cafe/time";
 import { orderAcceptedLink } from "@/lib/brand";
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { FreshBuild } from "@/components/cafe/FreshBuild";
+import { PrepBoardPanel } from "./PrepBoardPanel";
+import type { PrepBoard } from "@/lib/cafe/prep-forecast-actions";
 import {
   Check,
   MessageCircle,
@@ -121,6 +123,7 @@ export function CashierClient({
   partners = [],
   cashierName = null,
   expediterName = null,
+  board = null,
 }: {
   menu: MenuCategoryView[];
   tables: string[];
@@ -130,6 +133,8 @@ export function CashierClient({
   cashierName?: string | null;
   /** اسم المجهّز — whoever holds the expediter shift right now */
   expediterName?: string | null;
+  /** توقّع اليوم — `null` حين لا تكفي البيانات أو تعثّر الحساب */
+  board?: PrepBoard | null;
 }) {
   // local copy: a cloned item goes on the grid now, not after the server's 30 s menu cache
   const [menu, setMenu] = useState(menuProp);
@@ -759,6 +764,9 @@ export function CashierClient({
             لا صنف بهذا الاسم.
           </p>
         )}
+
+        {/* أسفل شبكة الأصناف ومطويّاً: خارج مسار البيع، فلا يزاحم الكاونتر */}
+        <PrepBoardPanel board={board} />
       </section>
 
       {/* order panel */}

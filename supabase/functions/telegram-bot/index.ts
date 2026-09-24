@@ -1,6 +1,7 @@
 import { humanPause, understandAudio, understandSmart, VOICE_UNCLEAR, type Parsed, type PhraseMemory } from "./llm.ts";
 import { rateStep, type RateState } from "./rating-flow.ts";
 import { savedOrderLabel, savedOrderToLines, type SavedOrder } from "./reorder.ts";
+import { forecastCategories, forecastDay, forecastTotal, peakWindow, type HourRow, type ItemDayRow } from "./prep-forecast.ts";
 import { dropClosed, START as ORDER_START, understand, step as orderStep, normalizeIraqiPhone, type Menu, type State as OrderState, type Input as OrderInput, type Reply as OrderReply } from "./order-flow.ts";
 // بوت ستيشن — Supabase Edge Function (Telegram webhook, يعمل 24/7).
 // نفس بوت الأزرار الكامل: تقارير، الطلبات الآن، الطاولات، الأكثر/الأقل مبيعاً،
@@ -183,6 +184,7 @@ function mainMenu() {
     [{ text: "🔥 الأكثر والأقل مبيعاً", callback_data: "top" }, { text: "📃 مبيعات كل منتج", callback_data: "counts" }],
     [{ text: "📋 المنتجات المتاحة", callback_data: "avail" }, { text: "⚙️ إدارة المنتجات", callback_data: "pcats" }],
     [{ text: "🌙 التقرير اليومي النهائي", callback_data: "final" }, { text: "📉 إضافة مصروف", callback_data: "expadd" }],
+    [{ text: "🔮 خطة التجهيز اليوم", callback_data: "prepplan" }],
     [{ text: "💵 رصيد الكاشير", callback_data: "drawer" }, { text: "🧾 آخر ١٠ مبيعات", callback_data: "sales" }],
     [{ text: "💳 آخر ١٠ مدفوعات", callback_data: "pays" }, { text: "📺 شاشة الطلبات", callback_data: "queue" }],
     [{ text: "📦 المخزون", callback_data: "stock" }, { text: "⚠️ النواقص", callback_data: "short" }],
@@ -411,6 +413,70 @@ async function viewAvail() {
   return lines.join("\n").slice(0, 4000);
 }
 
+/** نداء دالّة في القاعدة — الجدول يقرأ بمفتاح الخدمة، وهذه الدوالّ له وحده */
+async function rpc(fn: string, body: Record<string, unknown>): Promise<any[]> {
+  const r = await fetch(`${URL_}/rest/v1/rpc/${fn}`, { method: "POST", headers: H, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error(`RPC ${fn} ${r.status}`);
+  return r.json();
+}
+
+/**
+ * «خطة الغد» — كم يُجهَّز من كل قسم، ومتى.
+ *
+ * الحساب في `prep-forecast.ts` المشترك، لا هنا ولا نسخةٌ ثانية منه: شاشة
+ * الكاشير والبوت يقرآن الرقم نفسه، فلا يختلف ورقٌ عن شاشة.
+ *
+ * وتُقدَّم الأقسام لا الأصناف: قِستُ الخطأ على أيامٍ حقيقية فكان بالأقسام
+ * ١٩–٢٨٪ وبالأصناف ٣٥–٥٢٪. والجمع يُهدئ الضجيج، والتفصيل يضخّمه.
+ *
+ * وتُقصَر على ثمانية أقسام وستّة أصناف: رسالة تيليغرام تُقصّ عند ٤٠٩٦ حرفاً،
+ * وتقريرُ الليلة يسبقها في الرسالة نفسها.
+ */
+async function prepPlanText(forDay: string): Promise<string> {
+  // المدى ينتهي بالأمس: يوم اليوم ناقصٌ بطبيعته فيخفض معدّله
+  const from = baghdadDay(-28);
+  const to = baghdadDay(-1);
+  const [items, hours, days] = await Promise.all([
+    rpc("sales_by_item_day", { p_from: from, p_to: to }),
+    rpc("sales_by_hour", { p_from: from, p_to: to }),
+    rpc("range_summary", { p_from: from, p_to: to }),
+  ]);
+
+  const rows = (items as ItemDayRow[]).map((r) => ({ ...r, day: String(r.day).slice(0, 10), qty: Number(r.qty) }));
+  const hrs = (hours as HourRow[]).map((h) => ({ ...h, hr: Number(h.hr), qty: Number(h.qty) }));
+  if (!rows.length) return "";
+
+  const dayRows = (days as Row[])
+    .map((d) => ({ day: String(d.day).slice(0, 10), orders: Number(d.orders_count) }))
+    .filter((d) => d.orders > 0);
+
+  const total = forecastTotal(dayRows, forDay);
+  const cats = forecastCategories(rows, hrs, forDay).filter((c) => c.qty >= 3).slice(0, 8);
+  const top = forecastDay(rows, hrs, forDay).filter((i) => i.qty >= 3).slice(0, 6);
+  if (!cats.length) return "";
+
+  const out = [
+    "",
+    `🔮 <b>خطة الغد — ${forDay}</b>`,
+    `🧾 طلبات متوقَّعة: <b>${fmt(total.orders)}</b> · ذروة المحل: <b>${esc(peakWindow(hrs))}</b>`,
+    "",
+    "<b>جهّز بالأقسام:</b>",
+  ];
+  for (const c of cats) {
+    const early = c.bands[0]?.qty ?? 0;
+    out.push(`• ${esc(c.name)} — <b>${fmt(c.qty)}</b> قطعة (${fmt(early)} قبل ٦ مساءً) · ذروته ${esc(c.peakHours)}`);
+  }
+  if (top.length) {
+    out.push("", "<b>أعلى الأصناف:</b>");
+    for (const i of top) out.push(`• ${esc(i.name)} — <b>${fmt(i.qty)}</b> <i>(${esc(i.confidence)})</i>`);
+  }
+  out.push(
+    "",
+    `<i>تقدير من ${fmt(total.days)} يوم بيع، ومن ${fmt(total.samples)} يوم مماثل. الأقسام أدقّ من الأصناف، ويتحسّن كل أسبوع — والعين أصدق في المناسبات.</i>`,
+  );
+  return out.join("\n");
+}
+
 async function viewDailyFinal() {
   const today = baghdadDay();
   const t = sumRows(await summary(today, today));
@@ -440,7 +506,10 @@ async function viewDailyFinal() {
   ];
   if (sold.length === 0) lines.push("لا مبيعات اليوم.");
   else sold.forEach(([n, q]) => lines.push(`• ${esc(n)} — <b>${q}</b>`));
-  return lines.join("\n").slice(0, 4000);
+  // خطة الغد في نفس الرسالة لا في ثانية — اختيار المالك. وسقوطها لا يُسقط
+  // التقرير: أرقامُ ليلةٍ مضت أهمّ من توقّعٍ لم يأتِ بعد
+  const plan = await prepPlanText(baghdadDay(1)).catch(() => "");
+  return (lines.join("\n") + plan).slice(0, 4000);
 }
 
 async function kbCategories() {
@@ -1093,6 +1162,7 @@ async function onCallback(cb: Row) {
   if (cmd === "now") return say(chatId, await viewNow(), [[{ text: "🔄 تحديث", callback_data: "now" }], BACK], mid);
   if (cmd === "tables") return say(chatId, await viewTables(), [[{ text: "🔄 تحديث", callback_data: "tables" }], BACK], mid);
   if (cmd === "final") return say(chatId, await viewDailyFinal(), [[{ text: "🔄 تحديث", callback_data: "final" }], BACK], mid);
+  if (cmd === "prepplan") return say(chatId, (await prepPlanText(baghdadDay()).catch(() => "")) || "ما عدنا بيانات كافية للخطة — تحتاج أيام بيع أكثر.", [[{ text: "🔄 تحديث", callback_data: "prepplan" }], BACK], mid);
   if (cmd === "drawer") return say(chatId, await viewDrawer(), [[{ text: "🔄 تحديث", callback_data: "drawer" }], BACK], mid);
   if (cmd === "sales") return say(chatId, await viewLastSales(), [[{ text: "🔄 تحديث", callback_data: "sales" }], BACK], mid);
   if (cmd === "pays") return say(chatId, await viewLastPayments(), [[{ text: "🔄 تحديث", callback_data: "pays" }], BACK], mid);

@@ -649,6 +649,8 @@ export type Database = {
       cancel_my_order: { Args: { p_order: string }; Returns: string };
       park_my_order: { Args: { p_order: string; p_spot: string }; Returns: string };
       repeat_category: { Args: { p_order: string }; Returns: string | null };
+      sales_by_item_day: { Args: { p_from: string; p_to: string }; Returns: { day: string; item_id: string | null; name_ar: string; category_name: string; qty: number }[] };
+      sales_by_hour: { Args: { p_from: string; p_to: string }; Returns: { hr: number; category_name: string; qty: number }[] };
       cancel_paid_order: { Args: { p_order: string; p_reason?: string | null }; Returns: undefined };
       set_session_cashier_name: { Args: { p_session: string; p_name: string | null }; Returns: undefined };
       expire_ready: { Args: { p_minutes?: number }; Returns: number[] };

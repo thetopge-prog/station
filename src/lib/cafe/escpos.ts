@@ -555,6 +555,69 @@ export function identifyDoc(index: number, share: string): TicketDoc {
  * every night: opening float at the top, money in, money out, expected, counted,
  * difference. Somebody who can read one can read the other without being taught.
  */
+/**
+ * ورقة «خطة التجهيز» — ما يُجهَّز اليوم ومتى.
+ *
+ * هنا لا في ملفٍّ جديد: `Slip` غير مُصدَّرة عمداً، فكل وثيقةٍ تُبنى داخل هذا
+ * الملفّ — وهو ما جعل `dailyCountDoc` تسكن هنا أيضاً.
+ *
+ * ولا مبلغ عليها ولا ربح: تُعطى لطبّاخ، وقاعدة المالك أن المال لا يخرج من
+ * حدود من يملكه.
+ */
+export function prepSheetDoc(d: {
+  day: string;
+  shopName: string;
+  orders: number;
+  samples: number;
+  days: number;
+  peak: string;
+  categories: { name: string; qty: number; peakHours: string; bands: { label: string; qty: number }[] }[];
+  items: { name: string; qty: number; confidence: string }[];
+  by: string;
+}): TicketDoc {
+  const s = new Slip("utf8", COLS_80MM);
+  const n = (v: number) => new Intl.NumberFormat("en-US").format(Math.round(v));
+
+  s.center().size(2, 2).bold(true).line("خطة التجهيز").bold(false).size(1, 1);
+  s.line(d.shopName);
+  s.line(d.day);
+  s.rule("=");
+
+  s.left();
+  s.pair("الطلبات المتوقَّعة", n(d.orders));
+  s.pair("ذروة المحل", d.peak);
+  s.rule("-");
+
+  s.center().bold(true).line("بالأقسام").bold(false).left();
+  for (const c of d.categories) {
+    s.pair(c.name, `${n(c.qty)} قطعة`);
+    // الفترات تحت اسم القسم: الطبّاخ يقرأ «كم قبل السادسة» لا حصصاً مئوية
+    const bits = c.bands.filter((b) => b.qty > 0).map((b) => `${b.label}: ${n(b.qty)}`);
+    for (const b of bits) s.line("   " + b);
+    s.line("   الذروة: " + c.peakHours);
+  }
+
+  if (d.items.length) {
+    s.rule("-");
+    s.center().bold(true).line("أعلى الأصناف").bold(false).left();
+    for (const i of d.items) s.pair(`${i.name} (${i.confidence})`, n(i.qty));
+  }
+
+  s.rule("=");
+  /*
+   * التحذير على الورقة نفسها لا في شرحٍ شفهي.
+   *
+   * الورقة تُعلَّق في المطبخ ويقرؤها من لم يسمع كيف بُنيت. ورقمٌ بلا مداه
+   * يُقرأ أمراً، فيُجهَّز عليه ويُلام حين يخطئ. فليقل عن نفسه كم يعرف.
+   */
+  s.center();
+  s.line(`تقدير من ${n(d.days)} يوماً`);
+  s.line(`ومن ${n(d.samples)} يومٍ مماثل`);
+  s.line("يتحسّن كل أسبوع — والعين أصدق");
+  s.line(d.by);
+  return { lines: s.doc, qr: null, kick: false };
+}
+
 export function dailyCountDoc(d: {
   day: string;
   shopName: string;
