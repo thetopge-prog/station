@@ -31,14 +31,34 @@ export function QuickExpense({ onClose }: { onClose: () => void }) {
     box.current?.querySelector("input")?.focus();
   }, []);
 
+  /**
+   * التسجيل — ولا يُترك خطؤه بلا صوت.
+   *
+   * كان النداء بلا `try`: فإن سقط — والسقوط الشائع أن الصفحة مفتوحة منذ
+   * الصباح ونُشرت نسخةٌ جديدة، فـ«إجراء الخادم» الذي تناديه لم يعد موجوداً —
+   * لم يُنفَّذ `setBusy(false)` أصلاً، فيبقى الزرّ على «…» إلى الأبد ولا
+   * تظهر رسالة. والموظّف يرى ما رآه المالك بالضبط: «المصروف لا يُسجَّل».
+   *
+   * وقد وقع هذا اليوم نفسه على شاشة الكاشير ولنفس السبب.
+   */
   async function save() {
     if (amount <= 0 || busy) return;
     setBusy(true);
     setMsg(null);
-    const res = await addExpense({ amount, category, note });
-    setBusy(false);
-    if (!res.ok) return setMsg(res.error);
-    onClose();
+    try {
+      const res = await addExpense({ amount, category, note });
+      if (!res.ok) return setMsg(res.error);
+      onClose();
+    } catch (e) {
+      const why = e instanceof Error ? e.message : String(e);
+      setMsg(
+        /server action|deployment|unexpected response/i.test(why)
+          ? "النظام تحدّث والصفحة قديمة — اضغط F5 ثم سجّل المصروف. (المبلغ لم يُسجَّل)"
+          : "لم يُسجَّل — تأكد من الاتصال وأعد المحاولة.",
+      );
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (

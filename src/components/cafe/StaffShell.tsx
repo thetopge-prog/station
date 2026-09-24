@@ -19,6 +19,7 @@ import { StationMark } from "./Logo";
 import { PrintSpooler } from "./PrintSpooler";
 import { GlobalScanner } from "./GlobalScanner";
 import { QuickExpense } from "./QuickExpense";
+import { FreshBuild } from "./FreshBuild";
 import { isTypingTarget, shortcutFor } from "@/lib/cafe/shortcuts";
 
 function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
@@ -388,6 +389,29 @@ export function StaffShell({
       {/* الطابعة تتبع الطلب: أي شاشة موظّف على حاسوب الكاشير تطبع ما لم يُطبع */}
       <PrintSpooler />
       <GlobalScanner roles={roles} />
+      {/*
+        تُحدَّث الصفحة حين يُنشر بناءٌ جديد — وهي خالية.
+
+        كل نشر يغيّر معرّفات إجراءات الخادم، وشاشة الموظّف تبقى مفتوحة من
+        الصباح إلى الليل. فأوّل نقرةٍ بعد النشر تسقط: «المصروف السريع لا
+        يُسجَّل»، و«الطلب لا يُتمّ» — وكلاهما وقع اليوم. و`watchStaleBuild`
+        يلتقط السقطة ويعيد التحميل، لكن بعد أن يضيع ما كُتب.
+
+        وهذا يسبقها: يسأل عن النسخة كل دقيقة، ويحدّث **قبل** أن يُستعمَل شيء.
+        وشاشة الكاشير لها حارسها الخاصّ لأنها تعرف سلّتها.
+      */}
+      {!pathname.startsWith("/cashier") && (
+        <FreshBuild
+          idle={() =>
+            !quickExpense &&
+            !moreOpen &&
+            !isTypingTarget(
+              (document.activeElement as HTMLElement | null)?.tagName,
+              (document.activeElement as HTMLElement | null)?.isContentEditable === true,
+            )
+          }
+        />
+      )}
       {quickExpense && <QuickExpense onClose={() => setQuickExpense(false)} />}
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-5 pb-24 md:pb-5">{children}</main>
 
