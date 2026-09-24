@@ -16,15 +16,18 @@ import { BRAND } from "@/lib/brand";
  *   زرّنا نحن. والمتصفّح لا يقبل النداء إلّا من ضغطةٍ حقيقية.
  * - آيفون لا يطلق شيئاً أصلاً، والتثبيت فيه يدوي — فتُشرح الخطوتان بصورتيهما.
  *
- * ولا يظهر إن كان مثبّتاً أصلاً، ولا لمن أغلقه من قبل. والتأخير ثمانِ ثوانٍ:
- * لافتةٌ تقفز في وجه من فتح المنيو للتوّ تُغلَق بلا قراءة.
+ * ولا يظهر إن كان مثبّتاً أصلاً، ولا لمن أغلقه من قبل — والعلامة واحدة في
+ * الصفحتين، فمن رآه على شاشة الاستلام لا يراه ثانيةً في المنيو.
+ *
+ * والتأخير يختلف بينهما: لافتةٌ تقفز في وجه من فتح الصفحة للتوّ تُغلَق بلا
+ * قراءة، لكن شاشة الاستلام ثلاثة أزرارٍ يُضغط أحدها في ثوانٍ — فثماني ثوانٍ
+ * هناك تعني ألّا تُرى أصلاً.
  */
 const SEEN = "st-install-v1";
-const DELAY_MS = 8_000;
 
 type Installable = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
 
-export function InstallPrompt() {
+export function InstallPrompt({ delayMs = 8_000 }: { delayMs?: number }) {
   const [how, setHow] = useState<"android" | "ios" | null>(null);
   const [deferred, setDeferred] = useState<Installable | null>(null);
 
@@ -44,7 +47,7 @@ export function InstallPrompt() {
       // بلا هذا يعرض كروم لافتته الصغيرة ويبتلع الحدث، فلا يبقى لنا ما نطلقه
       e.preventDefault();
       setDeferred(e as Installable);
-      setTimeout(() => setHow("android"), DELAY_MS);
+      setTimeout(() => setHow("android"), delayMs);
     };
     window.addEventListener("beforeinstallprompt", onPrompt);
 
@@ -52,13 +55,13 @@ export function InstallPrompt() {
     // و«سفاري» شرطٌ لازم: كروم على آيفون لا يملك «أضف إلى الشاشة الرئيسية»
     const ua = navigator.userAgent;
     const iosSafari = /iPad|iPhone|iPod/.test(ua) && /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua);
-    const t = iosSafari ? setTimeout(() => setHow("ios"), DELAY_MS) : null;
+    const t = iosSafari ? setTimeout(() => setHow("ios"), delayMs) : null;
 
     return () => {
       window.removeEventListener("beforeinstallprompt", onPrompt);
       if (t) clearTimeout(t);
     };
-  }, []);
+  }, [delayMs]);
 
   if (!how) return null;
 

@@ -3,6 +3,7 @@ import { OrderLandingClient, type Shot } from "@/components/cafe/OrderLandingCli
 import { imgSrcs } from "@/lib/cafe/menu-img";
 import type { Metadata } from "next";
 import { BRAND } from "@/lib/brand";
+import { InstallPrompt } from "@/components/cafe/InstallPrompt";
 
 /**
  * /order — شاشة اختيار طريقة الاستلام.
@@ -45,5 +46,12 @@ export default async function OrderPage() {
   } catch {
     // بلا صور: الشريطان يختفيان والأزرار تبقى — وهي المقصودة
   }
-  return <OrderLandingClient shots={shots} />;
+  return (
+    <>
+      <OrderLandingClient shots={shots} />
+      {/* هنا أوّل ما يرى الزبون، فهنا تُعرض. وأربع ثوانٍ لا ثمان: هذه الشاشة
+          ثلاثة أزرارٍ يُضغط أحدها بسرعة، فالتأخير الطويل يعني ألّا تُرى. */}
+      <InstallPrompt delayMs={4_000} />
+    </>
+  );
 }
