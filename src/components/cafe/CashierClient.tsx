@@ -184,6 +184,9 @@ export function CashierClient({
   const [custName, setCustName] = useState("");
   const [custPhone, setCustPhone] = useState("");
   const [custAddress, setCustAddress] = useState("");
+  // «+ تقييم كوكل» — يؤشّرها الكاشير على الطلب وهو يبيع. لا تُرسل لكل زبون
+  // عمداً: هو الذي رأى الزبون وعرف إن خرج راضياً
+  const [askReview, setAskReview] = useState(false);
   // البحث عن صنف: الشاشة لم يكن فيها بحثٌ قطّ، والموظّف ينتقل بين سبعة أقسام
   // ليجد صنفاً من مئة وخمسة عشر — تسعاً وتسعين مرّة في اليوم
   const [itemQ, setItemQ] = useState("");
@@ -508,6 +511,7 @@ export function CashierClient({
         orderType === "takeaway" ? ("takeaway" as const) : ("cashier" as const);
       const res = await cashierCheckout({
         lines: payload,
+        askReview: askReview && !!cust.phone,
         discount,
         extra: extraTotal,
         extraNote,
@@ -607,6 +611,9 @@ export function CashierClient({
       setCustName("");
       setCustPhone("");
       setCustAddress("");
+      // تُطفأ مع بقيّة حقول الزبون: علامةٌ تبقى مضاءة تُرسل رسالةً إلى زبونٍ
+      // لم يخترها له أحد
+      setAskReview(false);
     } catch (e) {
       // النسخة القديمة تُقال باسمها، لا «تأكد من الاتصال».
       //
@@ -1239,6 +1246,28 @@ export function CashierClient({
         )}
 
         {orderType !== "delivery" && partnerBlock}
+
+        {/*
+          «+ تقييم كوكل» — لا يظهر إلا مع رقم هاتف: بلا رقمٍ لا سبيل لإرسال شيء.
+          والرسالة تخرج بعد ربع ساعة من تسليم الطلب (نصف ساعة للتوصيل)، وتُعرض
+          في «رسائل التقييم» ليضغطها الموظّف — أو تُرسَل وحدها إن كان الزبون
+          يراسلنا على واتساب أصلاً.
+        */}
+        {orderType !== "dinein" && custPhone.trim().length >= 10 && (
+          <button
+            type="button"
+            onClick={() => setAskReview((v) => !v)}
+            className={
+              "flex min-h-11 w-full items-center justify-between rounded-xl border-2 px-3 text-sm font-black transition " +
+              (askReview ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground")
+            }
+          >
+            <span>⭐ اطلب منه تقييم كوكل</span>
+            <span className={"grid size-5 place-items-center rounded-md border-2 " + (askReview ? "border-primary bg-primary text-primary-foreground" : "border-border")}>
+              {askReview ? "✓" : ""}
+            </span>
+          </button>
+        )}
 
         {nameMissing && (
           <p className="rounded-lg border-2 border-destructive bg-destructive/10 px-3 py-2 text-xs font-black text-destructive">

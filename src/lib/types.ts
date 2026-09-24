@@ -408,7 +408,8 @@ export type Database = {
           printed_at: string | null;  // 0074 — الطابعة تتبع الطلب
           cancel_reason: string | null; cancelled_at: string | null; cancelled_by: string | null;  // 0090 — إلغاء طلب مدفوع
           whatsapp_wa_id: string | null;  // 0075 — زبون بوت واتساب، ليُبلَّغ
-          handed_at: string | null; rating_asked_at: string | null; saved_for_customer: boolean;  // 0095 — التقييم وطلباتي السابقة
+          handed_at: string | null; rating_asked_at: string | null; saved_for_customer: boolean;
+          ask_review: boolean; review_asked_at: string | null; review_focus: string | null;  // 0104 — طلب تقييم جوجل  // 0095 — التقييم وطلباتي السابقة
         };
         Insert: {
           id?: string; business_day?: string; order_seq: number; channel: OrderChannel; status?: OrderStatus;
@@ -431,6 +432,7 @@ export type Database = {
           partner_ref: string | null; partner_total: number | null; printed_at: string | null; whatsapp_wa_id: string | null;
           cashier_id: string | null;  // من قبض الطلب — يُختم عند الدفع ويُطبع على الإيصال
           handed_at: string | null; rating_asked_at: string | null; saved_for_customer: boolean;
+          ask_review: boolean; review_asked_at: string | null; review_focus: string | null;  // 0104 — طلب تقييم جوجل
         }>;
         Relationships: [];
       };
@@ -646,6 +648,7 @@ export type Database = {
       sync_hub_prep: { Args: { p_id: string; p_status: PrepStatus; p_at: string }; Returns: boolean };
       cancel_my_order: { Args: { p_order: string }; Returns: string };
       park_my_order: { Args: { p_order: string; p_spot: string }; Returns: string };
+      repeat_category: { Args: { p_order: string }; Returns: string | null };
       cancel_paid_order: { Args: { p_order: string; p_reason?: string | null }; Returns: undefined };
       set_session_cashier_name: { Args: { p_session: string; p_name: string | null }; Returns: undefined };
       expire_ready: { Args: { p_minutes?: number }; Returns: number[] };

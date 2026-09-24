@@ -298,6 +298,13 @@ export async function cashierCheckout(input: {
   phone?: string | null;
   address?: string | null;
   customerName?: string | null;
+  /**
+   * «+ تقييم كوكل» — يؤشّرها الكاشير على الطلب وهو يبيع.
+   *
+   * ولا تُرسَل لكل زبون عمداً: الكاشير هو الذي رأى الزبون وعرف إن خرج راضياً،
+   * ورسالةٌ تطلب تقييماً من زبونٍ غاضب تزيده غضباً وتكسب نجمةً واحدة.
+   */
+  askReview?: boolean;
   /** «سفري» — the customer collects; local numbering, receipt printed twice */
   channel?: "cashier" | "takeaway";
 }): Promise<CheckoutResult> {
@@ -397,6 +404,27 @@ export async function cashierCheckout(input: {
     });
     if (de) debtErr = de.message;
     revalidatePath("/debts");
+  }
+
+  /*
+   * علامة طلب التقييم، والقسم المتكرّر معها.
+   *
+   * بعد الدفع لا قبله: الطلب الذي لم يُدفع لا يُسأل صاحبه عن تجربته. وبلا رقم
+   * هاتف لا معنى لها — لا سبيل لإرسال شيء.
+   *
+   * وفشلها لا يُسقط البيعة: التقييم رفاهية، والنقد في الدرج ليس كذلك.
+   */
+  if (input.askReview && cleanPhone(input.phone)) {
+    try {
+      const svc = createSupabaseServiceClient();
+      const { data: focus } = await svc.rpc("repeat_category", { p_order: placed[0].order_id });
+      await svc
+        .from("orders")
+        .update({ ask_review: true, review_focus: (focus as string | null) ?? null })
+        .eq("id", placed[0].order_id);
+    } catch {
+      /* الطلب مدفوع ومطبوع — وطلب التقييم ليس سبباً لإفشاله */
+    }
   }
 
   revalidatePath("/cashier");
