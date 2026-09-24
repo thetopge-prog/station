@@ -22,7 +22,8 @@ import { bcp47, isRtl, LANG_LABEL, SITE, SITE_LANGS, type SiteLang } from "@/lib
 const P = (n: number | string) => `/posters/${n}.jpg`;
 /** بطاقة المحل نفسها على الخريطة، لا بحثٌ عن اسمه — الرابط في `BRAND` */
 const MAPS = BRAND.mapsUrl;
-const TECH_ICONS = [QrCode, ChefHat, MessageCircle, Star];
+// بترتيب بطاقات `tech` — الخامسة «الطلب الذاتي»، ولولا هذا السطر لسقطت إلى QrCode
+const TECH_ICONS = [QrCode, ChefHat, MessageCircle, Star, Smartphone];
 const QUALITY_ICONS = [Flame, Sparkles, UtensilsCrossed, ChefHat, ClipboardCheck];
 const QUALITY_SHOTS = [P(1), P(5), P(2), P(6), P("m1")];
 

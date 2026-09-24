@@ -58,6 +58,23 @@ export function SiteJsonLd({ lang }: { lang: SiteLang }) {
     ],
     hasMenu: `${SITE_URL}/menu`,
     acceptsReservations: "False",
+    /*
+     * طرق الاستلام وخصائص المكان — حقولٌ لا جُمَل.
+     *
+     * سأل المالك مساعداً ذكياً عن المطعم فردّ بسؤال: «هل تقصد ميزة تقنية
+     * معيّنة؟». والسبب أن هذه الأشياء كانت مكتوبةً للإنسان وحده — فقرةً في
+     * «من نحن» — ولا شيء منها في صيغةٍ تُقرأ آلياً. وهذه هي الصيغة.
+     */
+    hasDeliveryMethod: [
+      "http://purl.org/goodrelations/v1#DeliveryModeOwnFleet",
+      "http://purl.org/goodrelations/v1#DeliveryModePickUp",
+    ],
+    amenityFeature: [
+      { "@type": "LocationFeatureSpecification", name: "الطلب الذاتي من الهاتف", value: true },
+      { "@type": "LocationFeatureSpecification", name: "الاستلام من السيارة", value: true },
+      { "@type": "LocationFeatureSpecification", name: "الطلب من الطاولة برمز QR", value: true },
+      { "@type": "LocationFeatureSpecification", name: "التوصيل داخل الرمادي", value: true },
+    ],
     potentialAction: {
       "@type": "OrderAction",
       target: { "@type": "EntryPoint", urlTemplate: `${SITE_URL}/order`, inLanguage: lang },
