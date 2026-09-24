@@ -272,3 +272,44 @@ describe("الاسم مطلوب مع الرقم", () => {
     expect(afterName.state.step).toBe("address");
   });
 });
+
+/**
+ * أخطاءٌ وصلت من زبونٍ حقيقي — كلّ واحدةٍ هنا كلّفت طلباً.
+ *
+ * المنيو هنا أقرب إلى الحقيقي: بيتزاتان تشتركان في كلمة «بيتزا»، وواحدة
+ * إملاؤها يخالف ما يكتبه الناس («بروني» ويكتبونها «ببروني»).
+ */
+const REAL: Menu = {
+  categories: [{ id: "c", name: "بيتزا" }],
+  items: [
+    { id: "i-sup", categoryId: "c", name: "بيتزا سوبريم", price: 12000, sizes: [], doughs: [] },
+    { id: "i-pep", categoryId: "c", name: "بيتزا بروني", price: 12000, sizes: [], doughs: [] },
+    { id: "i-rnc", categoryId: "c", name: "بيتزا تشكن رانش", price: 13000, sizes: [], doughs: [] },
+    { id: "i-zng", categoryId: "c", name: "زنجر بوفالو", price: 5000, sizes: [], doughs: [] },
+  ],
+};
+
+describe("فهم الطلب — أخطاء وقعت فعلاً", () => {
+  it("«ببروني» بحرفٍ مكرّر تطابق «بروني» ولا تصير سوبريم", () => {
+    const lines = understand("بيتزا ببروني", REAL);
+    expect(lines?.map((l) => l.name)).toEqual(["بيتزا بروني"]);
+  });
+
+  it("«بلا زحمة» تأدّبٌ لا ملاحظة، و«بدون بصل» هي الملاحظة", () => {
+    const lines = understand("بيتزا ببروني بلا زحمة اريدها بدون بصل", REAL);
+    expect(lines).toHaveLength(1);
+    expect(lines![0].name).toBe("بيتزا بروني");
+    expect(lines![0].note).toBe("بدون بصل");
+  });
+
+  it("اسم القسم وحده لا يختار صنفاً — يُترك للنموذج ليسأل", () => {
+    expect(understand("اريد بيتزا", REAL)).toBeNull();
+  });
+
+  it("ملاحظتان تُحفظان معاً لا واحدة", () => {
+    const lines = understand("زنجر بوفالو بدون بصل وزيادة جبن", REAL);
+    expect(lines).toHaveLength(1);
+    expect(lines![0].note).toContain("بدون بصل");
+    expect(lines![0].note).toContain("زيادة جبن");
+  });
+});

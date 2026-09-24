@@ -155,9 +155,30 @@ function cartText(cart: CartLine[]): string {
  */
 export function understand(text: string, menu: Menu): CartLine[] | null {
   const lines: CartLine[] = [];
-  for (const seg of splitOrder(extractWhen(text).rest)) lines.push(...parseSegment(seg, menu));
+  for (const seg of splitOrder(stripPolite(extractWhen(text).rest))) {
+    const got = parseSegment(seg, menu);
+    // مقطعٌ ملتبس يُسقط القراءة كلّها إلى النموذج: نصفُ طلبٍ صحيح وأصنافٌ
+    // مخمَّنة أسوأ من سؤالٍ واحد
+    if (got === null) return null;
+    lines.push(...got);
+  }
   return lines.length ? lines : null;
 }
+
+/**
+ * كلمات التأدّب تُحذف قبل أي قراءة.
+ *
+ * «بلا زحمة» في العراقي = «من بعد إذنك»، لا «بدون صنف زحمة». وقارئ الملاحظات
+ * يلتقط «بلا» ويأخذ الكلمتين بعدها، فصارت ملاحظة الطلب «بلا زحمة اريدها»
+ * و**ضاعت «بدون بصل»** — وهي الملاحظة الوحيدة التي تهمّ المطبخ. حصل هذا مع
+ * زبونٍ فعلي.
+ *
+ * فتُقتلع العبارات كلّها أولاً: لا تُقرأ ملاحظةً، ولا تُحسب كلمةَ صنف.
+ */
+const POLITE =
+  /(بلا|بدون|من\s*غير)\s*(زحمه|زحمة|امر|أمر|اذن|إذن)|لو\s*سمحت|من\s*بعد\s*(اذنك|إذنك)|اذا\s*ممكن|الله\s*يخليك|تكرم|رجاء[اً]?|عفوا|ممكن\s*لو\s*سمحت/g;
+
+export const stripPolite = (t: string): string => t.replace(POLITE, " ").replace(/\s+/g, " ").trim();
 
 // ── فهم النصّ الحرّ بلا نموذج لغوي: مطابقة كلمات على أسماء المنيو ───────────
 //
@@ -215,8 +236,15 @@ export function foldWord(w: string): string {
     .toLowerCase();
 }
 const tokens = (s: string) => s.split(/[\s,،.()\-]+/).map(foldWord).map((w) => SPELLINGS[w] ?? w).filter((w) => w.length >= 2);
-/** هيكل الكلمة بلا حروف المدّ — «بافلو» و«بوفالو» واحد */
-const skel = (w: string) => w.replace(/[اوي]/g, "");
+/**
+ * هيكل الكلمة بلا حروف المدّ ولا تكرارٍ متجاور.
+ *
+ * «بافلو» و«بوفالو» واحد. وطيُّ الحرف المكرّر يصل «ببروني» بـ«بروني» — وهي
+ * أشهر زلّة كتابةٍ في العربية، وقد كلّفتنا طلباً: الزبون كتب «بيتزا ببروني»
+ * فلم تُطابَق «بيتزا بروني»، وبقيت «بيتزا» وحدها تطابق، فدخلت أوّل بيتزا في
+ * المنيو — سوبريم.
+ */
+const skel = (w: string) => w.replace(/[اوي]/g, "").replace(/(.)\1+/g, "$1");
 /** كلمة من النصّ (قد تبدأ بواو العطف) تساوي كلمة من المنيو؟ */
 function same(w: string, t: string): boolean {
   const x = w.length > t.length && w.startsWith("و") ? w.slice(1) : w;
@@ -236,14 +264,36 @@ function splitOrder(text: string): string[] {
     .filter(Boolean);
 }
 
-function parseSegment(seg: string, menu: Menu): CartLine[] {
+/**
+ * كم صنفاً يحمل كل كلمة من كلمات المنيو.
+ *
+ * «بيتزا» تحملها تسعة أصناف، و«كنتاكي» سبعة — فمن كتب «بيتزا» وحدها لم
+ * يختر شيئاً، وأي صنفٍ نضيفه قرعة. وهذا بالضبط ما حصل: «بيتزا ببروني» طابقت
+ * كلمة «بيتزا» وحدها، فدخلت سوبريم.
+ */
+function tokenSpread(menu: Menu): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const it of menu.items) for (const t of new Set(tokens(it.name))) m.set(t, (m.get(t) ?? 0) + 1);
+  return m;
+}
+
+/**
+ * الملاحظات: **كلّها**، لا أوّلها.
+ *
+ * «بلا زحمة اريدها بدون بصل» كانت تُقرأ ملاحظةً واحدة هي الأولى — وكلمات
+ * التأدّب تُقتلع قبل هذا الآن، لكن «بدون بصل وزيادة جبن» يبقى اثنتين. وكلّ
+ * ما بعد «بدون» أو «زيادة» يعني المطبخ.
+ */
+const NOTE_RE = /(بدون|بلا|من غير|زياده|زيادة|اكثر|حار|سبايسي)\s*\S*(?:\s+(?!و)\S+)?/g;
+
+function parseSegment(seg: string, menu: Menu): CartLine[] | null {
   let qty = 1;
   let rest = seg;
   const num = rest.match(/(?:^|\s)(\d{1,2})(?:\s|$)/);
   if (num) { qty = Number(num[1]); rest = rest.replace(num[0], " "); }
-  const noteM = rest.match(/(بدون|بلا|من غير|زياده|زيادة|اكثر)\s+\S+(?:\s+\S+)?/);
-  const note = noteM ? noteM[0].trim() : null;
-  if (noteM) rest = rest.replace(noteM[0], " ");
+  const hits = rest.match(NOTE_RE);
+  const note = hits?.length ? hits.map((h) => h.trim()).join(" · ").slice(0, 80) : null;
+  if (hits) for (const h of hits) rest = rest.replace(h, " ");
   const words = tokens(rest);
   // «واثنين» عددٌ بواو عطفٍ لا كلمةٌ أخرى — تُجرَّب الكلمة كما هي ثم بلا واوها
   for (const w of words) {
@@ -254,19 +304,24 @@ function parseSegment(seg: string, menu: Menu): CartLine[] {
   let sig = words.filter((w) => !GENERIC.has(w) && !isNum(w));
 
   const out: CartLine[] = [];
+  const spread = tokenSpread(menu);
   // أكثر من صنف في المقطع («زنجر وبيبسي»): الأفضل أولاً، ثم ما بقي من الكلمات
   while (sig.length && out.length < 4) {
-    let best: { item: MenuItem; score: number; used: string[] } | null = null;
+    let best: { item: MenuItem; score: number; used: string[]; hitTokens: string[] } | null = null;
     for (const item of menu.items) {
       const it = tokens(item.name);
       if (!it.length) continue;
       const used = sig.filter((w) => it.some((t) => same(w, t)));
-      const hit = it.filter((t) => sig.some((w) => same(w, t))).length;
-      if (!hit) continue;
-      const score = hit / it.length + hit * 0.01;
-      if (!best || score > best.score) best = { item, score, used };
+      const hitTokens = it.filter((t) => sig.some((w) => same(w, t)));
+      if (!hitTokens.length) continue;
+      const score = hitTokens.length / it.length + hitTokens.length * 0.01;
+      if (!best || score > best.score) best = { item, score, used, hitTokens };
     }
     if (!best || best.score < 0.5) break;
+    // لم يطابق إلا كلماتٌ عامّة تحملها أصنافٌ كثيرة («بيتزا»، «كنتاكي»،
+    // «برجر») → الزبون سمّى القسم لا الصنف. تخمينُ صنفٍ هنا خطأٌ يصل المطبخ؛
+    // والنموذج يسأله أيّها يريد. `null` تُسقط القراءة كلّها إليه.
+    if (best.hitTokens.every((t) => (spread.get(t) ?? 0) >= 3)) return null;
     const item = best.item;
     const size = item.sizes.find((sz) => tokens(sz.name).some((t) => words.some((w) => same(w, t)))) ?? defaultSize(item);
     out.push({
