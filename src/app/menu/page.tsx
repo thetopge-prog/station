@@ -1,6 +1,7 @@
 import { getPublicMenu } from "@/lib/cafe/menu-data";
 import { getActiveItemOffers } from "@/lib/cafe/offer-actions";
 import { MenuClient } from "@/components/cafe/MenuClient";
+import { InstallPrompt } from "@/components/cafe/InstallPrompt";
 import { toFulfilmentMode } from "@/lib/cafe/fulfilment";
 import type { Metadata } from "next";
 import { BRAND } from "@/lib/brand";
@@ -35,5 +36,12 @@ export default async function MenuPage({ searchParams }: { searchParams: Promise
   const sp = await searchParams;
   if (!(await isShopOpen())) return <ShopClosed />;
   const [menu, offers] = await Promise.all([getPublicMenu(), getActiveItemOffers().catch(() => ({}))]);
-  return <MenuClient menu={menu} table={sp.t ?? null} channel="qr" offers={offers} initialMode={toFulfilmentMode(sp.mode)} initialPhone={sp.phone ?? null} layout="tiles" />;
+  return (
+    <>
+      <MenuClient menu={menu} table={sp.t ?? null} channel="qr" offers={offers} initialMode={toFulfilmentMode(sp.mode)} initialPhone={sp.phone ?? null} layout="tiles" />
+      {/* رابط المنيو يصل في واتساب فيُفتح ويُنسى. اللافتة تعرض التثبيت مرّةً
+          واحدة بعد أن يكون الزبون قد تصفّح — ولا تظهر لمن ثبّته أو أغلقها. */}
+      <InstallPrompt />
+    </>
+  );
 }
