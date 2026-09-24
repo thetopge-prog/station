@@ -25,6 +25,19 @@ const nextConfig: NextConfig = {
       { source: "/delivery", destination: "/menu?mode=delivery", permanent: false },
       { source: "/pickup", destination: "/menu?mode=pickup", permanent: false },
       { source: "/car", destination: "/menu?mode=curbside", permanent: false },
+      /*
+       * `www` إلى العنوان بلا `www` — تحويلٌ دائم.
+       *
+       * العنوانان يردّان ٢٠٠ اليوم، وجوجل يعدّهما موقعين: كل رابطٍ يشير إلى
+       * أحدهما لا يُحسب للآخر، فينقسم ترتيب الصفحة الواحدة بينهما. ووسم
+       * `canonical` يقول أيّهما الأصل، لكن التحويل ٣٠١ يحسمها ولا يترك رأياً.
+       */
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.stationiraq.com" }],
+        destination: "https://stationiraq.com/:path*",
+        permanent: true,
+      },
     ];
   },
   /*
