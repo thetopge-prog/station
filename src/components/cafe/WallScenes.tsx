@@ -151,7 +151,7 @@ function SceneLockup() {
  * والحركة من اليسار إلى اليمين: القائمة مكرّرة مرّتين والإزاحة نصفها
  * بالضبط، فتبدأ مزاحةً وتعود إلى الصفر — فتمشي يميناً بلا قفزةٍ عند العودة.
  */
-const MOS = [0, 1, 2, 3, 4, 5];
+const MOS = [0, 1, 2, 3, 4, 5, 6];
 
 function SceneMosaic() {
   const line = [...MOS, ...MOS];
@@ -165,9 +165,9 @@ function SceneMosaic() {
           left: 0,
           display: "flex",
           alignItems: "center",
-          gap: "6vh",
+          gap: "4vh",
           width: "max-content",
-          marginTop: "-29vh",
+          marginTop: "-38vh",
           animationName: "wall-mos",
         }}
       >
@@ -177,7 +177,7 @@ function SceneMosaic() {
             key={`${n}-${i}`}
             src={`/wallimg/mos-m${n}.webp`}
             alt=""
-            style={{ height: "58vh", width: "auto", flexShrink: 0, borderRadius: "1.2vh" }}
+            style={{ height: "76vh", width: "auto", flexShrink: 0, borderRadius: "1.2vh" }}
           />
         ))}
       </div>

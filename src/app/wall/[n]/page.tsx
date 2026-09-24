@@ -38,7 +38,7 @@ const WALL_IMAGES = [
   ...[1, 2, 3, 4].map((n) => `kfc-${n}.webp`),
   // ملصقات المحل: في أعمدة الأطراف وفي مشهد الصور وفي الشريط. مصغَّرةٌ إلى
   // `wallimg/` — الأصل في `public/posters/` ١٫٤ ميغابايت، وهذه ٣٩٢ كيلوبايت
-  ...[0, 1, 2, 3, 4, 5].map((n) => `mos-m${n}.webp`),
+  ...[0, 1, 2, 3, 4, 5, 6].map((n) => `mos-m${n}.webp`),
   ...["kentucky", "zinger", "pepperoni", "fries", "onion", "strips", "twister", "rizo-super", "sauce", "popcorn", "mushroom"].map(
     (n) => `dish-${n}.webp`,
   ),
