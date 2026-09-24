@@ -111,6 +111,9 @@ export default function KentuckyPage() {
           addressCountry: "IQ",
         },
         hasMenu: `${SITE_URL}/menu`,
+        geo: { "@type": "GeoCoordinates", latitude: BRAND.geo.lat, longitude: BRAND.geo.lng },
+        hasMap: BRAND.mapsUrl,
+        sameAs: [BRAND.mapsUrl],
       },
     ],
   };
@@ -184,7 +187,16 @@ export default function KentuckyPage() {
             <bdi dir="ltr">{BRAND.phoneDisplay}</bdi>
           </a>
         </p>
-        <Link href="/" className="mt-4 inline-block font-black text-primary underline">
+        <a
+          href={BRAND.mapsUrl}
+          target="_blank"
+          rel="noopener"
+          className="mt-3 inline-block font-black text-primary underline"
+        >
+          الموقع على خرائط جوجل
+        </a>
+        <br />
+        <Link href="/" className="mt-2 inline-block font-black text-primary underline">
           تعرّف على ستيشن كاملاً
         </Link>
       </section>

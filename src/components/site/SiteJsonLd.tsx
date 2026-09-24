@@ -42,6 +42,11 @@ export function SiteJsonLd({ lang }: { lang: SiteLang }) {
       addressCountry: "IQ",
     },
     areaServed: { "@type": "City", name: "الرمادي" },
+    geo: { "@type": "GeoCoordinates", latitude: BRAND.geo.lat, longitude: BRAND.geo.lng },
+    // بطاقة الخريطة والصفحة شيءٌ واحد — وهذا ما يجمع تقييمات البطاقة بنتيجة
+    // الموقع بدل أن يقف كلٌّ منهما وحده
+    hasMap: BRAND.mapsUrl,
+    sameAs: [BRAND.mapsUrl],
     // من ٩ صباحاً إلى ٣ فجراً — يُكتب بيومين لأن الإغلاق بعد منتصف الليل
     openingHoursSpecification: [
       {
