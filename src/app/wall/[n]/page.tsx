@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import "../../wall.css";
-import { bezelPx, clockAt, loopPhase, nowMs, screenIndex } from "@/lib/cafe/wall";
+import { bezelPx, clockAt, LOOP_MS, loopPhase, nowMs, screenIndex } from "@/lib/cafe/wall";
 import { WallCanvas } from "@/components/cafe/WallCanvas";
 import { WallScenes } from "@/components/cafe/WallScenes";
 
@@ -39,6 +39,9 @@ const WALL_IMAGES = [
   // ملصقات المحل: في أعمدة الأطراف وفي مشهد الصور وفي الشريط. مصغَّرةٌ إلى
   // `wallimg/` — الأصل في `public/posters/` ١٫٤ ميغابايت، وهذه ٣٩٢ كيلوبايت
   ...[0, 1, 2, 3, 4, 5, 6].map((n) => `mos-m${n}.webp`),
+  // بطاقات العروض واللافتات العريضة — مشهدان مستقلّان في آخر الدورة
+  ...Array.from({ length: 12 }, (_, n) => `card-${n}.webp`),
+  ...[0, 1, 2, 3, 4, 5].map((n) => `ban-${n}.webp`),
   ...["kentucky", "zinger", "pepperoni", "fries", "onion", "strips", "twister", "rizo-super", "sauce", "popcorn", "mushroom"].map(
     (n) => `dish-${n}.webp`,
   ),
@@ -144,7 +147,7 @@ function WallDebug({ screen, phase }: { screen: number; phase: number }) {
                   break;
                 }
               }
-              var ph = (p0 + (Date.now() - t0)) % 140000;
+              var ph = (p0 + (Date.now() - t0)) % ${LOOP_MS};
               document.getElementById('wd').textContent =
                 innerWidth+'x'+innerHeight+' | kf '+kf+'/'+sheets
                 +' | phase '+Math.round(ph/1000)+'s'

@@ -36,6 +36,8 @@ export function WallScenes() {
       <SceneBoard />
       <SceneStrip />
       <ScenePizza />
+      <SceneCards />
+      <SceneBanners />
       {/* السهم آخر شيء فيمرّ فوق الجميع */}
       <Arrow />
     </>
@@ -826,4 +828,102 @@ function at(x: string): CSSProperties {
     marginTop: "-0.5em",
     display: "block",
   };
+}
+
+/**
+ * ١١ — بطاقات العروض: خمسٌ على الشاشات الأربع، ثم خمسٌ غيرها، ثم خمس.
+ *
+ * البطاقات مربّعةٌ تقريباً وفيها كتابة، فلا تمرّ مروراً: تظهر المجموعة وتقف
+ * سبع ثوانٍ ثم تنصرف وتحلّ محلَّها التي بعدها. المارّ لا يُقرأ، والواقف يُقرأ.
+ *
+ * والثنتان الأوليان تعودان في المجموعة الأخيرة — اثنتا عشرة صورةً لا تملأ
+ * خمس عشرة خانة، والمالك اختار أيّتهما تتكرّر.
+ */
+const CARD_GROUPS = [
+  [0, 1, 2, 3, 4],
+  [5, 6, 7, 8, 9],
+  [10, 11, 0, 1, 2],
+];
+
+function SceneCards() {
+  return (
+    <>
+      {CARD_GROUPS.map((group, g) => (
+        <div className="wall-scene" key={g}>
+          <div
+            className="wall-anim"
+            style={{
+              position: "absolute",
+              left: 0,
+              top: "50%",
+              // اللوحة كلّها صفّاً واحداً: الخمس موزّعاتٌ على الأربع بالتساوي
+              width: "100%",
+              height: "86vh",
+              marginTop: "-43vh",
+              display: "flex",
+              justifyContent: "space-around",
+              alignItems: "center",
+              animationName: `wall-card-${g}`,
+            }}
+          >
+            {group.map((n, i) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={`${n}-${i}`}
+                src={`/wallimg/card-${n}.webp`}
+                alt=""
+                // صندوقٌ ثابت و`contain`: الصور نسبها متفاوتة قليلاً، وبلا هذا
+                // تتفاوت أحجامها في الصفّ فيبدو الترتيب مائلاً
+                style={{ width: "72vw", height: "86vh", objectFit: "contain", flexShrink: 0 }}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
+/**
+ * ١٢ — اللافتات العريضة: اثنتان في كل مرّة، كلٌّ منهما على شاشتين.
+ *
+ * `contain` لا `cover`: اللافتات مصمَّمةٌ بكتابتها وحدودها، ونسبها متفاوتة —
+ * فملءُ الشاشتين قسراً يقصّ أعلاها وأسفلها. تُعرض كما صُمِّمت، ويبقى البرتقالي
+ * حولها — وهو لون العلبة نفسها، لا فراغ.
+ */
+const BAN_PAIRS = [
+  [0, 1],
+  [2, 3],
+  [4, 5],
+];
+
+function SceneBanners() {
+  return (
+    <>
+      {BAN_PAIRS.map((pair, g) => (
+        <div className="wall-scene" key={g}>
+          {pair.map((n, i) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={n}
+              className="wall-anim"
+              src={`/wallimg/ban-${n}.webp`}
+              alt=""
+              style={{
+                position: "absolute",
+                // منتصف الشاشتين الأوليَين، ثم منتصف الأخريَين
+                left: `${100 + i * 200}vw`,
+                top: "50%",
+                marginTop: "-48vh",
+                width: "190vw",
+                height: "96vh",
+                objectFit: "contain",
+                animationName: `wall-ban-${g}`,
+              }}
+            />
+          ))}
+        </div>
+      ))}
+    </>
+  );
 }

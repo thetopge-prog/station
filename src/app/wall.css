@@ -29,7 +29,7 @@
      وكل إطارٍ هنا يكتب `opacity` في كل لقطةٍ من لقطاته، فلا يُخفي هذا شيئاً
      حين تعمل الحركة. */
   opacity: 0;
-  animation-duration: 140s;
+  animation-duration: 182s;
   animation-iteration-count: infinite;
   animation-timing-function: linear;
   animation-fill-mode: both;
@@ -67,22 +67,22 @@
 @keyframes wall-arrow {
   /* أربع مرّات في الدورة، عند حدود المشاهد الكبرى. وبينها يعود إلى يسار
      الجدار وهو مخفيّ، فلا يُرى راجعاً. */
-  0%, 6.51% { opacity: 0; transform: translate3d(-22vw, 0, 0); }
-  6.77% { opacity: 1; transform: translate3d(-22vw, 0, 0); }
-  8.5% { opacity: 1; transform: translate3d(422vw, 0, 0); }
-  8.83%, 25.8% { opacity: 0; transform: translate3d(-22vw, 0, 0); }
+  0%, 5.01% { opacity: 0; transform: translate3d(-22vw, 0, 0); }
+  5.21% { opacity: 1; transform: translate3d(-22vw, 0, 0); }
+  6.54% { opacity: 1; transform: translate3d(422vw, 0, 0); }
+  6.79%, 19.85% { opacity: 0; transform: translate3d(-22vw, 0, 0); }
 
-  26.05% { opacity: 1; transform: translate3d(-22vw, 0, 0); }
-  27.97% { opacity: 1; transform: translate3d(422vw, 0, 0); }
-  28.35%, 48.76% { opacity: 0; transform: translate3d(-22vw, 0, 0); }
+  20.04% { opacity: 1; transform: translate3d(-22vw, 0, 0); }
+  21.52% { opacity: 1; transform: translate3d(422vw, 0, 0); }
+  21.81%, 37.51% { opacity: 0; transform: translate3d(-22vw, 0, 0); }
 
-  49.03% { opacity: 1; transform: translate3d(-22vw, 0, 0); }
-  50.48% { opacity: 1; transform: translate3d(422vw, 0, 0); }
-  50.73%, 74.66% { opacity: 0; transform: translate3d(-22vw, 0, 0); }
+  37.72% { opacity: 1; transform: translate3d(-22vw, 0, 0); }
+  38.83% { opacity: 1; transform: translate3d(422vw, 0, 0); }
+  39.02%, 57.43% { opacity: 0; transform: translate3d(-22vw, 0, 0); }
 
-  74.91% { opacity: 1; transform: translate3d(-22vw, 0, 0); }
-  76.36% { opacity: 1; transform: translate3d(422vw, 0, 0); }
-  76.63%, 100% { opacity: 0; transform: translate3d(-22vw, 0, 0); }
+  57.62% { opacity: 1; transform: translate3d(-22vw, 0, 0); }
+  58.74% { opacity: 1; transform: translate3d(422vw, 0, 0); }
+  58.95%, 76.92% { opacity: 0; transform: translate3d(-22vw, 0, 0); }
 }
 
 .wall-arrow {
@@ -98,32 +98,32 @@
 /* الأصناف تتناثر إلى الطرفين — تطير من جهة المنتصف وتستقرّ عند الحواف */
 @keyframes wall-scatter {
   0% { opacity: 0; transform: translate3d(var(--sx), var(--sy), 0) scale(0.35) rotate(var(--sr)); }
-  0.61% { opacity: 1; }
-  2.2% { opacity: 1; transform: translate3d(0, 0, 0) scale(1) rotate(var(--er)); }
-  6.4% { opacity: 1; transform: translate3d(0, 0, 0) scale(1) rotate(var(--er)); }
-  7.14%, 100% { opacity: 0; transform: translate3d(0, 0, 0) scale(1) rotate(var(--er)); }
+  0.47% { opacity: 1; }
+  1.69% { opacity: 1; transform: translate3d(0, 0, 0) scale(1) rotate(var(--er)); }
+  4.92% { opacity: 1; transform: translate3d(0, 0, 0) scale(1) rotate(var(--er)); }
+  5.49%, 76.92% { opacity: 0; transform: translate3d(0, 0, 0) scale(1) rotate(var(--er)); }
 }
 
 @keyframes wall-name {
   0% { opacity: 0; transform: translate3d(6vw, 0, 0) scale(0.92); }
-  0.61% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
-  6.17% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
-  7.14%, 100% { opacity: 0; transform: translate3d(0, 0, 0) scale(1); }
+  0.47% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  4.75% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  5.49%, 76.92% { opacity: 0; transform: translate3d(0, 0, 0) scale(1); }
 }
 @keyframes wall-verb {
-  0%, 1.89% { opacity: 0; transform: translate3d(-4vw, 0, 0) scale(0.7) rotate(-3.5deg); }
-  2.49% { opacity: 1; transform: translate3d(0, 0, 0) scale(1.08) rotate(-3.5deg); }
-  3.94% { transform: translate3d(0, 0, 0) scale(0.99) rotate(-3.5deg); }
-  4.8% { transform: translate3d(0, 0, 0) scale(1.04) rotate(-3.5deg); }
-  6.17% { opacity: 1; transform: translate3d(0, 0, 0) scale(1) rotate(-3.5deg); }
-  7.14%, 100% { opacity: 0; transform: translate3d(0, 0, 0) scale(1) rotate(-3.5deg); }
+  0%, 1.45% { opacity: 0; transform: translate3d(-4vw, 0, 0) scale(0.7) rotate(-3.5deg); }
+  1.92% { opacity: 1; transform: translate3d(0, 0, 0) scale(1.08) rotate(-3.5deg); }
+  3.03% { transform: translate3d(0, 0, 0) scale(0.99) rotate(-3.5deg); }
+  3.69% { transform: translate3d(0, 0, 0) scale(1.04) rotate(-3.5deg); }
+  4.75% { opacity: 1; transform: translate3d(0, 0, 0) scale(1) rotate(-3.5deg); }
+  5.49%, 76.92% { opacity: 0; transform: translate3d(0, 0, 0) scale(1) rotate(-3.5deg); }
 }
 @keyframes wall-twinkle {
-  0%, 2.15% { opacity: 0; transform: scale(0.2) rotate(0deg); }
-  2.74% { opacity: 1; transform: scale(1) rotate(25deg); }
-  4.71% { opacity: 0.7; transform: scale(0.8) rotate(-10deg); }
-  6% { opacity: 1; transform: scale(1.05) rotate(15deg); }
-  7.14%, 100% { opacity: 0; transform: scale(0.9) rotate(0deg); }
+  0%, 1.65% { opacity: 0; transform: scale(0.2) rotate(0deg); }
+  2.11% { opacity: 1; transform: scale(1) rotate(25deg); }
+  3.62% { opacity: 0.7; transform: scale(0.8) rotate(-10deg); }
+  4.62% { opacity: 1; transform: scale(1.05) rotate(15deg); }
+  5.49%, 76.92% { opacity: 0; transform: scale(0.9) rotate(0deg); }
 }
 
 /* ═══ ٠٢ · صور المحل تملأ الجدار  6.49% → 14.28% ═══════════════════════
@@ -131,26 +131,26 @@
    المحلّ نفسه لا مخزونٌ مشترى. وكلٌّ لها تأخيرها من متغيّر. */
 @keyframes wall-card {
   0% { opacity: 0; transform: translate3d(-24vw, 0, 0) scale(0.9); }
-  7.14% { opacity: 0; transform: translate3d(-24vw, 0, 0) scale(0.9); }
-  8.96% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
-  16.84% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
-  17.85%, 100% { opacity: 0; transform: translate3d(0, 0, 0) scale(1); }
+  5.49% { opacity: 0; transform: translate3d(-24vw, 0, 0) scale(0.9); }
+  6.89% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  12.95% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  13.73%, 76.92% { opacity: 0; transform: translate3d(0, 0, 0) scale(1); }
 }
 
 /* ═══ ٠٣ · أقسام المنيو مكتوبة  14.28% → 22.07% ════════════════════════
    الأقسام مكتوبة لا مصوَّرة: صورةٌ تمرّ بلا اسمٍ تبدو عشوائية، والاسم يقول
    للواقف ما الذي يُباع هنا. */
 @keyframes wall-menu-title {
-  0%, 17.85% { opacity: 0; transform: translate3d(-50%, 0.4em, 0); }
-  18.45% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  25.62% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  26.42%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0); }
+  0%, 13.73% { opacity: 0; transform: translate3d(-50%, 0.4em, 0); }
+  14.19% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  19.71% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  20.32%, 76.92% { opacity: 0; transform: translate3d(-50%, 0, 0); }
 }
 @keyframes wall-menu-item {
-  0%, 18.77% { opacity: 0; transform: translate3d(-50%, 0.6em, 0); }
-  19.37% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  25.62% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  26.42%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0); }
+  0%, 14.44% { opacity: 0; transform: translate3d(-50%, 0.6em, 0); }
+  14.9% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  19.71% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  20.32%, 76.92% { opacity: 0; transform: translate3d(-50%, 0, 0); }
 }
 
 /* ═══ ٠٤ · البركر يتفكّك  22.07% → 31.17% ══════════════════════════════════
@@ -160,8 +160,8 @@
    كانت تتفرّق أفقياً عبر الشاشات فبدت متناثرةً بلا روح — والبركر يُبنى
    عمودياً لا يُنثر. و`--ld` تأخير نزول كل طبقة، فإطارٌ واحد يخدم الستّ. */
 @keyframes wall-drop {
-  0%, 26.42% { opacity: 0; transform: translate3d(-50%, -70vh, 0); }
-  27.31% { opacity: 1; transform: translate3d(-50%, -70vh, 0); }
+  0%, 20.32% { opacity: 0; transform: translate3d(-50%, -70vh, 0); }
+  21.01% { opacity: 1; transform: translate3d(-50%, -70vh, 0); }
   /*
    * تنطبق الطبقات عند ٣١٫٥٪ لا ٣٦٫٧٪.
    *
@@ -172,69 +172,69 @@
    * فصار السقوط ست ثوانٍ والوقوف اثنتي عشرة: الحركة نفسها، والنتيجة أن
    * البركر الكامل هو ما يبقى في العين.
    */
-  31.5% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  39.97% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  40.71%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0); }
+  24.23% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  30.75% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  31.32%, 76.92% { opacity: 0; transform: translate3d(-50%, 0, 0); }
 }
 
 /* الكلام بجانب الطبق — نافذةٌ لكل مشهد، وإلا ظهر كلامُ الريزو فوق البركر */
 @keyframes wall-aside {
-  0%, 26.59% { opacity: 0; transform: translate3d(-50%, 0.5em, 0); }
-  27.45% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  39.97% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  40.71%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0); }
+  0%, 20.45% { opacity: 0; transform: translate3d(-50%, 0.5em, 0); }
+  21.12% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  30.75% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  31.32%, 76.92% { opacity: 0; transform: translate3d(-50%, 0, 0); }
 }
 @keyframes wall-aside3 {
-  0%, 27.73% { opacity: 0; transform: translate3d(-50%, 0.5em, 0); }
-  28.58% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  39.97% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  40.71%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0); }
+  0%, 21.33% { opacity: 0; transform: translate3d(-50%, 0.5em, 0); }
+  21.98% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  30.75% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  31.32%, 76.92% { opacity: 0; transform: translate3d(-50%, 0, 0); }
 }
 
 @keyframes wall-aside2 {
-  0%, 43.29% { opacity: 0; transform: translate3d(-50%, 0.5em, 0); }
-  43.88% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  48.42% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  49.28%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0); }
+  0%, 33.3% { opacity: 0; transform: translate3d(-50%, 0.5em, 0); }
+  33.75% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  37.25% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  37.91%, 76.92% { opacity: 0; transform: translate3d(-50%, 0, 0); }
 }
 
 /* ═══ ٠٥ · الريزو تتطاير منه الحبّات  31.17% → 38.96% ═════════════════════════ */
 @keyframes wall-plate {
-  0%, 40.71% { opacity: 0; transform: translate3d(-50%, 8vh, 0) scale(0.88); }
-  41.32% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-  48.42% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-  49.28%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(1); }
+  0%, 31.32% { opacity: 0; transform: translate3d(-50%, 8vh, 0) scale(0.88); }
+  31.78% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
+  37.25% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
+  37.91%, 76.92% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(1); }
 }
 
 /* ═══ ٠٥ · صفّ الأصناف  31.17% → 38.96% ═══════════════════════════════ */
 @keyframes wall-dish {
-  0%, 40.71% { opacity: 0; transform: translate3d(-50%, 9vh, 0) scale(0.86); }
-  41.32% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-  48.42% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-  49.28%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(1); }
+  0%, 31.32% { opacity: 0; transform: translate3d(-50%, 9vh, 0) scale(0.86); }
+  31.78% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
+  37.25% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
+  37.91%, 76.92% { opacity: 0; transform: translate3d(-50%, 0, 0) scale(1); }
 }
 
 /* ═══ ٠٦ · كيف تطلب  38.96% → 46.75% ═════════════════════════════════════════
    أربع بطاقات، واحدةٌ لكل شاشة — فيقرأ الواقف أمام أي شاشةٍ طريقةً كاملة. */
 @keyframes wall-svc {
-  0%, 49.28% { opacity: 0; transform: translate3d(-50%, 12vh, 0); }
-  49.89% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  57.85% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  58.62%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0); }
+  0%, 37.91% { opacity: 0; transform: translate3d(-50%, 12vh, 0); }
+  38.38% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  44.5% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  45.09%, 76.92% { opacity: 0; transform: translate3d(-50%, 0, 0); }
 }
 
 /* ═══ ٠٧ · «كل شيء طازج / ومن الرمادي»  46.75% → 53.25% ═══════════════════ */
 @keyframes wall-fresh1 {
-  0%, 57.42% { opacity: 0; transform: translate3d(-50%, 0.35em, 0); }
-  58.03% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  64.2% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  65%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0); }
+  0%, 44.17% { opacity: 0; transform: translate3d(-50%, 0.35em, 0); }
+  44.64% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  49.38% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  50%, 76.92% { opacity: 0; transform: translate3d(-50%, 0, 0); }
 }
 @keyframes wall-fresh2 {
-  0%, 60.42% { opacity: 0; transform: translate3d(-50%, 0.35em, 0); }
-  61.03% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  64.2% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  65%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0); }
+  0%, 46.48% { opacity: 0; transform: translate3d(-50%, 0.35em, 0); }
+  46.95% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  49.38% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  50%, 76.92% { opacity: 0; transform: translate3d(-50%, 0, 0); }
 }
 
 /* ═══ الخلفية: تموّجٌ أبيض وامتلاءٌ كالماء ══════════════════════════════
@@ -245,43 +245,43 @@
    وكأنها تتموّج. حيلةٌ قديمة وصادقة: العين ترى تموّجاً والجهاز يزيح مستطيلاً. */
 /* دعويا الشاشتين الطرفيّتين — اليسرى أولاً ثم اليمنى، فتُقرأ الواحدة بعد الأخرى */
 @keyframes wall-fresh3 {
-  0%, 57.73% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
-  58.32% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-  64.2% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-  65%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+  0%, 44.41% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+  44.86% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  49.38% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  50%, 76.92% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
 }
 
 @keyframes wall-fresh4 {
-  0%, 58.03% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
-  58.62% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-  64.2% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-  65%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+  0%, 44.64% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+  45.09% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  49.38% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  50%, 76.92% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
 }
 
 @keyframes wall-wave {
   0% { opacity: 0; transform: translate3d(0, 0, 0); }
-  1.7% { opacity: 0.16; }
-  7.14% { opacity: 0.16; transform: translate3d(-14vw, 0, 0); }
-  8.39% { opacity: 0; transform: translate3d(-14vw, 0, 0); }
-  17.85% { opacity: 0; transform: translate3d(0, 0, 0); }
-  19.28% { opacity: 0.16; }
-  26.42% { opacity: 0.16; transform: translate3d(-18vw, 0, 0); }
-  27.86%, 100% { opacity: 0; transform: translate3d(-18vw, 0, 0); }
+  1.31% { opacity: 0.16; }
+  5.49% { opacity: 0.16; transform: translate3d(-14vw, 0, 0); }
+  6.45% { opacity: 0; transform: translate3d(-14vw, 0, 0); }
+  13.73% { opacity: 0; transform: translate3d(0, 0, 0); }
+  14.83% { opacity: 0.16; }
+  20.32% { opacity: 0.16; transform: translate3d(-18vw, 0, 0); }
+  21.43%, 76.92% { opacity: 0; transform: translate3d(-18vw, 0, 0); }
 }
 
 /* الماء يملأ الشاشة: أبيضُ يصعد من الأسفل، ثم يصعد البرتقالي فوقه فيعيد
    الجدار إلى لونه. صعودٌ لا مسحٌ أفقي — الامتلاء يُقرأ كماءٍ لا كستارة. */
 @keyframes wall-fill-white {
-  0%, 65% { opacity: 1; transform: translate3d(0, 101%, 0); }
-  67.72% { opacity: 1; transform: translate3d(0, 0, 0); }
-  76.92% { opacity: 1; transform: translate3d(0, 0, 0); }
-  77.93%, 100% { opacity: 1; transform: translate3d(0, 101%, 0); }
+  0%, 50% { opacity: 1; transform: translate3d(0, 101%, 0); }
+  52.09% { opacity: 1; transform: translate3d(0, 0, 0); }
+  59.17% { opacity: 1; transform: translate3d(0, 0, 0); }
+  59.95%, 76.92% { opacity: 1; transform: translate3d(0, 101%, 0); }
 }
 @keyframes wall-fill-orange {
-  0%, 74.13% { opacity: 1; transform: translate3d(0, 101%, 0); }
-  76.29% { opacity: 1; transform: translate3d(0, 0, 0); }
-  81.93% { opacity: 1; transform: translate3d(0, 0, 0); }
-  82.31%, 100% { opacity: 1; transform: translate3d(0, 101%, 0); }
+  0%, 57.02% { opacity: 1; transform: translate3d(0, 101%, 0); }
+  58.68% { opacity: 1; transform: translate3d(0, 0, 0); }
+  63.02% { opacity: 1; transform: translate3d(0, 0, 0); }
+  63.32%, 76.92% { opacity: 1; transform: translate3d(0, 101%, 0); }
 }
 
 /* حافّة متعرّجة — موجةٌ مرسومة بالقصّ لا بصورة */
@@ -302,23 +302,23 @@
    الاثنان يغطّيان المشهد نفسه. */
 /* الدعوة والسهم — يبقيان طول المشهد لا مع سطرٍ واحدٍ منه */
 @keyframes wall-invite {
-  0%, 67.93% { opacity: 0; transform: translate(-50%, -50%) scale(0.86); }
-  68.52% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-  74.13% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-  75%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+  0%, 52.25% { opacity: 0; transform: translate(-50%, -50%) scale(0.86); }
+  52.71% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  57.02% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  57.69%, 76.92% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
 }
 
 @keyframes wall-clean1 {
-  0%, 67.29% { opacity: 0; transform: translate3d(-50%, 0.3em, 0); }
-  67.88% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  71.14% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  72%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0); }
+  0%, 51.76% { opacity: 0; transform: translate3d(-50%, 0.3em, 0); }
+  52.22% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  54.72% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  55.38%, 76.92% { opacity: 0; transform: translate3d(-50%, 0, 0); }
 }
 @keyframes wall-clean2 {
-  0%, 71.14% { opacity: 0; transform: translate3d(-50%, 0.3em, 0); }
-  71.73% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  74.13% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  75%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0); }
+  0%, 54.72% { opacity: 0; transform: translate3d(-50%, 0.3em, 0); }
+  55.18% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  57.02% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  57.69%, 76.92% { opacity: 0; transform: translate3d(-50%, 0, 0); }
 }
 
 /* لوحا الماء ينزلان بعد مشهدهما.
@@ -330,22 +330,22 @@
 
 /* ═══ ٠٩ · اللوحة الرقمية  62.34% → 68.83% ════════════════════════════════ */
 @keyframes wall-block {
-  0%, 75% { opacity: 0; transform: translate3d(0, 101%, 0); }
-  75.59% { opacity: 1; transform: translate3d(0, 0, 0); }
-  81.34% { opacity: 1; transform: translate3d(0, 0, 0); }
-  82.14%, 100% { opacity: 0; transform: translate3d(0, -101%, 0); }
+  0%, 57.69% { opacity: 0; transform: translate3d(0, 101%, 0); }
+  58.15% { opacity: 1; transform: translate3d(0, 0, 0); }
+  62.57% { opacity: 1; transform: translate3d(0, 0, 0); }
+  63.18%, 76.92% { opacity: 0; transform: translate3d(0, -101%, 0); }
 }
 
 /* ═══ ١٠ · الشريط المستمرّ  68.83% → 90.91% ══════════════════════════════
    القائمة مكرّرة مرّتين والإزاحة -50% بالضبط، فيعود بلا قفزة — نفس حيلة
    `st-drift` القائمة في globals.css. */
 @keyframes wall-strip {
-  0%, 82.14% { opacity: 0; transform: translate3d(0, 0, 0); }
-  82.9% { opacity: 1; transform: translate3d(0, 0, 0); }
-  91% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  91.01% { opacity: 1; transform: translate3d(0, 0, 0); }
-  99.3% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  100% { opacity: 0; transform: translate3d(-50%, 0, 0); }
+  0%, 63.18% { opacity: 0; transform: translate3d(0, 0, 0); }
+  63.77% { opacity: 1; transform: translate3d(0, 0, 0); }
+  70% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  70.01% { opacity: 1; transform: translate3d(0, 0, 0); }
+  76.38% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  76.92% { opacity: 0; transform: translate3d(-50%, 0, 0); }
 }
 
 /* ── الخطّ الضخم ───────────────────────────────────────────────────────
@@ -385,36 +385,36 @@
    البيتزا تُبنى مسطّحةً لا مكوَّمة — فالإزاحة الرأسية بينها صغيرة، وما يميّز
    الطبقة عن التي تحتها هو أنها تصل بعدها لا أنها أعلى منها. */
 @keyframes wall-slice {
-  0%, 26.43% { opacity: 0; transform: translate3d(-50%, -62vh, 0); }
-  27.35% { opacity: 1; transform: translate3d(-50%, -62vh, 0); }
-  35.21% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  39.45% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  40.71% { opacity: 0; transform: translate3d(-50%, 0, 0); }
+  0%, 20.33% { opacity: 0; transform: translate3d(-50%, -62vh, 0); }
+  21.04% { opacity: 1; transform: translate3d(-50%, -62vh, 0); }
+  27.08% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  30.35% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  31.32% { opacity: 0; transform: translate3d(-50%, 0, 0); }
 }
 
 @keyframes wall-aside4 {
-  0%, 26.73% { opacity: 0; transform: translate3d(-50%, 0.5em, 0); }
-  27.67% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  39.45% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  40.71% { opacity: 0; transform: translate3d(-50%, 0, 0); }
+  0%, 20.56% { opacity: 0; transform: translate3d(-50%, 0.5em, 0); }
+  21.28% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  30.35% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  31.32% { opacity: 0; transform: translate3d(-50%, 0, 0); }
 }
 
 /* ═══ الكنتاكي · القطع تنزل في السطل  24.29% → 38.57% ══════════════════
    القطعة تدخل من فوق مائلةً أكثر ثم تستقرّ على ميلها — سقوطٌ في علبة لا
    استقرارُ طبقةٍ على أخرى. والسطل يدخل قبلها فيجدها مكاناً. */
 @keyframes wall-fill {
-  0%, 27.64% { opacity: 0; transform: translate3d(-50%, -52vh, 0) rotate(calc(var(--kr) * 3)); }
-  28.34% { opacity: 1; transform: translate3d(-50%, -52vh, 0) rotate(calc(var(--kr) * 3)); }
-  34.14% { opacity: 1; transform: translate3d(-50%, 0, 0) rotate(var(--kr)); }
-  39.97% { opacity: 1; transform: translate3d(-50%, 0, 0) rotate(var(--kr)); }
-  40.71%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0) rotate(var(--kr)); }
+  0%, 21.26% { opacity: 0; transform: translate3d(-50%, -52vh, 0) rotate(calc(var(--kr) * 3)); }
+  21.8% { opacity: 1; transform: translate3d(-50%, -52vh, 0) rotate(calc(var(--kr) * 3)); }
+  26.26% { opacity: 1; transform: translate3d(-50%, 0, 0) rotate(var(--kr)); }
+  30.75% { opacity: 1; transform: translate3d(-50%, 0, 0) rotate(var(--kr)); }
+  31.32%, 76.92% { opacity: 0; transform: translate3d(-50%, 0, 0) rotate(var(--kr)); }
 }
 
 @keyframes wall-bucket {
-  0%, 26.43% { opacity: 0; transform: translate3d(-50%, 16vh, 0); }
-  27.54% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  39.97% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  40.71%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0); }
+  0%, 20.33% { opacity: 0; transform: translate3d(-50%, 16vh, 0); }
+  21.18% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  30.75% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  31.32%, 76.92% { opacity: 0; transform: translate3d(-50%, 0, 0); }
 }
 
 /* ═══ شريط الصور · كاملةً، من اليسار إلى اليمين  7.14% → 17.86% ═══════
@@ -422,8 +422,59 @@
    مرّتين والإزاحة نصفها بالضبط، فتعود بلا قفزة — حيلة `wall-strip` نفسها،
    لكن باتّجاه القراءة المعاكس: تبدأ مزاحةً وتعود، فتمشي يميناً. */
 @keyframes wall-mos {
-  0%, 7.14% { opacity: 0; transform: translate3d(-50%, 0, 0); }
-  7.9% { opacity: 1; transform: translate3d(-50%, 0, 0); }
-  17.1% { opacity: 1; transform: translate3d(0, 0, 0); }
-  17.86%, 100% { opacity: 0; transform: translate3d(0, 0, 0); }
+  0%, 5.49% { opacity: 0; transform: translate3d(-50%, 0, 0); }
+  6.08% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  13.15% { opacity: 1; transform: translate3d(0, 0, 0); }
+  13.74%, 76.92% { opacity: 0; transform: translate3d(0, 0, 0); }
+}
+
+/*
+ * ١١ — بطاقات العروض. خمسُ بطاقاتٍ تملأ الشاشات الأربع، ثم خمسٌ غيرها، ثم خمس.
+ *
+ * ثلاث نوافذ متتالية من سبع ثوانٍ: مجموعةٌ تظهر وتثبت وتنصرف، فتليها التي
+ * بعدها في مكانها. والوقوف هو المقصود لا المرور — هذه صورٌ فيها كتابةٌ تُقرأ،
+ * والمتحرّك لا يُقرأ.
+ */
+@keyframes wall-card-0 {
+  0%, 76.92% { opacity: 0; transform: translate3d(0, 2vh, 0); }
+  77.19% { opacity: 1; transform: translate3d(0, 0, 0); }
+  80.5% { opacity: 1; transform: translate3d(0, 0, 0); }
+  80.77%, 100% { opacity: 0; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes wall-card-1 {
+  0%, 80.77% { opacity: 0; transform: translate3d(0, 2vh, 0); }
+  81.04% { opacity: 1; transform: translate3d(0, 0, 0); }
+  84.35% { opacity: 1; transform: translate3d(0, 0, 0); }
+  84.62%, 100% { opacity: 0; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes wall-card-2 {
+  0%, 84.62% { opacity: 0; transform: translate3d(0, 2vh, 0); }
+  84.89% { opacity: 1; transform: translate3d(0, 0, 0); }
+  88.2% { opacity: 1; transform: translate3d(0, 0, 0); }
+  88.47%, 100% { opacity: 0; transform: translate3d(0, 0, 0); }
+}
+
+
+/* ١٢ — اللافتات العريضة: اثنتان في كل مرّة، كلٌّ على شاشتين */
+@keyframes wall-ban-0 {
+  0%, 88.46% { opacity: 0; transform: translate3d(-50%, 2vh, 0); }
+  88.73% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  92.04% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  92.31%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0); }
+}
+
+@keyframes wall-ban-1 {
+  0%, 92.31% { opacity: 0; transform: translate3d(-50%, 2vh, 0); }
+  92.58% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  95.89% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  96.16%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0); }
+}
+
+@keyframes wall-ban-2 {
+  0%, 96.16% { opacity: 0; transform: translate3d(-50%, 2vh, 0); }
+  96.43% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  99.72% { opacity: 1; transform: translate3d(-50%, 0, 0); }
+  99.99%, 100% { opacity: 0; transform: translate3d(-50%, 0, 0); }
 }
