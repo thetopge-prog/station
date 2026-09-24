@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { START, cartTotal, extractWhen, normalizeIraqiPhone, step, understand, type Input, type Menu, type State } from "../../../supabase/functions/telegram-bot/order-flow";
+import { START, cartTotal, extractWhen, normalizeIraqiPhone, phoneOrigin, step, understand, type Input, type Menu, type State } from "../../../supabase/functions/telegram-bot/order-flow";
 
 /**
  * محرّك الطلب بلا تليغرام: الحوار كله كأزرار ونصوص، والمنيو وسيط.
@@ -311,5 +311,63 @@ describe("فهم الطلب — أخطاء وقعت فعلاً", () => {
     expect(lines).toHaveLength(1);
     expect(lines![0].note).toContain("بدون بصل");
     expect(lines![0].note).toContain("زيادة جبن");
+  });
+});
+
+/**
+ * «ليش يطلب رقمي وهو يراسلني من رقمي؟» — سؤال المالك.
+ *
+ * الرقم العراقي لا يُسأل عنه أصلاً (الويبهوك يملؤه من المرسِل). والأجنبي
+ * يُسأل، وكان يُسأل بصمت — فصار يُقال له من أي بلدٍ رقمه ولماذا لا يصلح.
+ */
+describe("جنسيّة الرقم", () => {
+  it("العراقي لا جنسيّة له هنا — لأنه لا يُسأل", () => {
+    expect(phoneOrigin("9647812345678")).toBeNull();
+    expect(phoneOrigin("07812345678")).toBeNull();
+  });
+
+  it("يعرف التركي والجورجي والروسي", () => {
+    expect(phoneOrigin("905321234567")).toBe("تركي");
+    expect(phoneOrigin("995555123456")).toBe("جورجي");
+    expect(phoneOrigin("79161234567")).toBe("روسي");
+  });
+
+  it("أطول مقدّمة تسبق أقصرها — ٩٩٥ جورجيا لا ٩ شيئاً آخر", () => {
+    expect(phoneOrigin("995322000000")).toBe("جورجي");
+    expect(phoneOrigin("966512345678")).toBe("سعودي");
+    expect(phoneOrigin("963912345678")).toBe("سوري");
+  });
+
+  it("يقبل الصيغة الدولية بصفرين أو بلا", () => {
+    expect(phoneOrigin("00905321234567")).toBe("تركي");
+    expect(phoneOrigin("+90 532 123 45 67")).toBe("تركي");
+  });
+
+  it("ولا يخمّن ما لا يعرف", () => {
+    expect(phoneOrigin("")).toBeNull();
+    expect(phoneOrigin("abc")).toBeNull();
+  });
+});
+
+describe("طلب الرقم من صاحب رقمٍ أجنبي", () => {
+  const cart = [{ itemId: "i-wed", name: "الويدجز", sizeName: null, dough: null, qty: 1, unitPrice: 2500, note: null }];
+
+  it("يسمّي بلد الرقم ويقول لماذا نحتاج عراقياً", () => {
+    const { reply } = step({ ...START, cart }, btn("o|ch|pickup"), MENU, { foreign: "تركي" });
+    expect(reply.text).toContain("تركي");
+    expect(reply.text).toContain("رقم عراقي");
+  });
+
+  it("وبلا جنسيّة يبقى السؤال العادي", () => {
+    const { reply } = step({ ...START, cart }, btn("o|ch|pickup"), MENU, {});
+    expect(reply.text).toContain("رقم هاتفك");
+    expect(reply.text).not.toContain("تراسلنا منه");
+  });
+
+  it("ورقمٌ أجنبي كُتب بيده يُردّ بنفس الشرح لا برسالةٍ صمّاء", () => {
+    const asked = step({ ...START, cart }, btn("o|ch|pickup"), MENU, {}).state;
+    const { reply } = step(asked, txt("+90 532 123 45 67"), MENU, {});
+    expect(reply.text).toContain("تركي");
+    expect(reply.text).toContain("رقم عراقي");
   });
 });

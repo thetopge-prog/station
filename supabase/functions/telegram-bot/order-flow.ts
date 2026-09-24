@@ -84,7 +84,8 @@ export type Input =
   | { kind: "voice" };
 
 /** ما يعرفه المحل عن هذا الزبون من قبل — يُقرأ بالهاتف بعد أن يعطيه */
-export type Known = { address?: string | null; name?: string | null };
+/** `foreign` = جنسيّة الرقم الذي يراسلنا منه، حين لا يكون عراقياً */
+export type Known = { address?: string | null; name?: string | null; foreign?: string | null };
 
 export type Button = { text: string; data: string };
 export type Reply = {
@@ -127,6 +128,42 @@ export function normalizeIraqiPhone(raw: string): string | null {
   else if (local.startsWith("964")) local = local.slice(3);
   if (!local.startsWith("0")) local = `0${local}`;
   return /^07\d{9}$/.test(local) ? local : null;
+}
+
+/**
+ * جنسيّة الرقم من مقدّمته الدولية — لنقول للزبون **لماذا** نطلب رقماً آخر.
+ *
+ * الزبون الذي يراسلنا من رقمٍ تركي كان يُطلب منه رقمه وهو يراسلنا من رقمه،
+ * فيبدو السؤال بلا معنى. والحقيقة أن رقمه لا يصلح: لا يقبله النظام، ولا يتصل
+ * به السائق، ولا يُبنى عليه صفُّ زبون. فالسؤال صحيح، والصامتُ منه هو العلّة —
+ * وهذه الدالّة تنطقه: «رقمك تركي، ونحتاج رقماً عراقياً».
+ *
+ * والترتيب بأطول مقدّمة أولاً: «964» قبل «96»، و«995» قبل «99» — وروسيا «7»
+ * وأمريكا «1» في الآخر، لأن رقماً واحداً يبتلع ما بعده.
+ */
+const DIAL_CODES: [string, string][] = [
+  ["964", "عراقي"], ["995", "جورجي"], ["963", "سوري"], ["962", "أردني"], ["961", "لبناني"],
+  ["966", "سعودي"], ["965", "كويتي"], ["968", "عُماني"], ["971", "إماراتي"], ["973", "بحريني"],
+  ["974", "قطري"], ["967", "يمني"], ["970", "فلسطيني"], ["249", "سوداني"], ["212", "مغربي"],
+  ["213", "جزائري"], ["216", "تونسي"], ["218", "ليبي"], ["994", "أذربيجاني"], ["993", "تركمانستاني"],
+  ["992", "طاجيكي"], ["998", "أوزبكي"], ["996", "قرغيزي"], ["380", "أوكراني"], ["375", "بيلاروسي"],
+  ["372", "إستوني"], ["371", "لاتفي"], ["370", "ليتواني"], ["358", "فنلندي"], ["351", "برتغالي"],
+  ["90", "تركي"], ["98", "إيراني"], ["20", "مصري"], ["91", "هندي"], ["92", "باكستاني"],
+  ["93", "أفغاني"], ["44", "بريطاني"], ["49", "ألماني"], ["46", "سويدي"], ["47", "نرويجي"],
+  ["45", "دنماركي"], ["31", "هولندي"], ["32", "بلجيكي"], ["33", "فرنسي"], ["34", "إسباني"],
+  ["39", "إيطالي"], ["41", "سويسري"], ["43", "نمساوي"], ["36", "مجري"], ["30", "يوناني"],
+  ["48", "بولندي"], ["60", "ماليزي"], ["61", "أسترالي"], ["62", "إندونيسي"], ["66", "تايلندي"],
+  ["81", "ياباني"], ["82", "كوري"], ["86", "صيني"], ["7", "روسي"], ["1", "أمريكي"],
+];
+
+/** «تركي» — أو `null` إن كان الرقم عراقياً أو لم تُعرف مقدّمته */
+export function phoneOrigin(raw: string): string | null {
+  const d = normDigits(raw).replace(/[^0-9]/g, "").replace(/^00/, "");
+  if (!d) return null;
+  for (const [code, label] of DIAL_CODES) {
+    if (d.startsWith(code)) return code === "964" ? null : label;
+  }
+  return null;
 }
 
 export function cartTotal(cart: CartLine[]): number {
@@ -411,11 +448,26 @@ function screenChannel(state: State): { state: State; reply: Reply } {
   };
 }
 
-function screenPhone(state: State): { state: State; reply: Reply } {
-  return {
-    state: { ...state, step: "phone" },
-    reply: { text: "📞 رقم هاتفك — اضغط «شارك رقمي» أو اكتبه:\n<code>07XXXXXXXXX</code>", requestContact: true },
-  };
+function screenPhone(state: State, known?: Known): { state: State; reply: Reply } {
+  return { state: { ...state, step: "phone" }, reply: { text: askPhoneText(known), requestContact: true } };
+}
+
+/**
+ * نصّ طلب الرقم — ويشرح نفسه حين يكون للزبون رقمٌ يراسلنا منه.
+ *
+ * من يراسلنا من رقمٍ عراقي لا يُسأل أصلاً: الرقم هو المرسِل نفسه. ومن يراسلنا
+ * من رقمٍ أجنبي يُسأل فيستغرب — فيُقال له من أي بلدٍ رقمه، ولماذا لا يصلح.
+ */
+function askPhoneText(known?: Known): string {
+  const from = known?.foreign?.trim();
+  if (from) {
+    return [
+      `📞 رقمك اللي تراسلنا منه <b>${from}</b> 🌍`,
+      "وحتى نتواصل وياك ونوصلك الطلب نحتاج <b>رقم عراقي</b>.",
+      "اكتبه هنا: <code>07XXXXXXXXX</code>",
+    ].join("\n");
+  }
+  return "📞 رقم هاتفك — اضغط «شارك رقمي» أو اكتبه:\n<code>07XXXXXXXXX</code>";
 }
 
 /**
@@ -482,7 +534,7 @@ export function step(prev: State | null, input: Input, menu: Menu, known?: Known
 
   if (input.kind === "contact") {
     const phone = normalizeIraqiPhone(input.phone);
-    if (!phone) return { state, reply: { text: "الرقم غير عراقي — اكتبه بالصيغة <code>07XXXXXXXXX</code>", requestContact: true } };
+    if (!phone) return { state, reply: { text: askPhoneText({ ...known, foreign: phoneOrigin(input.phone) ?? known?.foreign ?? null }), requestContact: true } };
     return afterPhone({ ...state, phone }, known);
   }
 
@@ -496,7 +548,7 @@ export function step(prev: State | null, input: Input, menu: Menu, known?: Known
     }
     if (state.step === "phone") {
       const phone = normalizeIraqiPhone(text);
-      if (!phone) return { state, reply: { text: "الرقم غير صالح — اكتبه هكذا: <code>07XXXXXXXXX</code>", requestContact: true } };
+      if (!phone) return { state, reply: { text: askPhoneText({ ...known, foreign: phoneOrigin(text) ?? known?.foreign ?? null }), requestContact: true } };
       return afterPhone({ ...state, phone }, known);
     }
     if (state.step === "name") {
@@ -545,7 +597,7 @@ export function step(prev: State | null, input: Input, menu: Menu, known?: Known
     case "cart": return screenCart(state);
     case "rm": return screenCart({ ...state, cart: state.cart.filter((_, i) => i !== Number(arg)) });
     case "checkout": return state.cart.length ? screenChannel(state) : screenCart(state);
-    case "ch": return screenPhone({ ...state, channel: arg === "delivery" ? "delivery" : "pickup" });
+    case "ch": return screenPhone({ ...state, channel: arg === "delivery" ? "delivery" : "pickup" }, known);
     case "addr": if (arg === "same" && known?.address) return screenConfirm({ ...state, address: known.address }); break;
     case "send": {
       if (!state.cart.length || !state.phone) return screenCart(state);

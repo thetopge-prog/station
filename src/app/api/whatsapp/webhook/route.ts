@@ -13,6 +13,7 @@ import {
   dropClosed,
   extractWhen,
   normalizeIraqiPhone,
+  phoneOrigin,
   START,
   step,
   understand,
@@ -577,7 +578,9 @@ async function turn(msg: WaMsg, profileName: string | null = null): Promise<void
   const menu = await loadMenu();
   const state = prev?.flow === "order" ? prev : null;
   const phone = normalizeIraqiPhone(waId);
-  const known = await knownCustomer(phone ?? state?.phone ?? null);
+  // ومن يراسلنا من رقمٍ غير عراقي: تُحمل جنسيّة رقمه معه، فيُقال له لماذا
+  // نطلب رقماً آخر بدل أن يُسأل عن رقمٍ هو يراسلنا منه
+  const known = { ...(await knownCustomer(phone ?? state?.phone ?? null)), foreign: phone ? null : phoneOrigin(waId) };
 
   let out = step(state && when ? { ...state, when } : when ? { ...START, when } : state, understood ? { kind: "lines", lines: understood } : raw, menu, known);
   // لا «شارك رقمي» في واتساب — ولا حاجة: المرسِل هو الرقم
