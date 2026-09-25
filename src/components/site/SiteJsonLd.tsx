@@ -47,14 +47,16 @@ export function SiteJsonLd({ lang }: { lang: SiteLang }) {
     // الموقع بدل أن يقف كلٌّ منهما وحده
     hasMap: BRAND.mapsUrl,
     sameAs: [BRAND.mapsUrl],
-    // من ٩ صباحاً إلى ٣ فجراً — يُكتب بيومين لأن الإغلاق بعد منتصف الليل
+    // الجمعة تفتح ١ ظهراً لا ٩ صباحاً، فسطران لا سطر — وسطرٌ واحد يرسل الناس
+    // إلى بابٍ مغلق أربع ساعات
     openingHoursSpecification: [
       {
         "@type": "OpeningHoursSpecification",
-        dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+        dayOfWeek: ["Saturday", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"],
         opens: "09:00",
         closes: "03:00",
       },
+      { "@type": "OpeningHoursSpecification", dayOfWeek: ["Friday"], opens: "13:00", closes: "03:00" },
     ],
     hasMenu: `${SITE_URL}/menu`,
     acceptsReservations: "False",

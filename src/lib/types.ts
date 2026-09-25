@@ -40,6 +40,12 @@ export type Database = {
         Update: Partial<{ ended_at: string | null; auto_closed: boolean }>;
         Relationships: [];
       };
+      bot_owners: {  // 0050 — من يُسمح له بإدارة البوت، ومن يصله تنبيه الوردية المنسيّة
+        Row: { chat_id: string; label: string | null; added_by: string | null; created_at: string };
+        Insert: { chat_id: string; label?: string | null; added_by?: string | null };
+        Update: Partial<{ label: string | null }>;
+        Relationships: [];
+      };
       bot_state: {  // 0006 — حالة محادثة البوت، صفّ لكل محادثة: تليغرام بالرقم، وواتساب بمفتاح wa:
         Row: { chat_id: string; state: Json; updated_at: string };
         Insert: { chat_id: string; state: Json; updated_at?: string };

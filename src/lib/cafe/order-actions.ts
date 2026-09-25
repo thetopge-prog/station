@@ -11,6 +11,7 @@ import { getStaff } from "./auth";
 import { businessDay } from "./time";
 import type { Json } from "@/lib/types";
 import { nameWithPhoneError } from "./customer-required";
+import { hoursLine } from "./hours";
 
 export type OrderLineInput = {
   item_id: string;
@@ -66,7 +67,7 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
   const nameErr = nameWithPhoneError(input.phone, input.name);
   if (nameErr) return { ok: false, error: nameErr };
   // صفحة فُتحت قبل الإغلاق لا تمرّر طلباً بعده
-  if (!(await isShopOpen())) return { ok: false, error: "المطعم مغلق الآن — نستقبل الطلبات من ٩ صباحاً حتى ٣ فجراً." };
+  if (!(await isShopOpen())) return { ok: false, error: `المطعم مغلق الآن — ${hoursLine()}.` };
 
   if (isDemoServer()) {
     const n = Math.floor(Math.random() * 900 + 100);

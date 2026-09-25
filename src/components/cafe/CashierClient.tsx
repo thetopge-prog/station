@@ -37,6 +37,7 @@ import { cleanPhone, normalizeIraqiPhone } from "@/lib/cafe/phone";
 import { needsName } from "@/lib/cafe/customer-required";
 import { useShortcut } from "./use-shortcut";
 import { searchMenu } from "@/lib/cafe/menu-lang";
+import { LateDrawerNotice } from "./LateDrawerNotice";
 import { FridayPrayerNotice } from "./FridayPrayerNotice";
 import { PartnerLogo } from "./PartnerLogo";
 import { cloneMenuItem } from "@/lib/cafe/menu-actions-cashier";
@@ -713,6 +714,8 @@ export function CashierClient({
       {/* «اختيار المجهّز» كان هنا. أُزيل بطلب صاحب المحل: في هذا المطعم
           التجهيز يجري في المطبخ على تذكرة كاملة، ولا أحد يُعيَّن من الكاشير. */}
       <FridayPrayerNotice />
+      {/* البوت يتبع الوردية لا الساعة: درجٌ نُسي مفتوحاً يعني طلبات بلا مطبخ */}
+      <LateDrawerNotice />
       {/* items */}
       <section className="min-w-0 space-y-4">
         <div className="relative">

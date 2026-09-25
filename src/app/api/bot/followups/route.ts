@@ -5,6 +5,8 @@ import { rateStart } from "../../../../../supabase/functions/telegram-bot/rating
 import { renderRateScale } from "@/lib/bot/whatsapp-render";
 import { reviewDue, reviewMessage } from "@/lib/cafe/review-ask";
 import { customerNameFrom } from "@/lib/cafe/wa-name";
+import { baghdadNow } from "@/lib/cafe/hours";
+import { businessDay } from "@/lib/cafe/time";
 
 /**
  * متابعة ما بعد التسليم — يناديه pg_cron كل خمس دقائق (scripts/schedule-followups-cron.mjs).
@@ -36,6 +38,9 @@ export async function POST(req: Request) {
    * `handed_at` في التوصيل لحظةُ تسليم الطلب للسائق لا للزبون.
    */
   const reviewSent = await sendReviewAsks(svc);
+
+  // ودرجٌ نُسي مفتوحاً بعد الفجر — الإدارة تُخبَر مرّةً في اليوم
+  await alertLateDrawer(svc);
 
   const due = new Date(Date.now() - WAIT_MIN * 60_000).toISOString();
   const { data: orders } = await svc
@@ -102,6 +107,47 @@ async function sendReviewAsks(svc: ReturnType<typeof createSupabaseServiceClient
 }
 
 /** نصٌّ صِرف — رسالة التقييم فيها رابط، ولا أزرار عليها */
+/**
+ * الدرج ما زال مفتوحاً بعد ٣:٣٠ فجراً — تنبيهٌ للإدارة على تيليغرام.
+ *
+ * البوت يتبع وردية الكاشير لا الساعة: ما دامت الوردية مفتوحة فهو يستقبل طلبات
+ * واتساب. فدرجٌ نُسي مفتوحاً يعني وعداً بطعامٍ لا مطبخ له.
+ *
+ * وعلى الشاشة تنبيهٌ يراه من يقف عند الكاونتر (`LateDrawerNotice`) — لكن من
+ * نسي الدرج غالباً قد راح. فهذا يصل هاتف المدير.
+ *
+ * ومرّةً واحدة في اليوم: الجدول يدور كل خمس دقائق، ولو أُرسل في كل دورة لصار
+ * ستّاً وستّين رسالة قبل التاسعة — ورسالةٌ تتكرّر هكذا تُكتَم لا تُقرأ.
+ */
+async function alertLateDrawer(svc: ReturnType<typeof createSupabaseServiceClient>): Promise<void> {
+  const { minutes } = baghdadNow();
+  if (minutes < 3 * 60 + 30 || minutes >= 9 * 60) return;
+
+  const { data: open } = await svc.from("cashier_sessions").select("id").is("closed_at", null).limit(1);
+  if (!open?.length) return;
+
+  // مفتاحٌ ليوم العمل في نفس مخزن الحالة العامّ — لا جدول جديد لعلامةٍ واحدة
+  const key = `latedrawer:${businessDay()}`;
+  const { data: said } = await svc.from("bot_state").select("chat_id").eq("chat_id", key).maybeSingle();
+  if (said) return;
+  await svc.from("bot_state").upsert({ chat_id: key, state: { at: new Date().toISOString() } as unknown as Json }, { onConflict: "chat_id" });
+
+  const text =
+    "\u26a0\ufe0f <b>وردية الكاشير ما زالت مفتوحة</b>" +
+    "\n\nمرّت الثالثة والنصف فجراً والدرج ما انقفل." +
+    "\nوالبوت يتبع الوردية لا الساعة — يعني يستقبل طلبات واتساب هسة والمطبخ فاضي." +
+    "\n\nاقفل الوردية من «جرد اليوم»، أو خلّها إذا بعدكم تشتغلون.";
+
+  const ids = new Set((process.env.TG_OWNER_IDS ?? "").split(",").map((x) => x.trim()).filter(Boolean));
+  try {
+    const { data: owners } = await svc.from("bot_owners").select("chat_id");
+    for (const o of owners ?? []) ids.add(String(o.chat_id));
+  } catch {
+    /* التنبيه أهمّ من اكتمال قائمة المستلمين */
+  }
+  for (const id of ids) await sendTelegram(id, text);
+}
+
 async function sendWhatsAppText(to: string, body: string) {
   const token = process.env.WHATSAPP_TOKEN;
   const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;

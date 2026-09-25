@@ -5,6 +5,8 @@ import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/types";
 import { renderMenuLink, renderMessage, renderRateScale, renderReply, renderSavedOrders, renderWelcome, type WaMessage } from "@/lib/bot/whatsapp-render";
 import { isShopOpen } from "@/lib/cafe/shop-open";
+import { closedOrderText, closedText } from "@/lib/cafe/hours";
+import { BRAND } from "@/lib/brand";
 import { customerNameFrom } from "@/lib/cafe/wa-name";
 import { rateStep, type RateState } from "../../../../../supabase/functions/telegram-bot/rating-flow";
 import { savedOrderLabel, savedOrderToLines, type SavedOrder } from "../../../../../supabase/functions/telegram-bot/reorder";
@@ -276,7 +278,7 @@ async function submitOrder(waId: string, order: OrderPayload): Promise<void> {
       signal: AbortSignal.timeout(9000),
     });
     const j = (await r.json().catch(() => ({}))) as { ok?: boolean; order_number?: string; error?: string };
-    if (j.error === "closed") return void sendText(waId, CLOSED_TEXT);
+    if (j.error === "closed") return void sendText(waId, CLOSED_TEXT());
     if (!r.ok || !j.ok) return void sendText(waId, "تعذّر إرسال الطلب — أعد المحاولة أو اتصل بالمطعم.");
     await sendText(waId, `✅ وصل طلبك — رقمه *${j.order_number}*\nنخبرك لمن يتقبل ويجهز.`);
   } catch {
@@ -349,7 +351,13 @@ async function fetchAudio(msg: WaMsg): Promise<{ audio: ArrayBuffer; mime: strin
   }
 }
 
-const CLOSED_TEXT = "المطعم مسدود هسة 🌙 نستقبل الطلبات من ٩ الصبح لـ٣ الفجر — دزلنا طلبك بعدين ونكون بخدمتك 🧡";
+/*
+ * كانت جملةً ثابتة: «نستقبل الطلبات من ٩ الصبح لـ٣ الفجر».
+ *
+ * فلمّا صار افتتاح الجمعة ١ ظهراً صارت تكذب على كل من يراسلنا الجمعة صباحاً —
+ * تقول له «تعال من ٩» فيجي ويلقى الباب مغلقاً. والآن تُحسب من `hours.ts`.
+ */
+const CLOSED_TEXT = () => closedText(BRAND.phoneDisplay);
 
 /** الطلبات المحفوظة لهذا الرقم (قيّمها فوق ٨) — آخر خمسة */
 async function savedOrders(waId: string): Promise<SavedOrder[]> {
@@ -460,7 +468,7 @@ async function turn(msg: WaMsg, profileName: string | null = null): Promise<void
     if (!said) {
       await humanPause();
       const looksLikeOrder = raw.kind === "text" && raw.text.length > 6 && !!understand(raw.text, await loadMenu());
-      await sendText(waId, looksLikeOrder ? "طلبك ما ينحفظ هسة 🌙 المطعم مسدود — دزه من ٩ الصبح ونجهزه فوراً 🧡" : CLOSED_TEXT);
+      await sendText(waId, looksLikeOrder ? closedOrderText(BRAND.phoneDisplay) : CLOSED_TEXT());
     }
     return;
   }
