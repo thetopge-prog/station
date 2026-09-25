@@ -7,11 +7,12 @@ import type { PrepBoard } from "@/lib/cafe/prep-forecast-actions";
 import { printJobs } from "@/lib/cafe/print-client";
 
 /**
- * «توجيه المطبخ الذكي» — أسفل عمود الأصناف، مطويّاً.
+ * «التجهيز الذكي» — شاشةٌ مستقلّة في قائمة الإدارة.
  *
- * خارج مسار البيع عمداً: الكاونتر يُضغط فيه زرٌّ كل ثانية، ولوحةٌ تزاحم شبكة
- * الأصناف تُبطئ البيع لتُسرع التجهيز. مطويّةٌ يفتحها من يريدها، `<details>`
- * أصيل بلا حالة ولا مكتبة.
+ * كانت مطويّةً أسفل شبكة الأصناف في الكاشير، فطلب المالك نقلها: «كي لا يسبب
+ * ارتباك للكاشير». وهو محقّ — الكاونتر يُضغط فيه زرٌّ كل ثانية، وكلُّ ما يقع
+ * تحت اليد في مسار البيع يُضغط بالخطأ ولو كان مطويّاً. فصارت باباً يُفتح حين
+ * يُراد، لا شيئاً يقع تحت الإبهام.
  *
  * **ولا دينار عليها.** كمّياتٌ وأوقاتٌ فقط — قاعدة المالك أن الكاشير لا يرى
  * الأرباح، والمال لا يدخل هذا الملفّ أصلاً.
@@ -20,7 +21,13 @@ export function PrepBoardPanel({ board }: { board: PrepBoard | null }) {
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  if (!board || !board.categories.length) return null;
+  if (!board || !board.categories.length) {
+    return (
+      <p className="rounded-2xl border-2 border-dashed border-border p-6 text-center font-black text-muted-foreground">
+        ما عدنا بيانات كافية للخطة — تحتاج أيام بيع أكثر.
+      </p>
+    );
+  }
 
   async function print(target: "counter" | "kitchen") {
     setBusy(true);
@@ -42,14 +49,14 @@ export function PrepBoardPanel({ board }: { board: PrepBoard | null }) {
     c === "قوي" ? "text-primary" : c === "متوسّط" ? "text-amber-600" : "text-muted-foreground";
 
   return (
-    <details className="rounded-2xl border-2 border-border bg-card p-4 open:border-primary">
-      <summary className="flex cursor-pointer items-center gap-2 font-black">
+    <div className="mx-auto w-full max-w-2xl rounded-2xl border-2 border-border bg-card p-4">
+      <h1 className="flex items-center gap-2 text-xl font-black">
         <Sparkles className="size-5 text-primary" />
-        توجيه المطبخ الذكي
+        التجهيز الذكي
         <span className="text-sm font-bold text-muted-foreground">
           — متوقَّع اليوم {board.orders.orders} طلب
         </span>
-      </summary>
+      </h1>
 
       <p className="mt-2 text-sm font-bold text-muted-foreground">
         ذروة المحل: <span className="font-black text-foreground">{board.peak}</span>
@@ -122,6 +129,6 @@ export function PrepBoardPanel({ board }: { board: PrepBoard | null }) {
         تقدير مبنيّ على {board.orders.days} يوم بيع، ومن {board.orders.samples} يوم مماثل من الأسبوع.
         الأقسام أدقّ من الأصناف، ويتحسّن كل أسبوع تجمع فيه بياناتٍ أكثر — والعين أصدق منه في المناسبات والأعياد.
       </p>
-    </details>
+    </div>
   );
 }

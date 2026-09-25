@@ -1,4 +1,4 @@
-import { Armchair, Bike, Boxes, CalendarClock, Calculator, ChefHat, ClipboardCheck, ClipboardList, CreditCard, HandCoins, HelpCircle, LayoutDashboard, MonitorPlay, PackageCheck, Percent, Printer, QrCode, ScanLine, Sparkles, Truck, UtensilsCrossed, Users, Wallet, Wrench, type LucideIcon, History, Star } from "lucide-react";
+import { Armchair, Bike, Boxes, CalendarClock, Calculator, ChefHat, ClipboardCheck, ClipboardList, CreditCard, HandCoins, HelpCircle, LayoutDashboard, MonitorPlay, PackageCheck, Percent, Printer, QrCode, ScanLine, Sparkles, Truck, UtensilsCrossed, Users, Wallet, Wrench, type LucideIcon, History, Star, Sparkle } from "lucide-react";
 import { canAccess, type StaffRole } from "./roles";
 
 /**
@@ -43,6 +43,9 @@ export const NAV: NavItem[] = [
 
   { href: "/expediter", label: "التجهيز", short: "التجهيز", allow: ["expediter", "cashier"], group: "المطبخ", icon: PackageCheck },
   { href: "/kds", label: "المطبخ", short: "المطبخ", allow: ["chef", "expediter", "cashier"], group: "المطبخ", icon: ChefHat },
+  // «التجهيز الذكي» — بابٌ مستقلّ لا قسمٌ في الكاشير: «كي لا يسبب ارتباك
+  // للكاشير» بنصّ المالك. ولا أرقام مال عليه، فيراه الطبّاخ كما يراه المدير
+  { href: "/prep", label: "التجهيز الذكي", short: "التجهيز الذكي", allow: ["chef", "expediter", "cashier"], group: "المطبخ", icon: Sparkle },
   // شاشة الزبائن: خارج مجموعة الموظفين، بلا ترويسة ولا رجوع — فتُفتح وحدها
   { href: "/queue", label: "شاشة الاستلام", short: "الاستلام", allow: ["expediter", "cashier"], group: "المطبخ", icon: MonitorPlay, external: true },
   { href: "/clean", label: "تنظيف الطاولات", short: "التنظيف", allow: ["cleaner", "cashier"], group: "المطبخ", icon: Sparkles },
