@@ -1,15 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { Bike, Car, Store, UtensilsCrossed } from "lucide-react";
-import { BRAND } from "@/lib/brand";
+import { Bike, Car, MessageCircle, Store, UtensilsCrossed } from "lucide-react";
+import { BRAND, whatsappOrderLink } from "@/lib/brand";
 
 /**
  * شاشة «من أين تطلب؟» — أول ما يراه الزبون حين يفتح رابط المطعم.
  *
- * ثلاثة أزرار هرمية: «اطلب من البيت هسّة» عريضاً في القمّة لأنه الغالب،
- * وتحته «من المطعم» و«من السيارة» صفّاً واحداً. الهرم ترتيبُ الاحتمالات لا
- * زينة: أكثرها وقوعاً أكبرها وأقربها للإبهام.
+ * أزرارٌ هرمية: «اطلب من البيت هسّة» عريضاً في القمّة لأنه الغالب، وتحته
+ * «من المطعم» و«من السيارة» صفّاً واحداً. الهرم ترتيبُ الاحتمالات لا زينة:
+ * أكثرها وقوعاً أكبرها وأقربها للإبهام.
+ *
+ * وتحتها «واتساب المحطة الذكي»: من لا يريد أن يتصفّح شيئاً، يكتب طلبه بالعامية
+ * كما يقوله بلسانه ويردّ عليه البوت. وهو آخرها في الترتيب لا لأنه أقلّها
+ * شأناً، بل لأن من يعرفه يقصده، ومن لا يعرفه تكفيه الثلاثة فوقه.
  *
  * والخلفية أصناف المطعم نفسها تنساب ببطء — صورة طعام حقيقية تبيع أكثر من أي
  * تدرّج لوني، وخافتة كي تبقى الأزرار مقروءة: الشهية خلف القرار لا فوقه.
@@ -74,6 +78,26 @@ export function OrderLandingClient({ shots }: { shots: Shot[] }) {
               <span className="text-[11px] font-bold text-muted-foreground">نطلعلك للسيارة</span>
             </Link>
           </div>
+
+          {/*
+            واتساب البوت — رابطٌ خارجي لا مسار داخلي، فـ`a` لا `Link`.
+            والرسالة مُعبّأة سلفاً كي لا يقف الزبون أمام محادثةٍ فارغة لا يدري
+            بما يبدؤها؛ وأول ما يُرسلها يردّ البوت بالترحيب والمنيو.
+            وأخضر واتساب لا برتقالي الهوية: يُعرَف بلونه قبل أن يُقرأ، ولا
+            يزاحم الزرّ الأعلى على العين.
+          */}
+          <a
+            href={whatsappOrderLink("هلو، أريد أطلب 🍔")}
+            target="_blank"
+            rel="noopener"
+            className="flex min-h-20 w-full items-center justify-center gap-3 rounded-3xl border-2 border-[#25D366] bg-card px-4 text-center shadow-md transition active:scale-[0.98]"
+          >
+            <MessageCircle className="size-8 shrink-0 text-[#25D366]" strokeWidth={1.75} />
+            <span className="text-right">
+              <span className="block text-lg font-black leading-tight">واتساب المحطة الذكي</span>
+              <span className="block text-[11px] font-bold text-muted-foreground">اكتبلنا طلبك بالعامية ويوصل المطبخ فوراً</span>
+            </span>
+          </a>
         </div>
 
         <Link href="/menu" className="flex items-center gap-1.5 text-sm font-bold text-muted-foreground underline underline-offset-4">
