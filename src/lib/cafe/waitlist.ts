@@ -66,7 +66,7 @@ export async function flushWaiting(): Promise<number> {
     await svc.from("bot_state").delete().eq("chat_id", r.chat_id);
     if (!Number.isFinite(at) || now - at > WINDOW_MS) continue;
     const name = customerNameFrom(nameOf.get(normalise(waId) ?? "") ?? null);
-    if (await sendText(waId, openedText(name, waId))) sent++;
+    if (await sendOpened(waId, openedText(name))) sent++;
   }
   return sent;
 }
@@ -79,41 +79,70 @@ function normalise(waId: string): string | null {
 }
 
 /**
- * النصّ — تحيّةٌ لا إعلان.
+ * النصّ — تحيّةٌ لا إعلان، وبصياغة المالك حرفاً بحرف.
  *
- * يبدأ بأنه لم يُنسَ، لأن هذا هو المعنى كلّه: راسلَنا ونحن مغلقون، وردَدنا
- * عليه حين فتحنا. وينتهي برابطٍ يطلب منه بضغطة، فالرسالة التي لا تُتبَع بفعل
- * تُقرأ وتُنسى.
+ * يبدأ بأنه لم يُنسَ، لأن هذا هو المعنى كلّه: راسلَنا ونحن مغلقون، ورددنا عليه
+ * حين فتحنا. وينتهي بسؤالٍ لا بخبر — «تحب تطلب شيء؟» يُجاب، و«تفضّل بالطلب»
+ * يُقرأ ويُنسى.
+ *
+ * ولا رابطَ في النصّ ولا رقم: تحتها زرُّ «افتح المنيو» نفسه الذي يعرفه الزبون
+ * من بقيّة رسائل البوت — ولهذا تقول «جوة»، فالزرّ جوة فعلاً.
  */
-export function openedText(name: string | null, waId?: string): string {
+export function openedText(name: string | null): string {
   const hello = name ? `هلا ${name} 🌟` : "هلا بيك 🌟";
-  const link = `${(process.env.NEXT_PUBLIC_SITE_URL ?? "https://stationiraq.com").replace(/\/+$/, "")}/menu?mode=delivery${
-    waId && normalise(waId) ? `&phone=${normalise(waId)}` : ""
-  }`;
   return [
     hello,
-    "راسلتنا والمطعم كان مسدود — وما نسيناك 🧡",
+    "راسلتنا والمطعم جان مسدود — وما نسيناك 🧡",
     "",
-    "**إحنا هسة موجودين ونستقبل طلباتكم بكل حب.**",
-    "المطبخ اشتغل، والزيت حامي، والكنتاكي أول شي نزل.",
+    "إحنا هسة موجودين ونستقبل طلباتكم بكل حب.",
+    "المطبخ اشتغل، وبلشنا نستقبل الطلبات.",
     "",
-    `دز طلبك من هنا: ${link}`,
-    `أو اتصل بينا: ${BRAND.phoneDisplay}`,
+    "تحب تطلب شيء؟ اكتبلي أو اختار من المنيو جوة 👇",
   ].join("\n");
 }
 
-/** إرسال نصّ على واتساب — يعيد هل نجح، فيُعَدّ ما وصل لا ما حاولنا */
-async function sendText(to: string, body: string): Promise<boolean> {
+/** رابط المنيو محمّلاً برقمه، فلا يكتبه ثانيةً */
+function menuUrl(waId: string): string {
+  const site = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://stationiraq.com").replace(/\/+$/, "");
+  const phone = normalise(waId);
+  return `${site}/menu?mode=delivery${phone ? `&phone=${phone}` : ""}`;
+}
+
+/**
+ * الإرسال — رسالةٌ تفاعلية بزرّ «افتح المنيو».
+ *
+ * وإن رفضتها واتساب لأي سبب يُرسَل النصّ عارياً ومعه الرابط: رسالةٌ بلا زرّ
+ * خيرٌ من زبونٍ لا يصله شيء. وتعيد هل وصل، فيُعَدّ ما وصل لا ما حاولنا.
+ */
+async function sendOpened(to: string, body: string): Promise<boolean> {
   const token = process.env.WHATSAPP_TOKEN;
   const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   if (!token || !phoneId) return false;
-  try {
-    const res = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
+  const url = menuUrl(to);
+  const post = (payload: Record<string, unknown>) =>
+    fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to, type: "text", text: { body, preview_url: true } }),
+      body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to, ...payload }),
       signal: AbortSignal.timeout(8000),
     });
+
+  try {
+    const res = await post({
+      type: "interactive",
+      interactive: {
+        type: "cta_url",
+        body: { text: body },
+        footer: { text: `الرمادي · ${BRAND.phoneDisplay}` },
+        action: { name: "cta_url", parameters: { display_text: "🛵 افتح المنيو", url } },
+      },
+    });
+    if (res.ok) return true;
+  } catch {
+    /* يُجرَّب النصّ العاري */
+  }
+  try {
+    const res = await post({ type: "text", text: { body: `${body}\n${url}`, preview_url: true } });
     return res.ok;
   } catch {
     return false;
