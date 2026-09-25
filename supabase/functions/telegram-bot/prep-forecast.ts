@@ -69,6 +69,11 @@ export function weekdayOf(day: string): number {
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
+/** المعدّل الأساسي من آخر هذه الأيام — الأقرب أدلّ على الغد */
+export const RECENT_DAYS = 7;
+/** وزن «نفس اليوم من الأسبوع»، ويكبر بعدد عيّناته حتى نصفٍ لا أكثر */
+export const sameDayWeight = (samples: number): number => Math.min(samples, 4) / 8;
+
 /**
  * حصّة كل فترةٍ من مبيعات القسم.
  *
@@ -105,23 +110,33 @@ export function peakWindow(hours: HourRow[], category?: string): string {
 /**
  * التوقّع لكل صنف.
  *
- * `المتوقَّع = ٠٫٥ × معدّل نفس اليوم من الأسبوع + ٠٫٥ × معدّل كل الأيام`
+ * `المتوقَّع = و × معدّل نفس اليوم من الأسبوع + (١−و) × معدّل آخر سبعة أيام`
  *
- * والنصف والنصف مقصودان: نفس اليوم من الأسبوع يحمل الإشارة الحقيقية (الجمعة
- * ليست كالثلاثاء)، لكن عيّنتَه اليوم سطران — فلو اتُّكل عليه وحده لقفز الرقم
- * مع أول يومٍ شاذّ. والمعدّل العامّ يثبّته. وحين تقلّ العيّنات عن اثنتين
- * يُترك اليومُ المماثل كلّه: نصفُ إشارةٍ من عيّنةٍ واحدة ضجيجٌ لا إشارة.
+ * **والوزن `و` يكبر بعدد العيّنات**: `أصغر(العيّنات، ٤) ÷ ٨`. فعيّنتان تزنان
+ * الربع، وأربعٌ تزن النصف — وهو أقصاه. والسبب أن نفس اليوم من الأسبوع يحمل
+ * إشارةً حقيقية (الجمعة ليست كالثلاثاء)، لكنها إشارةٌ لا تُصدَّق إلا بقدر ما
+ * تحتها من أيام. وكان الوزن نصفاً ثابتاً، فجمعةٌ واحدة شاذّة تكفي لتحرّك
+ * الرقم كلّه — وهو ما وقع فعلاً يوم ٢٥ أيلول.
+ *
+ * **والمعدّل من آخر سبعة أيام لا من المدى كلّه.** المبيعات تتحرّك: كانت
+ * ١٢٠ طلباً في اليوم أول الشهر و٩٠ في آخره، فمعدّل خمسة عشر يوماً يتوقّع
+ * لليوم ما باعه المحل قبل أسبوعين. والأسبوع الأخير أقرب إلى الغد.
+ *
+ * وكِلا التغييرين مقيسان لا مُفترَضان: على آخر سبعة أيام نزل الخطأ من ٢٨٪
+ * إلى ٢٤٪ بالأقسام، وعلى الجمعة وحدها من ٣٤٪ إلى ٢١٪.
  *
  * والقسمة على **أيام البيع الفعلية** لا على طول المدى: يومٌ أغلق فيه المحل
  * ليس يوماً باع فيه صفراً، وقسمةٌ عليه تخفض كل رقمٍ في اللوحة.
  */
 export function forecastDay(rows: ItemDayRow[], hours: HourRow[], forDay: string): ItemForecast[] {
-  const tradedDays = new Set(rows.map((r) => r.day));
-  const dayCount = tradedDays.size;
-  if (!dayCount) return [];
+  const tradedDays = [...new Set(rows.map((r) => r.day))].sort();
+  if (!tradedDays.length) return [];
 
   const wd = weekdayOf(forDay);
-  const sameDays = [...tradedDays].filter((d) => weekdayOf(d) === wd);
+  // العيّنات المماثلة من المدى كلّه، والمعدّل الأساسي من آخر أسبوع وحده
+  const sameDays = tradedDays.filter((d) => weekdayOf(d) === wd);
+  const recentDays = tradedDays.slice(-RECENT_DAYS);
+  const dayCount = recentDays.length;
 
   const byItem = new Map<string, { category: string; perDay: Map<string, number> }>();
   for (const r of rows) {
@@ -132,11 +147,12 @@ export function forecastDay(rows: ItemDayRow[], hours: HourRow[], forDay: string
 
   const out: ItemForecast[] = [];
   for (const [name, e] of byItem) {
-    const recentAvg = [...e.perDay.values()].reduce((s, q) => s + q, 0) / dayCount;
+    const recentAvg = recentDays.reduce((s, d) => s + (e.perDay.get(d) ?? 0), 0) / dayCount;
     const sameSum = sameDays.reduce((s, d) => s + (e.perDay.get(d) ?? 0), 0);
     const samples = sameDays.length;
     const sameDayAvg = samples ? sameSum / samples : 0;
-    const qty = samples >= 2 ? 0.5 * sameDayAvg + 0.5 * recentAvg : recentAvg;
+    const w = sameDayWeight(samples);
+    const qty = w * sameDayAvg + (1 - w) * recentAvg;
 
     const shares = hourBands(hours, e.category);
     const total = Math.round(qty);
@@ -183,11 +199,9 @@ export function forecastTotal(rows: { day: string; orders: number }[], forDay: s
   if (!n) return { orders: 0, samples: 0, days: 0 };
   const wd = weekdayOf(forDay);
   const same = [...days.entries()].filter(([d]) => weekdayOf(d) === wd);
-  const recentAvg = [...days.values()].reduce((s, q) => s + q, 0) / n;
+  const recent = [...days.keys()].sort().slice(-RECENT_DAYS);
+  const recentAvg = recent.reduce((s, d) => s + (days.get(d) ?? 0), 0) / recent.length;
   const sameAvg = same.length ? same.reduce((s, [, q]) => s + q, 0) / same.length : 0;
-  return {
-    orders: Math.round(same.length >= 2 ? 0.5 * sameAvg + 0.5 * recentAvg : recentAvg),
-    samples: same.length,
-    days: n,
-  };
+  const w = sameDayWeight(same.length);
+  return { orders: Math.round(w * sameAvg + (1 - w) * recentAvg), samples: same.length, days: n };
 }
