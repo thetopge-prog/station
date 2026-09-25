@@ -157,7 +157,8 @@ const ar: MenuCopy = {
   sectionClosed: "هذا القسم متوقف حتى الصباح — يعود الساعة 09:00",
   closedUntil: "متوقف حتى 09:00",
   minutesLeft: "⏳ {n} د",
-  minutesLeftLong: "⏳ باقي {n} دقيقة للطلب من هذا القسم — يغلق الساعة 02:00",
+  // {t} = ساعة الإغلاق من LATE_CUTOFF — لا تُكتب بيد
+  minutesLeftLong: "⏳ باقي {n} دقيقة للطلب من هذا القسم — يغلق الساعة {t}",
   minutesLeftContact: "⏳ باقي {n} دقيقة · سيتم التواصل معك في حال أغلق المطبخ لهذا القسم",
 
   orderHome: "اطلب من البيت هسّة",
@@ -230,7 +231,7 @@ const en: MenuCopy = {
   sectionClosed: "This section is closed until morning — back at 09:00",
   closedUntil: "Closed until 09:00",
   minutesLeft: "⏳ {n} min",
-  minutesLeftLong: "⏳ {n} minutes left to order from this section — it closes at 02:00",
+  minutesLeftLong: "⏳ {n} minutes left to order from this section — it closes at {t}",
   minutesLeftContact: "⏳ {n} minutes left · we'll contact you if the kitchen closes this section",
 
   orderHome: "Order to your door",

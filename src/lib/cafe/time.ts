@@ -15,11 +15,28 @@ export const DAY_CUT_HOURS = 4;
 export const READY_EXPIRE_MIN = 5;
 
 /**
- * قسم من المطبخ (برجر/زنجر…) يغلق 02:00 فجراً ويعود 09:00 — دقائق من منتصف ليل بغداد.
- * من 01:00 عدّاد تنازلي، ومن 01:30 تنبيه «سيتم التواصل معك إن أغلق»، ومن 02:00 لا يُطلب.
- * توأم فحص place_order في الترحيل 0092.
+ * قسم من المطبخ (برجر/زنجر…) يغلق **02:30** فجراً ويعود 09:00 — دقائق من
+ * منتصف ليل بغداد. من 01:30 عدّاد تنازلي، ومن 02:00 تنبيه «سيتم التواصل معك
+ * إن أغلق»، ومن 02:30 لا يُطلب.
+ *
+ * وكان يغلق 02:00، فمُدّ بعد قياس شكل الليلة: أزحم ساعةٍ في السبت هي **الواحدة
+ * فجراً** (٤٤ قطعة، ضعف العاشرة مساءً)، والساعات الثلاث بعد منتصف الليل تحمل
+ * ثلث اليوم — فكان نصف المنيو يُغلق بعد ساعةٍ من الذروة.
+ *
+ * توأمان يتغيّران معه أو لا يتغيّر: `isLateCutoffNow` في order-flow.ts،
+ * وفحص place_order في الترحيل 0106 (وهو بالدقائق لا بالساعة، وإلّا لما عرف
+ * النصف).
  */
-export const LATE_CUTOFF = { countdownFrom: 60, noticeFrom: 90, closeAt: 120, reopenAt: 540 } as const;
+export const LATE_CUTOFF = { countdownFrom: 90, noticeFrom: 120, closeAt: 150, reopenAt: 540 } as const;
+
+/**
+ * ساعة إغلاق القسم كما تُعرَض («02:30») — تُشتقّ من `LATE_CUTOFF` لا تُكتب.
+ *
+ * كانت «02:00» مكتوبةً بيد في أربعة نصوص، فتأخيرُ الإغلاق نصف ساعة يترك
+ * أربع رسائل تَعِد الزبون بوقتٍ مضى.
+ */
+export const lateCloseLabel = (): string =>
+  `${String(Math.floor(LATE_CUTOFF.closeAt / 60)).padStart(2, "0")}:${String(LATE_CUTOFF.closeAt % 60).padStart(2, "0")}`;
 
 export type LateCutoffState = { phase: "open" | "countdown" | "notice" | "closed"; minutesLeft: number };
 

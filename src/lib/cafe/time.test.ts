@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { businessDay, lastNDays, lateCutoffState } from "./time";
+import { businessDay, lastNDays, lateCloseLabel, lateCutoffState } from "./time";
 
 describe("Baghdad business day (UTC+3, no DST)", () => {
   it("attributes an evening UTC instant to the correct Baghdad day", () => {
@@ -26,20 +26,28 @@ describe("Baghdad business day (UTC+3, no DST)", () => {
   });
 });
 
-describe("lateCutoffState — kitchen section closes 02:00 Baghdad (UTC+3)", () => {
+describe("lateCutoffState — kitchen section closes 02:30 Baghdad (UTC+3)", () => {
   const at = (utc: string) => lateCutoffState(new Date(utc));
-  it("is open before 01:00 and after 09:00", () => {
-    expect(at("2026-09-19T21:59:00Z").phase).toBe("open"); // 00:59
+  it("is open before 01:30 and from 09:00", () => {
+    expect(at("2026-09-19T22:29:00Z").phase).toBe("open"); // 01:29
     expect(at("2026-09-20T06:00:00Z").phase).toBe("open"); // 09:00
     expect(at("2026-09-19T18:00:00Z").phase).toBe("open"); // 21:00
   });
-  it("counts down from 01:00", () => {
-    expect(at("2026-09-19T22:00:00Z")).toEqual({ phase: "countdown", minutesLeft: 60 }); // 01:00
-    expect(at("2026-09-19T22:01:00Z")).toEqual({ phase: "countdown", minutesLeft: 59 }); // 01:01
+  it("counts down from 01:30", () => {
+    expect(at("2026-09-19T22:30:00Z")).toEqual({ phase: "countdown", minutesLeft: 60 }); // 01:30
+    expect(at("2026-09-19T22:31:00Z")).toEqual({ phase: "countdown", minutesLeft: 59 }); // 01:31
   });
-  it("warns from 01:30 and closes at 02:00 until 09:00", () => {
-    expect(at("2026-09-19T22:31:00Z")).toEqual({ phase: "notice", minutesLeft: 29 }); // 01:31
-    expect(at("2026-09-19T23:00:00Z")).toEqual({ phase: "closed", minutesLeft: 0 }); // 02:00
+  it("warns from 02:00 and closes at 02:30 until 09:00", () => {
+    expect(at("2026-09-19T23:00:00Z")).toEqual({ phase: "notice", minutesLeft: 30 }); // 02:00
+    expect(at("2026-09-19T23:29:00Z")).toEqual({ phase: "notice", minutesLeft: 1 }); // 02:29
+    expect(at("2026-09-19T23:30:00Z")).toEqual({ phase: "closed", minutesLeft: 0 }); // 02:30
     expect(at("2026-09-20T05:59:00Z").phase).toBe("closed"); // 08:59
+  });
+  /** المنيو كان يُغلق بعد ساعةٍ من ذروة الواحدة فجراً — فمُدّ نصف ساعة */
+  it("keeps the section open through 02:00–02:29, which the old rule shut", () => {
+    expect(at("2026-09-19T23:15:00Z").phase).not.toBe("closed"); // 02:15
+  });
+  it("prints the closing hour from the constants, never by hand", () => {
+    expect(lateCloseLabel()).toBe("02:30");
   });
 });

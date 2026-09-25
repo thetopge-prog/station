@@ -29,13 +29,16 @@ export function defaultSize(item: MenuItem): MenuSize | null {
 }
 
 /**
- * قسم يغلق 02:00 فجراً ويعود 09:00 (توأم LATE_CUTOFF في src/lib/cafe/time.ts
+ * قسم يغلق 02:30 فجراً ويعود 09:00 (توأم LATE_CUTOFF في src/lib/cafe/time.ts
  * وفحص place_order في 0092). البوتات تُسقط أصنافه من المنيو في هذه الساعات،
  * فلا يُعرض ولا يُفهم ولا يُطلب — كالمنيو على الويب تماماً.
  */
 export function isLateCutoffNow(now: Date = new Date()): boolean {
-  const h = Number(new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Baghdad", hour: "2-digit", hour12: false }).format(now));
-  return h >= 2 && h < 9;
+  // بالدقائق لا بالساعة: الإغلاق 02:30، و«الساعة ٢» لا تعرف النصف
+  const p = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Baghdad", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(now);
+  const get = (t: string) => Number(p.find((x) => x.type === t)?.value ?? 0);
+  const min = (get("hour") % 24) * 60 + get("minute");
+  return min >= 150 && min < 540;
 }
 
 /** المنيو بلا الأقسام المغلقة الآن — يُنادى عند التحميل في كلا البوتين */

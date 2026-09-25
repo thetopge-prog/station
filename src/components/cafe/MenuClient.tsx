@@ -29,7 +29,7 @@ import { MenuIcon } from "./MenuIcon";
 import { MealExtras } from "./MealExtras";
 import { StationSmiley } from "./Logo";
 import { BRAND } from "@/lib/brand";
-import { lateCutoffState, type LateCutoffState } from "@/lib/cafe/time";
+import { lateCloseLabel, lateCutoffState, type LateCutoffState } from "@/lib/cafe/time";
 
 /**
  * منيو الزبون.
@@ -123,7 +123,7 @@ export function MenuClient({
   const attention = useAttention();
 
   const [activeCat, setActiveCat] = useState(cats[0]?.name_ar ?? "");
-  // قسم يغلق 02:00 (0092): عدّاد من 01:00، تنبيه من 01:30، ممنوع 02:00→09:00
+  // قسم يغلق 02:30 (0106): عدّاد من 01:30، تنبيه من 02:00، ممنوع 02:30→09:00
   const [cut, setCut] = useState<LateCutoffState>({ phase: "open", minutesLeft: 0 });
   useEffect(() => {
     const tick = () => setCut(lateCutoffState());
@@ -138,7 +138,7 @@ export function MenuClient({
         ? "هذا القسم متوقف حتى الصباح — يعود الساعة 09:00"
         : cut.phase === "notice"
           ? `⏳ باقي ${cut.minutesLeft} دقيقة · سيتم التواصل معك في حال أغلق المطبخ لهذا القسم`
-          : `⏳ باقي ${cut.minutesLeft} دقيقة للطلب من هذا القسم — يغلق الساعة 02:00`;
+          : `⏳ باقي ${cut.minutesLeft} دقيقة للطلب من هذا القسم — يغلق الساعة ${lateCloseLabel()}`;
     return (
       <p
         className={`mb-2 rounded-xl border-2 px-3 py-2 text-xs font-black ${cut.phase === "closed" ? "border-destructive bg-destructive/10 text-destructive" : "border-primary bg-primary/10 text-primary"}`}

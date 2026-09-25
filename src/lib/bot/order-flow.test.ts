@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { START, cartTotal, extractWhen, normalizeIraqiPhone, phoneOrigin, step, understand, type Input, type Menu, type State } from "../../../supabase/functions/telegram-bot/order-flow";
+import { START, cartTotal, extractWhen, isLateCutoffNow, normalizeIraqiPhone, phoneOrigin, step, understand, type Input, type Menu, type State } from "../../../supabase/functions/telegram-bot/order-flow";
 
 /**
  * محرّك الطلب بلا تليغرام: الحوار كله كأزرار ونصوص، والمنيو وسيط.
@@ -369,5 +369,22 @@ describe("طلب الرقم من صاحب رقمٍ أجنبي", () => {
     const { reply } = step(asked, txt("+90 532 123 45 67"), MENU, {});
     expect(reply.text).toContain("تركي");
     expect(reply.text).toContain("رقم عراقي");
+  });
+});
+
+/**
+ * البوت يُخفي القسم المغلق. والإغلاق صار 02:30، والفحص القديم كان بالساعة
+ * وحدها — فكان يُغلق 02:00 مهما كُتب في مكانٍ آخر.
+ */
+describe("إغلاق القسم الليلي في البوت", () => {
+  const bg = (hhmm: string) => new Date(`2026-09-20T${hhmm}:00+03:00`);
+  it("مفتوح قبل 02:30", () => {
+    expect(isLateCutoffNow(bg("01:59"))).toBe(false);
+    expect(isLateCutoffNow(bg("02:29"))).toBe(false);
+  });
+  it("ومغلق من 02:30 إلى 09:00", () => {
+    expect(isLateCutoffNow(bg("02:30"))).toBe(true);
+    expect(isLateCutoffNow(bg("08:59"))).toBe(true);
+    expect(isLateCutoffNow(bg("09:00"))).toBe(false);
   });
 });

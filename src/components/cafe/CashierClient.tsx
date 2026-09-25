@@ -742,7 +742,7 @@ export function CashierClient({
             >
               {c.name_ar}
               {c.lateCutoff && (
-                <span className="ms-1 text-[10px] opacity-80">{lateCutoffState().phase === "closed" ? "· متوقف" : "· يغلق 02:00"}</span>
+                <span className="ms-1 text-[10px] opacity-80">{lateCutoffState().phase === "closed" ? "· متوقف" : "· يغلق 02:30"}</span>
               )}
             </button>
           ))}
