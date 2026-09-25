@@ -7,6 +7,8 @@ import { reviewDue, reviewMessage } from "@/lib/cafe/review-ask";
 import { customerNameFrom } from "@/lib/cafe/wa-name";
 import { baghdadNow } from "@/lib/cafe/hours";
 import { businessDay } from "@/lib/cafe/time";
+import { isShopOpen } from "@/lib/cafe/shop-open";
+import { flushWaiting } from "@/lib/cafe/waitlist";
 
 /**
  * متابعة ما بعد التسليم — يناديه pg_cron كل خمس دقائق (scripts/schedule-followups-cron.mjs).
@@ -41,6 +43,15 @@ export async function POST(req: Request) {
 
   // ودرجٌ نُسي مفتوحاً بعد الفجر — الإدارة تُخبَر مرّةً في اليوم
   await alertLateDrawer(svc);
+
+  /*
+   * وشبكةُ أمان لطابور المنتظِرين.
+   *
+   * `openSession` تُفرغه لحظة فتح الوردية، وهو الطريق المعتاد. لكن الوردية قد
+   * تُفتح من الهَب وقت انقطاع الخط، فلا يمرّ أحدٌ بذلك الطريق — فيبقى الطابور
+   * ممتلئاً والمحل مفتوح. وهذه تلتقطه خلال خمس دقائق.
+   */
+  if (await isShopOpen()) await flushWaiting().catch(() => 0);
 
   const due = new Date(Date.now() - WAIT_MIN * 60_000).toISOString();
   const { data: orders } = await svc

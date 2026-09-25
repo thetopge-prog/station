@@ -2,10 +2,12 @@
 
 import { forgetSession } from "./session-of";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { cacheGet, cachePut, hubEnabled } from "@/lib/hub/store";
 import { cloudReachable } from "@/lib/hub/net";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { getStaff, requireRole, requireStaff } from "./auth";
+import { flushWaiting } from "./waitlist";
 
 /**
  * Cashier sessions — الورديات المالية.
@@ -128,6 +130,13 @@ export async function openSession(input: { float: number; fromSession?: string |
   // الحساب مشترك («كاشير»)؛ الاسم الذي كتبه الإنسان يُطبع على الوصل ويظهر في السجلّ
   const name = input.cashierName?.trim() || null;
   if (name) await supabase.rpc("set_session_cashier_name", { p_session: sessionId, p_name: name });
+  /*
+   * فُتحت الوردية → يُخبَر من راسلنا ونحن مغلقون.
+   *
+   * في `after` لا قبل الرجوع: فتح الدرج لا ينتظر واتساب. وخطؤه لا يُسقط
+   * الوردية — البيع أهمّ من رسالة.
+   */
+  after(() => void flushWaiting().catch(() => {}));
   revalidatePath("/cashier");
   return { ok: true as const, sessionId };
 }

@@ -7,6 +7,7 @@ import { renderMenuLink, renderMessage, renderRateScale, renderReply, renderSave
 import { isShopOpen } from "@/lib/cafe/shop-open";
 import { closedOrderText, closedText } from "@/lib/cafe/hours";
 import { BRAND } from "@/lib/brand";
+import { rememberWaiting } from "@/lib/cafe/waitlist";
 import { customerNameFrom } from "@/lib/cafe/wa-name";
 import { rateStep, type RateState } from "../../../../../supabase/functions/telegram-bot/rating-flow";
 import { savedOrderLabel, savedOrderToLines, type SavedOrder } from "../../../../../supabase/functions/telegram-bot/reorder";
@@ -463,6 +464,8 @@ async function turn(msg: WaMsg, profileName: string | null = null): Promise<void
   // المطعم مغلق (لا وردية مفتوحة): يُجاب على كل رسالة (الصمت يبدو عطلاً)،
   // إلا رشقة رسائل خلال دقيقتين فتُجاب مرّة
   if (!(await isShopOpen())) {
+    // يُسجَّل ليُخبَر أوّل ما تُفتح الوردية — وهو أثمن زبون: أرادنا ونحن مغلقون
+    await rememberWaiting(waId);
     const said = ui?.closedAt && Date.now() - Date.parse(ui.closedAt) < 2 * 60_000;
     await writeState(uiKey(waId), { ...(ui ?? { buttons: [], text: "" }), lastMsgId: msg.id, closedAt: said ? ui!.closedAt : new Date().toISOString() });
     if (!said) {
