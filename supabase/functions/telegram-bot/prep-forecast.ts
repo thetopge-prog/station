@@ -327,16 +327,23 @@ export const SALARY_LIFT = 1.48;
 
 /** كم يوماً في آخر الشهر تُرافق الخطةَ العاديةَ خطةٌ راتبية */
 export const SALARY_DAYS = 5;
+/** وكم يوماً في أوّل الشهر التالي — الصرف يتدرّج ولا يقف عند رأس الشهر */
+export const SALARY_DAYS_AFTER = 5;
 
 /**
- * هل هذا اليوم في نافذة الرواتب — آخر خمسة أيام من شهره.
+ * هل هذا اليوم في نافذة الرواتب.
  *
- * تُحسب من طول الشهر نفسه لا برقمٍ ثابت: شباط ٢٨ وأيلول ٣٠ وتشرين ٣١، و«يوم
- * ٢٦» ليس آخر الشهر في كلٍّ منها.
+ * النافذة **تعبر رأس الشهر**: خمسة أيامٍ قبله وخمسةٌ بعده. والصرف في العراق
+ * تدريجيّ — يبدأ أواخر الشهر ويمتدّ إلى أيامه الأولى — فنافذةٌ تقف عند الثلاثين
+ * تترك أوّل أيام الصرف بلا خطة، وهي من أقواها.
+ *
+ * وطول الشهر يُقرأ من الشهر نفسه لا برقمٍ ثابت: شباط ٢٨ وأيلول ٣٠ وتشرين ٣١،
+ * و«يوم ٢٦» ليس آخر الشهر في كلٍّ منها.
  */
-export function isSalaryWindow(day: string, lastDays = SALARY_DAYS): boolean {
+export function isSalaryWindow(day: string, lastDays = SALARY_DAYS, firstDays = SALARY_DAYS_AFTER): boolean {
   const [y, m, d] = day.split("-").map(Number);
   if (!y || !m || !d) return false;
+  if (d <= firstDays) return true;
   // اليوم صفر من الشهر التالي = آخر يومٍ في هذا الشهر
   const inMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
   return d > inMonth - lastDays;

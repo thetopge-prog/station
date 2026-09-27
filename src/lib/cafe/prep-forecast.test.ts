@@ -356,8 +356,17 @@ describe("نافذة الرواتب", () => {
     expect(isSalaryWindow("2026-02-23")).toBe(false);
   });
 
-  it("وأول الشهر ليس منها", () => {
-    expect(isSalaryWindow("2026-10-01")).toBe(false);
+  /** الصرف تدريجيّ ويمتدّ إلى أوّل الشهر، فنافذةٌ تقف عند الثلاثين تترك
+      أوّل أيام الصرف بلا خطة */
+  it("والنافذة تعبر رأس الشهر — خمسةٌ قبله وخمسةٌ بعده", () => {
+    expect(isSalaryWindow("2026-10-01")).toBe(true);
+    expect(isSalaryWindow("2026-10-05")).toBe(true);
+    expect(isSalaryWindow("2026-10-06")).toBe(false);
+  });
+
+  it("وبين النافذتين يبقى وسط الشهر عادياً", () => {
+    expect(isSalaryWindow("2026-10-15")).toBe(false);
+    expect(isSalaryWindow("2026-09-20")).toBe(false);
   });
 
   it("والمعامل أعلى قفزةٍ مقيسة — ٤٨٪", () => {
