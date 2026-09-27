@@ -205,3 +205,62 @@ export function forecastTotal(rows: { day: string; orders: number }[], forDay: s
   const w = sameDayWeight(same.length);
   return { orders: Math.round(w * sameAvg + (1 - w) * recentAvg), samples: same.length, days: n };
 }
+
+/*
+ * ══ نتائج الخطة: ما وعدنا به مقابل ما صار ══════════════════════════════
+ *
+ * توقّعٌ لا يُقاس بعد وقوعه دعوى. وهذه تُنادى الثالثة فجراً على اليوم الذي
+ * انتهى للتوّ، فيقرأ المالك صباحاً كم صدقت خطة أمس قبل أن يبني عليها.
+ *
+ * والحدّان من المالك، وهما غير متماثلين عن عمد:
+ *
+ *   **نقصٌ فوق ٣٠٪** — جهّزنا أكثر ممّا بِيع. والثمن طعامٌ يُرمى أو يبيت،
+ *   وهو خسارةٌ مباشرة، لكنها خسارةٌ محسوبة يتحمّلها المحل.
+ *
+ *   **زيادةٌ فوق ٢٠٪** — بِيع أكثر ممّا جهّزنا. والثمن زبونٌ انتظر أو سمع
+ *   «خلص»، وهو أغلى: لا يظهر في جردٍ ولا يعود ليشتكي. ولهذا حدُّه أضيق.
+ */
+
+/** ما دون هذا نقصاً لا يُنبَّه عليه — تجهيزٌ زائد ضمن المعقول */
+const DEFICIT = 0.30;
+/** وما دون هذا زيادةً — والحدّ أضيق لأن ثمن النفاد أعلى من ثمن الفائض */
+const SURPLUS = 0.20;
+
+export type PlanVerdict = "نقص" | "زيادة" | "مطابق";
+
+export type PlanResult = {
+  name: string;
+  forecast: number;
+  actual: number;
+  /** فعلي − متوقَّع: سالبٌ يعني جهّزنا زيادة */
+  diff: number;
+  /** نسبة الانحراف عن المتوقَّع، موجبةٌ دائماً */
+  pct: number;
+  verdict: PlanVerdict;
+};
+
+/**
+ * يقارن سطراً سطراً ويحكم على كلٍّ بحدّه.
+ *
+ * والمتوقَّع صفراً يُترك: القسمة عليه لا معنى لها، و«توقّعنا صفراً فبِيع
+ * ثلاثة» ليس خطأ تجهيز — هو صنفٌ لم يدخل اللوحة أصلاً، ويُعرَض وحده.
+ */
+export function comparePlan(rows: { name: string; forecast: number; actual: number }[]): PlanResult[] {
+  const out: PlanResult[] = [];
+  for (const r of rows) {
+    if (r.forecast <= 0) continue;
+    const diff = r.actual - r.forecast;
+    const pct = Math.abs(diff) / r.forecast;
+    const verdict: PlanVerdict =
+      diff < 0 && pct > DEFICIT ? "نقص" : diff > 0 && pct > SURPLUS ? "زيادة" : "مطابق";
+    out.push({ name: r.name, forecast: r.forecast, actual: r.actual, diff, pct: Math.round(pct * 100), verdict });
+  }
+  // الأبعد عن الخطّة أولاً: من يقرأ سطرين يقرأ أهمّهما
+  return out.sort((a, b) => b.pct - a.pct);
+}
+
+/** متوسّط الانحراف — رقمٌ واحد يقول كم كانت الخطّة قريبة */
+export function planError(rows: PlanResult[]): number {
+  if (!rows.length) return 0;
+  return Math.round(rows.reduce((s, r) => s + r.pct, 0) / rows.length);
+}

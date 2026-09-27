@@ -1,7 +1,7 @@
 import { humanPause, understandAudio, understandSmart, VOICE_UNCLEAR, type Parsed, type PhraseMemory } from "./llm.ts";
 import { rateStep, type RateState } from "./rating-flow.ts";
 import { savedOrderLabel, savedOrderToLines, type SavedOrder } from "./reorder.ts";
-import { forecastCategories, forecastDay, forecastTotal, peakWindow, type HourRow, type ItemDayRow } from "./prep-forecast.ts";
+import { comparePlan, forecastCategories, forecastDay, forecastTotal, peakWindow, planError, type HourRow, type ItemDayRow } from "./prep-forecast.ts";
 import { dropClosed, START as ORDER_START, understand, step as orderStep, normalizeIraqiPhone, type Menu, type State as OrderState, type Input as OrderInput, type Reply as OrderReply } from "./order-flow.ts";
 // بوت ستيشن — Supabase Edge Function (Telegram webhook, يعمل 24/7).
 // نفس بوت الأزرار الكامل: تقارير، الطلبات الآن، الطاولات، الأكثر/الأقل مبيعاً،
@@ -31,6 +31,9 @@ const baghdadDay = (offsetDays = 0) =>
   // يوم العمل يُقطع عند 04:00 بغداد لا منتصف الليل (0089): بغداد = UTC+3، ناقص 4 ساعات
   // للحدّ — فتقرير 3:00 فجراً يحمل يوم الوردية التي انتهت لا يوم «الغد» بأصفار
   new Date(Date.now() + 3 * 3600e3 - 4 * 3600e3 + offsetDays * 86400e3).toISOString().slice(0, 10);
+/** يوم قبل/بعد يومٍ بعينه — تقويماً لا لحظة، فلا تزحزحه منطقة زمنية */
+const shiftDay = (day: string, offsetDays: number) =>
+  new Date(Date.parse(`${day}T12:00:00Z`) + offsetDays * 86400e3).toISOString().slice(0, 10);
 const agoMin = (iso: string) => Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
 /** Parse a user-typed date (digits already normalized) into yyyy-MM-dd, or null.
  *  Accepts 2026-08-10, 10/08/2026, 10-08-2026, or 10/08 (current year). Rejects
@@ -475,6 +478,103 @@ async function prepPlanText(forDay: string): Promise<string> {
     `<i>تقدير من ${fmt(total.days)} يوم بيع، ومن ${fmt(total.samples)} يوم مماثل. الأقسام أدقّ من الأصناف، ويتحسّن كل أسبوع — والعين أصدق في المناسبات.</i>`,
   );
   return out.join("\n");
+}
+
+/**
+ * «نتائج خطة اليوم» — ما وعدنا به الليلة الماضية مقابل ما صار.
+ *
+ * رسالةٌ ثانية مستقلّة بعد التقرير لا ذيلٌ له: التقرير مالٌ وأرقام إغلاق،
+ * وهذه حكمٌ على التوقّع. وخلطهما يجعل الرقمين يُقرآن رقماً واحداً.
+ *
+ * والخطّة تُعاد بناؤها كما كانت تماماً: من بيانات **ما قبل ذلك اليوم**، فلا
+ * يتسلّل يوم اليوم إلى معدّله فيجعل التوقّع يبدو أذكى ممّا كان. وهذا هو
+ * الفرق بين قياسٍ وتزكية.
+ *
+ * والحدّان في `prep-forecast.ts` مع بقيّة الحساب — لا رقم هنا.
+ */
+async function planResultText(day: string): Promise<string> {
+  // نفس مدى «خطة الغد»، منتهياً بأمس ذلك اليوم
+  const from = shiftDay(day, -28);
+  const to = shiftDay(day, -1);
+  const [items, hours, days, actualItems, actualDay] = await Promise.all([
+    rpc("sales_by_item_day", { p_from: from, p_to: to }),
+    rpc("sales_by_hour", { p_from: from, p_to: to }),
+    rpc("range_summary", { p_from: from, p_to: to }),
+    rpc("sales_by_item_day", { p_from: day, p_to: day }),
+    rpc("range_summary", { p_from: day, p_to: day }),
+  ]);
+
+  const rows = (items as ItemDayRow[]).map((r) => ({ ...r, day: String(r.day).slice(0, 10), qty: Number(r.qty) }));
+  const hrs = (hours as HourRow[]).map((h) => ({ ...h, hr: Number(h.hr), qty: Number(h.qty) }));
+  if (!rows.length) return "";
+
+  const dayRows = (days as Row[])
+    .map((d) => ({ day: String(d.day).slice(0, 10), orders: Number(d.orders_count) }))
+    .filter((d) => d.orders > 0);
+
+  const fCats = forecastCategories(rows, hrs, day).filter((c) => c.qty >= 3);
+  if (!fCats.length) return "";
+  const fTotal = forecastTotal(dayRows, day);
+
+  // الواقع
+  const actual = new Map<string, number>();
+  for (const r of actualItems as ItemDayRow[]) {
+    const k = r.category_name;
+    if (!k || k === "—") continue;
+    actual.set(k, (actual.get(k) ?? 0) + Number(r.qty));
+  }
+  const aOrders = Number((actualDay as Row[])[0]?.orders_count ?? 0);
+
+  const res = comparePlan(fCats.map((c) => ({ name: c.name, forecast: c.qty, actual: actual.get(c.name) ?? 0 })));
+  const miss = res.filter((r) => r.verdict === "نقص");
+  const over = res.filter((r) => r.verdict === "زيادة");
+  const ok = res.filter((r) => r.verdict === "مطابق");
+
+  const ordersLine = fTotal.orders > 0
+    ? `🧾 الطلبات: توقّعنا <b>${fmt(fTotal.orders)}</b> وصار <b>${fmt(aOrders)}</b>${(() => {
+        const d = aOrders - fTotal.orders;
+        const pct = Math.round((Math.abs(d) / fTotal.orders) * 100);
+        return pct === 0 ? "" : ` — ${d < 0 ? "نقص" : "زيادة"} <b>${pct}٪</b>`;
+      })()}`
+    : `🧾 الطلبات: <b>${fmt(aOrders)}</b>`;
+
+  const out = [
+    `📊 <b>نتائج خطة اليوم — ${day}</b>`,
+    "",
+    ordersLine,
+    `🎯 انحراف الأقسام: <b>${fmt(planError(res))}٪</b> على ${fmt(res.length)} قسم`,
+  ];
+
+  if (over.length) {
+    out.push("", "🔴 <b>بِيع أكثر ممّا جهّزنا (فوق ٢٠٪)</b>");
+    out.push("<i>هذا أغلى الخطأين: زبونٌ انتظر أو سمع «خلص».</i>");
+    for (const r of over) {
+      out.push(`• ${esc(r.name)} — جهّزنا <b>${fmt(r.forecast)}</b> وبِيع <b>${fmt(r.actual)}</b> (ناقصنا ${fmt(r.diff)} · +${fmt(r.pct)}٪)`);
+    }
+  }
+  if (miss.length) {
+    out.push("", "🟠 <b>جهّزنا أكثر ممّا بِيع (فوق ٣٠٪)</b>");
+    for (const r of miss) {
+      out.push(`• ${esc(r.name)} — جهّزنا <b>${fmt(r.forecast)}</b> وبِيع <b>${fmt(r.actual)}</b> (فاض ${fmt(-r.diff)} · −${fmt(r.pct)}٪)`);
+    }
+  }
+  // سطرٌ واحد لا سطران: يومٌ نظيف يُقال مرّة، ولا تُعاد أسماء الأقسام تحته
+  if (miss.length || over.length) {
+    if (ok.length) out.push("", `✅ <b>داخل الحدّ:</b> ${ok.map((r) => esc(r.name)).join(" · ")}`);
+  } else {
+    out.push("", `✅ <b>كل الأقسام داخل الحدّ — الخطّة صدقت.</b>`);
+  }
+
+  // وأصناف بِيعت ولم تدخل اللوحة أصلاً — لا حكم عليها، لكنها تُرى
+  const inPlan = new Set(fCats.map((c) => c.name));
+  const strangers = [...actual.entries()].filter(([k, q]) => !inPlan.has(k) && q >= 5).sort((a, b) => b[1] - a[1]);
+  if (strangers.length) {
+    out.push("", `👀 <b>بِيع خارج اللوحة:</b> ${strangers.map(([k, q]) => `${esc(k)} (${fmt(q)})`).join(" · ")}`);
+  }
+
+  out.push("", `<i>الخطّة أُعيد بناؤها من بيانات ما قبل ${day} وحدها، فلا يُحسَب اليوم لنفسه.</i>`);
+  return out.join("
+");
 }
 
 async function viewDailyFinal() {
@@ -1430,6 +1530,10 @@ Deno.serve(async (req) => {
     try {
       const text = await viewDailyFinal();
       for (const o of OWNERS) await say(o, text, [BACK]);
+      // ورسالةٌ ثانية مستقلّة: نتائج خطة اليوم الذي انتهى. وسقوطها لا يُسقط
+      // التقرير — وقد أُرسل قبلها
+      const results = await planResultText(baghdadDay()).catch(() => "");
+      if (results) for (const o of OWNERS) await say(o, results, [BACK]);
       return new Response("sent", { status: 200 });
     } catch (e) {
       return new Response(`error: ${(e as Error).message}`, { status: 500 });

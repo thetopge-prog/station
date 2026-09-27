@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   BANDS,
+  comparePlan,
   forecastCategories,
   forecastDay,
   forecastTotal,
   hourBands,
   peakWindow,
+  planError,
   sameDayWeight,
   weekdayOf,
   type HourRow,
@@ -224,5 +226,52 @@ describe("المعدّل من آخر سبعة أيام", () => {
     const [f] = forecastDay([...old, ...recent], hours, "2026-09-17");
     // لو دخلت الثلاثة القديمة لصار المعدّل ٣٧؛ وبآخر سبعة هو ١٠
     expect(f.recentAvg).toBe(10);
+  });
+});
+
+/**
+ * نتائج الخطة. الحدّان غير متماثلين عن عمد: النقص ٣٠٪ والزيادة ٢٠٪ — لأن
+ * ثمن «خلص» على الزبون أعلى من ثمن صحنٍ فاض.
+ */
+describe("مقارنة الخطة بالواقع", () => {
+  const one = (forecast: number, actual: number) => comparePlan([{ name: "كنتاكي", forecast, actual }])[0];
+
+  it("الانحراف الصغير مطابق مهما كان اتجاهه", () => {
+    expect(one(100, 80).verdict).toBe("مطابق");
+    expect(one(100, 115).verdict).toBe("مطابق");
+  });
+
+  it("والنقص يُنبَّه عليه فوق الثلاثين", () => {
+    expect(one(100, 70).verdict).toBe("مطابق"); // ٣٠٪ بالضبط لا تتجاوز
+    expect(one(100, 69).verdict).toBe("نقص");
+    expect(one(100, 69).pct).toBe(31);
+    expect(one(100, 69).diff).toBe(-31);
+  });
+
+  it("والزيادة فوق العشرين — حدٌّ أضيق لأن ثمنها أعلى", () => {
+    expect(one(100, 120).verdict).toBe("مطابق");
+    expect(one(100, 121).verdict).toBe("زيادة");
+    expect(one(100, 121).diff).toBe(21);
+  });
+
+  it("ومتوقَّعٌ صفرٌ يُترك — لا قسمة عليه ولا حكم", () => {
+    expect(comparePlan([{ name: "رول دجاج", forecast: 0, actual: 12 }])).toEqual([]);
+  });
+
+  it("والأبعد عن الخطّة يُقدَّم — من يقرأ سطرين يقرأ أهمّهما", () => {
+    const r = comparePlan([
+      { name: "قريب", forecast: 100, actual: 95 },
+      { name: "بعيد", forecast: 100, actual: 40 },
+      { name: "وسط", forecast: 100, actual: 75 },
+    ]);
+    expect(r.map((x) => x.name)).toEqual(["بعيد", "وسط", "قريب"]);
+  });
+
+  it("ومتوسّط الانحراف رقمٌ واحد يقول كم كانت الخطّة قريبة", () => {
+    expect(planError(comparePlan([
+      { name: "أ", forecast: 100, actual: 90 },
+      { name: "ب", forecast: 100, actual: 70 },
+    ]))).toBe(20);
+    expect(planError([])).toBe(0);
   });
 });
