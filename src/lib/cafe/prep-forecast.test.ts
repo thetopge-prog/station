@@ -5,11 +5,14 @@ import {
   comparePlan,
   forecastCategories,
   forecastDay,
+  isSalaryWindow,
   forecastTotal,
   hourBands,
   movers,
   peakWindow,
   planAccuracy,
+  SALARY_LIFT,
+  scalePlan,
   planError,
   sameDayWeight,
   weekdayOf,
@@ -331,5 +334,61 @@ describe("المطابقة والمحرّكون", () => {
       expect(m).toHaveLength(1);
       expect(m[0].diff).toBe(12);
     });
+  });
+});
+
+/**
+ * خطة الرواتب. لا نهاية شهرٍ في بياناتنا بعد، فالمعامل أعلى قفزةٍ مقيسة بين
+ * يومين — وهو سقفٌ لا تنبّؤ.
+ */
+describe("نافذة الرواتب", () => {
+  it("آخر خمسة أيام من أيلول (٣٠ يوماً)", () => {
+    expect(isSalaryWindow("2026-09-25")).toBe(false);
+    expect(isSalaryWindow("2026-09-26")).toBe(true);
+    expect(isSalaryWindow("2026-09-30")).toBe(true);
+  });
+
+  /** طول الشهر يختلف، و«يوم ٢٦» ليس آخر الشهر في كلٍّ منها */
+  it("وتُحسب من طول الشهر لا برقمٍ ثابت", () => {
+    expect(isSalaryWindow("2026-10-26")).toBe(false); // تشرين ٣١ يوماً
+    expect(isSalaryWindow("2026-10-27")).toBe(true);
+    expect(isSalaryWindow("2026-02-24")).toBe(true); // شباط ٢٨ يوماً
+    expect(isSalaryWindow("2026-02-23")).toBe(false);
+  });
+
+  it("وأول الشهر ليس منها", () => {
+    expect(isSalaryWindow("2026-10-01")).toBe(false);
+  });
+
+  it("والمعامل أعلى قفزةٍ مقيسة — ٤٨٪", () => {
+    expect(SALARY_LIFT).toBeCloseTo(1.48, 2);
+  });
+});
+
+describe("رفع الخطة", () => {
+  const hours: HourRow[] = [
+    { hr: 13, category_name: "كنتاكي", qty: 20 },
+    { hr: 19, category_name: "كنتاكي", qty: 80 },
+  ];
+  const WED2 = ["2026-09-02", "2026-09-09", "2026-09-16", "2026-09-23"];
+  const base = forecastDay(WED2.map((d) => day(d, "كنتاكي ٣ قطع", 40)), hours, "2026-09-30");
+
+  it("ترفع الكمّية بالمعامل", () => {
+    expect(scalePlan(base)[0].qty).toBe(Math.round(base[0].qty * 1.48));
+  });
+
+  /** رقمٌ في الرأس لا يطابق تفصيله تحته يُفقد الثقة باللوحة كلّها */
+  it("وترفع الفترات معها — فلا يتناقض مجموعٌ مع تفصيله", () => {
+    const s = scalePlan(base)[0];
+    expect(s.beforePeak).toBe(Math.round(base[0].beforePeak * 1.48));
+    for (let i = 0; i < s.bands.length; i++) {
+      expect(s.bands[i].qty).toBe(Math.round(base[0].bands[i].qty * 1.48));
+    }
+  });
+
+  it("ولا تمسّ الثقة ولا العيّنات — الرفع كمّيةٌ لا معرفة", () => {
+    const s = scalePlan(base)[0];
+    expect(s.confidence).toBe(base[0].confidence);
+    expect(s.samples).toBe(base[0].samples);
   });
 });

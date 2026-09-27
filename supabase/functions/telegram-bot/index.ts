@@ -1,7 +1,7 @@
 import { humanPause, understandAudio, understandSmart, VOICE_UNCLEAR, type Parsed, type PhraseMemory } from "./llm.ts";
 import { rateStep, type RateState } from "./rating-flow.ts";
 import { savedOrderLabel, savedOrderToLines, type SavedOrder } from "./reorder.ts";
-import { accuracy, comparePlan, forecastCategories, forecastDay, forecastTotal, movers, peakWindow, planAccuracy, type HourRow, type ItemDayRow } from "./prep-forecast.ts";
+import { accuracy, comparePlan, forecastCategories, forecastDay, forecastTotal, isSalaryWindow, movers, peakWindow, planAccuracy, SALARY_LIFT, scalePlan, type HourRow, type ItemDayRow } from "./prep-forecast.ts";
 import { dropClosed, START as ORDER_START, understand, step as orderStep, normalizeIraqiPhone, type Menu, type State as OrderState, type Input as OrderInput, type Reply as OrderReply } from "./order-flow.ts";
 // بوت ستيشن — Supabase Edge Function (Telegram webhook, يعمل 24/7).
 // نفس بوت الأزرار الكامل: تقارير، الطلبات الآن، الطاولات، الأكثر/الأقل مبيعاً،
@@ -435,7 +435,7 @@ async function rpc(fn: string, body: Record<string, unknown>): Promise<any[]> {
  * وتُقصَر على ثمانية أقسام وستّة أصناف: رسالة تيليغرام تُقصّ عند ٤٠٩٦ حرفاً،
  * وتقريرُ الليلة يسبقها في الرسالة نفسها.
  */
-async function prepPlanText(forDay: string): Promise<string> {
+async function prepPlanText(forDay: string, salary = false): Promise<string> {
   // المدى ينتهي بالأمس: يوم اليوم ناقصٌ بطبيعته فيخفض معدّله
   const from = baghdadDay(-28);
   const to = baghdadDay(-1);
@@ -453,18 +453,30 @@ async function prepPlanText(forDay: string): Promise<string> {
     .map((d) => ({ day: String(d.day).slice(0, 10), orders: Number(d.orders_count) }))
     .filter((d) => d.orders > 0);
 
-  const total = forecastTotal(dayRows, forDay);
-  const cats = forecastCategories(rows, hrs, forDay).filter((c) => c.qty >= 3).slice(0, 8);
-  const top = forecastDay(rows, hrs, forDay).filter((i) => i.qty >= 3).slice(0, 6);
+  const baseTotal = forecastTotal(dayRows, forDay);
+  const total = salary ? { ...baseTotal, orders: Math.round(baseTotal.orders * SALARY_LIFT) } : baseTotal;
+  const rawCats = forecastCategories(rows, hrs, forDay).filter((c) => c.qty >= 3);
+  const rawTop = forecastDay(rows, hrs, forDay).filter((i) => i.qty >= 3);
+  const cats = (salary ? scalePlan(rawCats) : rawCats).slice(0, 8);
+  const top = (salary ? scalePlan(rawTop) : rawTop).slice(0, 6);
   if (!cats.length) return "";
 
-  const out = [
-    "",
-    `🔮 <b>خطة الغد — ${forDay}</b>`,
-    `🧾 طلبات متوقَّعة: <b>${fmt(total.orders)}</b> · ذروة المحل: <b>${esc(peakWindow(hrs))}</b>`,
-    "",
-    "<b>جهّز بالأقسام:</b>",
-  ];
+  const out = salary
+    ? [
+        `💵 <b>الخطة الراتبية — ${forDay}</b>`,
+        `<i>رواتب العراق تُصرف تدريجياً أواخر الشهر فيرتفع الطلب. وهذه الخطة العادية مرفوعةً بـ<b>${fmt(Math.round((SALARY_LIFT - 1) * 100))}٪</b> — وهي أعلى قفزةٍ قاسها النظام بين يومين متتاليين، أي سقفُ ما رأيناه لا تنبّؤاً.</i>`,
+        "",
+        `🧾 طلبات متوقَّعة: <b>${fmt(total.orders)}</b> <i>(العادية ${fmt(baseTotal.orders)})</i> · ذروة المحل: <b>${esc(peakWindow(hrs))}</b>`,
+        "",
+        "<b>جهّز بالأقسام:</b>",
+      ]
+    : [
+        "",
+        `🔮 <b>خطة الغد — ${forDay}</b>`,
+        `🧾 طلبات متوقَّعة: <b>${fmt(total.orders)}</b> · ذروة المحل: <b>${esc(peakWindow(hrs))}</b>`,
+        "",
+        "<b>جهّز بالأقسام:</b>",
+      ];
   for (const c of cats) {
     const early = c.bands[0]?.qty ?? 0;
     out.push(`• ${esc(c.name)} — <b>${fmt(c.qty)}</b> قطعة (${fmt(early)} قبل ٦ مساءً) · ذروته ${esc(c.peakHours)}`);
@@ -475,7 +487,9 @@ async function prepPlanText(forDay: string): Promise<string> {
   }
   out.push(
     "",
-    `<i>تقدير من ${fmt(total.days)} يوم بيع، ومن ${fmt(total.samples)} يوم مماثل. الأقسام أدقّ من الأصناف، ويتحسّن كل أسبوع — والعين أصدق في المناسبات.</i>`,
+    salary
+      ? `<i>تُقرأ بجانب الخطة العادية لا بدلاً منها: العادية أرضٌ، وهذه سقف. والقرار بينهما لك — ويُستبدل المعامل برقمٍ مقيس أول نهاية شهرٍ يعيشها النظام.</i>`
+      : `<i>تقدير من ${fmt(total.days)} يوم بيع، ومن ${fmt(total.samples)} يوم مماثل. الأقسام أدقّ من الأصناف، ويتحسّن كل أسبوع — والعين أصدق في المناسبات.</i>`,
   );
   return out.join("\n");
 }
@@ -1286,7 +1300,14 @@ async function onCallback(cb: Row) {
   if (cmd === "now") return say(chatId, await viewNow(), [[{ text: "🔄 تحديث", callback_data: "now" }], BACK], mid);
   if (cmd === "tables") return say(chatId, await viewTables(), [[{ text: "🔄 تحديث", callback_data: "tables" }], BACK], mid);
   if (cmd === "final") return say(chatId, await viewDailyFinal(), [[{ text: "🔄 تحديث", callback_data: "final" }], BACK], mid);
-  if (cmd === "prepplan") return say(chatId, (await prepPlanText(baghdadDay()).catch(() => "")) || "ما عدنا بيانات كافية للخطة — تحتاج أيام بيع أكثر.", [[{ text: "🔄 تحديث", callback_data: "prepplan" }], BACK], mid);
+  if (cmd === "prepplan") {
+    const d = baghdadDay();
+    const normal = await prepPlanText(d).catch(() => "");
+    // في نافذة الرواتب تُعرض الخطتان في الرسالة نفسها: الزرّ سؤالٌ واحد
+    const salary = isSalaryWindow(d) ? await prepPlanText(d, true).catch(() => "") : "";
+    const body = [normal, salary].filter(Boolean).join("\n\n");
+    return say(chatId, body || "ما عدنا بيانات كافية للخطة — تحتاج أيام بيع أكثر.", [[{ text: "🔄 تحديث", callback_data: "prepplan" }], BACK], mid);
+  }
   if (cmd === "drawer") return say(chatId, await viewDrawer(), [[{ text: "🔄 تحديث", callback_data: "drawer" }], BACK], mid);
   if (cmd === "sales") return say(chatId, await viewLastSales(), [[{ text: "🔄 تحديث", callback_data: "sales" }], BACK], mid);
   if (cmd === "pays") return say(chatId, await viewLastPayments(), [[{ text: "🔄 تحديث", callback_data: "pays" }], BACK], mid);
@@ -1554,6 +1575,13 @@ Deno.serve(async (req) => {
     try {
       const text = await viewDailyFinal();
       for (const o of OWNERS) await say(o, text, [BACK]);
+      // وفي أواخر الشهر خطةٌ ثانية بجانب العادية — لا بدلاً منها. رسالةٌ
+      // مستقلّة كي تُقرأ الخطتان جنباً إلى جنب لا واحدةٌ في ذيل الأخرى
+      const tomorrow = baghdadDay(1);
+      if (isSalaryWindow(tomorrow)) {
+        const salaryPlan = await prepPlanText(tomorrow, true).catch(() => "");
+        if (salaryPlan) for (const o of OWNERS) await say(o, salaryPlan, [BACK]);
+      }
       // ورسالةٌ ثانية مستقلّة: نتائج خطة اليوم الذي انتهى. وسقوطها لا يُسقط
       // التقرير — وقد أُرسل قبلها
       const results = await planResultText(baghdadDay()).catch(() => "");
