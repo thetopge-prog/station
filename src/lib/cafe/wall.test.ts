@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   bezelPx,
@@ -5,6 +6,7 @@ import {
   clockAt,
   LOOP_MS,
   loopPhase,
+  phaseDelta,
   sceneAt,
   SCENES,
   sceneStarts,
@@ -191,5 +193,39 @@ describe("جدول المشاهد", () => {
     expect(sceneAt(SCENES[0].ms).id).toBe(SCENES[1].id);
     expect(sceneAt(starts.hero).id).toBe("hero");
     expect(sceneAt(LOOP_MS - 1).id).toBe(SCENES[SCENES.length - 1].id);
+  });
+});
+
+/**
+ * تصحيح التزامن. الشاشة الثالثة كانت تتأخّر عن أخواتها ولا تعود، لأن المصحّح
+ * كان يقارن الخادم بساعةٍ موازية بدل أن يقيس الحركة نفسها.
+ */
+describe("phaseDelta", () => {
+  it("يسكت عن الانحراف الذي لا تراه العين", () => {
+    expect(phaseDelta(10_000, 10_000)).toBe(0);
+    expect(phaseDelta(10_200, 10_000)).toBe(0);
+  });
+
+  it("ويعيد المقدار وإشارته حين يُرى", () => {
+    expect(phaseDelta(13_000, 10_000)).toBe(3_000);
+    expect(phaseDelta(10_000, 13_000)).toBe(-3_000);
+  });
+
+  /** رأس الدورة وذيلها متجاوران — وطرحٌ ساذج يقرؤهما متباعدين فيقفز بالمشهد */
+  it("ويقيس على الدائرة: آخر الدورة وأوّلها جاران", () => {
+    expect(phaseDelta(1_000, LOOP_MS - 1_000)).toBe(2_000);
+    expect(phaseDelta(LOOP_MS - 1_000, 1_000)).toBe(-2_000);
+  });
+
+  it("وأقصى تصحيحٍ نصف دورة لا دورة كاملة", () => {
+    expect(Math.abs(phaseDelta(0, LOOP_MS / 2 + 5_000))).toBeLessThanOrEqual(LOOP_MS / 2);
+  });
+
+  /** نسخة الحساب في السطر المضمّن يجب أن تبقى هي هي */
+  it("والسطر المضمّن في WallCanvas يحمل الحساب نفسه", () => {
+    const src = readFileSync(new URL("../../components/cafe/WallCanvas.tsx", import.meta.url), "utf8");
+    expect(src).toContain("((want - have) % LOOP + LOOP + LOOP / 2) % LOOP - LOOP / 2");
+    // ولا يُصحَّح على تخمين: بلا قياسٍ من الحركة لا تصحيح
+    expect(src).toContain("if (have !== null)");
   });
 });
