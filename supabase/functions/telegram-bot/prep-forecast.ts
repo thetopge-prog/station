@@ -264,3 +264,41 @@ export function planError(rows: PlanResult[]): number {
   if (!rows.length) return 0;
   return Math.round(rows.reduce((s, r) => s + r.pct, 0) / rows.length);
 }
+
+/**
+ * نسبة المطابقة — الوجه الآخر للانحراف.
+ *
+ * «انحراف ١٣٪» و«مطابقة ٨٧٪» رقمٌ واحد بقراءتين. والثانية هي الصحيحة عملياً:
+ * التوقّع أصاب معظم اليوم، والباقي مساحة تحسّن لا فشل. ومن يقرأ «خطأ» كل
+ * صباح يكفّ عن القراءة.
+ */
+export const accuracy = (forecast: number, actual: number): number =>
+  forecast <= 0 ? 0 : Math.max(0, 100 - Math.round((Math.abs(actual - forecast) / forecast) * 100));
+
+/** متوسّط المطابقة على أسطر عدّة */
+export function planAccuracy(rows: PlanResult[]): number {
+  if (!rows.length) return 0;
+  return Math.max(0, 100 - planError(rows));
+}
+
+/**
+ * أي صنفٍ بالضبط حرّك قسمه.
+ *
+ * «الصوصات ارتفعت ٣١٪» خبرٌ لا يُعمَل به: المطبخ لا يجهّز «صوصات»، يجهّز صوصاً
+ * بعينه. فحين يتحرّك قسمٌ تُفتَح أصنافه ويُقال أيّها تحرّك.
+ *
+ * وتدخل الأصناف التي لم يتوقّعها أحد (توقّع صفر وبِيع خمسة): هي أصدق إشارةٍ
+ * على طلبٍ جديد، وهي أوّل ما تسقطه المقارنة النسبية.
+ */
+export function movers(
+  rows: { name: string; forecast: number; actual: number }[],
+  dir: "up" | "down",
+  limit = 3,
+  minDiff = 2,
+): { name: string; forecast: number; actual: number; diff: number }[] {
+  return rows
+    .map((r) => ({ ...r, diff: r.actual - r.forecast }))
+    .filter((r) => (dir === "up" ? r.diff >= minDiff : r.diff <= -minDiff))
+    .sort((a, b) => (dir === "up" ? b.diff - a.diff : a.diff - b.diff))
+    .slice(0, limit);
+}

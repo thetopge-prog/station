@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
+  accuracy,
   BANDS,
   comparePlan,
   forecastCategories,
   forecastDay,
   forecastTotal,
   hourBands,
+  movers,
   peakWindow,
+  planAccuracy,
   planError,
   sameDayWeight,
   weekdayOf,
@@ -273,5 +276,60 @@ describe("مقارنة الخطة بالواقع", () => {
       { name: "ب", forecast: 100, actual: 70 },
     ]))).toBe(20);
     expect(planError([])).toBe(0);
+  });
+});
+
+/**
+ * الصياغة الإيجابية. «انحراف ١٣٪» و«مطابقة ٨٧٪» رقمٌ واحد بقراءتين، والثانية
+ * هي التي تُقرأ كل صباح بدل أن تُتجاهَل.
+ */
+describe("المطابقة والمحرّكون", () => {
+  it("المطابقة هي مكمّل الانحراف", () => {
+    expect(accuracy(97, 84)).toBe(87);
+    expect(accuracy(100, 100)).toBe(100);
+    expect(accuracy(100, 130)).toBe(70);
+  });
+
+  it("ولا تنزل تحت الصفر مهما كبر الفارق", () => {
+    expect(accuracy(10, 100)).toBe(0);
+    expect(accuracy(0, 5)).toBe(0);
+  });
+
+  it("ومتوسّط المطابقة يتبع متوسّط الانحراف", () => {
+    const r = comparePlan([
+      { name: "أ", forecast: 100, actual: 90 },
+      { name: "ب", forecast: 100, actual: 70 },
+    ]);
+    expect(planAccuracy(r)).toBe(80);
+    expect(planAccuracy([])).toBe(0);
+  });
+
+  /** «الصوصات ارتفعت» لا يُجهَّز به — المطبخ يجهّز صوصاً بعينه */
+  describe("أي صنفٍ حرّك قسمه", () => {
+    const rows = [
+      { name: "صوص رانش", forecast: 4, actual: 9 },
+      { name: "كاتشب", forecast: 6, actual: 8 },
+      { name: "صوص حار", forecast: 5, actual: 4 },
+      { name: "صوص ثوم", forecast: 6, actual: 2 },
+    ];
+
+    it("يُقدَّم الأكثر ارتفاعاً بالعدد لا بالنسبة", () => {
+      expect(movers(rows, "up").map((m) => m.name)).toEqual(["صوص رانش", "كاتشب"]);
+    });
+
+    it("والأكثر هدوءاً في الاتجاه الآخر", () => {
+      expect(movers(rows, "down").map((m) => m.name)).toEqual(["صوص ثوم"]);
+    });
+
+    it("والحركة الصغيرة تُترك — صنفٌ تغيّر بواحدة ليس خبراً", () => {
+      expect(movers([{ name: "ماء", forecast: 10, actual: 11 }], "up")).toEqual([]);
+    });
+
+    /** صنفٌ لم تتوقّعه اللوحة وبِيع: أصدق إشارةٍ على طلبٍ جديد */
+    it("ويدخل ما لم يُتوقَّع أصلاً — وهو ما تسقطه النسب", () => {
+      const m = movers([{ name: "رول دجاج", forecast: 0, actual: 12 }], "up");
+      expect(m).toHaveLength(1);
+      expect(m[0].diff).toBe(12);
+    });
   });
 });

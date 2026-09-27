@@ -1,7 +1,7 @@
 import { humanPause, understandAudio, understandSmart, VOICE_UNCLEAR, type Parsed, type PhraseMemory } from "./llm.ts";
 import { rateStep, type RateState } from "./rating-flow.ts";
 import { savedOrderLabel, savedOrderToLines, type SavedOrder } from "./reorder.ts";
-import { comparePlan, forecastCategories, forecastDay, forecastTotal, peakWindow, planError, type HourRow, type ItemDayRow } from "./prep-forecast.ts";
+import { accuracy, comparePlan, forecastCategories, forecastDay, forecastTotal, movers, peakWindow, planAccuracy, type HourRow, type ItemDayRow } from "./prep-forecast.ts";
 import { dropClosed, START as ORDER_START, understand, step as orderStep, normalizeIraqiPhone, type Menu, type State as OrderState, type Input as OrderInput, type Reply as OrderReply } from "./order-flow.ts";
 // بوت ستيشن — Supabase Edge Function (Telegram webhook, يعمل 24/7).
 // نفس بوت الأزرار الكامل: تقارير، الطلبات الآن، الطاولات، الأكثر/الأقل مبيعاً،
@@ -515,66 +515,90 @@ async function planResultText(day: string): Promise<string> {
   const fCats = forecastCategories(rows, hrs, day).filter((c) => c.qty >= 3);
   if (!fCats.length) return "";
   const fTotal = forecastTotal(dayRows, day);
+  // وتوقّع الأصناف كذلك: القسم الذي يتحرّك تُفتَح أصنافه ويُقال أيّها تحرّك
+  const fItems = forecastDay(rows, hrs, day);
 
-  // الواقع
-  const actual = new Map<string, number>();
+  // الواقع: بالقسم وبالصنف
+  const actualCat = new Map<string, number>();
+  const actualItem = new Map<string, number>();
+  const catOfItem = new Map<string, string>();
   for (const r of actualItems as ItemDayRow[]) {
     const k = r.category_name;
     if (!k || k === "—") continue;
-    actual.set(k, (actual.get(k) ?? 0) + Number(r.qty));
+    actualCat.set(k, (actualCat.get(k) ?? 0) + Number(r.qty));
+    actualItem.set(r.name_ar, (actualItem.get(r.name_ar) ?? 0) + Number(r.qty));
+    catOfItem.set(r.name_ar, k);
   }
   const aOrders = Number((actualDay as Row[])[0]?.orders_count ?? 0);
 
-  const res = comparePlan(fCats.map((c) => ({ name: c.name, forecast: c.qty, actual: actual.get(c.name) ?? 0 })));
-  const miss = res.filter((r) => r.verdict === "نقص");
-  const over = res.filter((r) => r.verdict === "زيادة");
+  const res = comparePlan(fCats.map((c) => ({ name: c.name, forecast: c.qty, actual: actualCat.get(c.name) ?? 0 })));
+  const up = res.filter((r) => r.verdict === "زيادة");
+  const down = res.filter((r) => r.verdict === "نقص");
   const ok = res.filter((r) => r.verdict === "مطابق");
 
-  const ordersLine = fTotal.orders > 0
-    ? `🧾 الطلبات: توقّعنا <b>${fmt(fTotal.orders)}</b> وصار <b>${fmt(aOrders)}</b>${(() => {
-        const d = aOrders - fTotal.orders;
-        const pct = Math.round((Math.abs(d) / fTotal.orders) * 100);
-        return pct === 0 ? "" : ` — ${d < 0 ? "نقص" : "زيادة"} <b>${pct}٪</b>`;
-      })()}`
-    : `🧾 الطلبات: <b>${fmt(aOrders)}</b>`;
+  /** أصناف قسمٍ بعينه: المتوقَّع والفعلي جنباً إلى جنب، بما لم يُتوقَّع أصلاً */
+  const linesOf = (cat: string) => {
+    const names = new Set<string>();
+    for (const i of fItems) if (i.category === cat) names.add(i.name);
+    for (const [n, c] of catOfItem) if (c === cat) names.add(n);
+    return [...names].map((n) => ({
+      name: n,
+      forecast: fItems.find((i) => i.name === n)?.qty ?? 0,
+      actual: actualItem.get(n) ?? 0,
+    }));
+  };
 
   const out = [
     `📊 <b>نتائج خطة اليوم — ${day}</b>`,
     "",
-    ordersLine,
-    `🎯 انحراف الأقسام: <b>${fmt(planError(res))}٪</b> على ${fmt(res.length)} قسم`,
   ];
 
-  if (over.length) {
-    out.push("", "🔴 <b>بِيع أكثر ممّا جهّزنا (فوق ٢٠٪)</b>");
-    out.push("<i>هذا أغلى الخطأين: زبونٌ انتظر أو سمع «خلص».</i>");
-    for (const r of over) {
-      out.push(`• ${esc(r.name)} — جهّزنا <b>${fmt(r.forecast)}</b> وبِيع <b>${fmt(r.actual)}</b> (ناقصنا ${fmt(r.diff)} · +${fmt(r.pct)}٪)`);
-    }
-  }
-  if (miss.length) {
-    out.push("", "🟠 <b>جهّزنا أكثر ممّا بِيع (فوق ٣٠٪)</b>");
-    for (const r of miss) {
-      out.push(`• ${esc(r.name)} — جهّزنا <b>${fmt(r.forecast)}</b> وبِيع <b>${fmt(r.actual)}</b> (فاض ${fmt(-r.diff)} · −${fmt(r.pct)}٪)`);
-    }
-  }
-  // سطرٌ واحد لا سطران: يومٌ نظيف يُقال مرّة، ولا تُعاد أسماء الأقسام تحته
-  if (miss.length || over.length) {
-    if (ok.length) out.push("", `✅ <b>داخل الحدّ:</b> ${ok.map((r) => esc(r.name)).join(" · ")}`);
+  if (fTotal.orders > 0) {
+    const acc = accuracy(fTotal.orders, aOrders);
+    out.push(`🧾 الطلبات: توقّعنا <b>${fmt(fTotal.orders)}</b> · النتيجة <b>${fmt(aOrders)}</b>`);
+    out.push(`✨ المطابقة <b>${fmt(acc)}٪</b> — و<b>${fmt(100 - acc)}٪</b> مساحة تطوير للتوقّع`);
   } else {
-    out.push("", `✅ <b>كل الأقسام داخل الحدّ — الخطّة صدقت.</b>`);
+    out.push(`🧾 الطلبات: <b>${fmt(aOrders)}</b>`);
+  }
+  out.push(`🎯 دقّة الأقسام <b>${fmt(planAccuracy(res))}٪</b> · <b>${fmt(res.length)}</b> أقسام تحت المتابعة`);
+
+  if (ok.length) {
+    out.push("", "✅ <b>مطابق أو قريب من التوقّع</b>");
+    for (const r of ok) {
+      const d = r.diff > 0 ? `+${fmt(r.diff)}` : r.diff < 0 ? `−${fmt(-r.diff)}` : "±0";
+      out.push(`• ${esc(r.name)} — التوقّع <b>${fmt(r.forecast)}</b> · النتيجة <b>${fmt(r.actual)}</b> <i>(${d})</i>`);
+    }
   }
 
-  // وأصناف بِيعت ولم تدخل اللوحة أصلاً — لا حكم عليها، لكنها تُرى
+  if (up.length) {
+    out.push("", "📈 <b>طلبٌ صاعد — نزيد التجهيز</b>");
+    for (const r of up) {
+      out.push(`• ${esc(r.name)} — التوقّع <b>${fmt(r.forecast)}</b> · النتيجة <b>${fmt(r.actual)}</b> <i>(+${fmt(r.diff)} · صعود ${fmt(r.pct)}٪)</i>`);
+      const m = movers(linesOf(r.name), "up");
+      if (m.length) out.push(`   ↑ الصعود من: ${m.map((x) => `<b>${esc(x.name)}</b> +${fmt(x.diff)}`).join(" · ")}`);
+      out.push(`   ↳ نجهّز غداً نحو <b>${fmt(Math.round(r.actual * 1.1))}</b> من هذا القسم`);
+    }
+  }
+
+  if (down.length) {
+    out.push("", "🟡 <b>طلبٌ أهدأ — فرصة ضبطٍ وتوفير</b>");
+    for (const r of down) {
+      out.push(`• ${esc(r.name)} — التوقّع <b>${fmt(r.forecast)}</b> · النتيجة <b>${fmt(r.actual)}</b> <i>(−${fmt(-r.diff)} · هدوء ${fmt(r.pct)}٪)</i>`);
+      const m = movers(linesOf(r.name), "down");
+      if (m.length) out.push(`   ↓ الأهدأ: ${m.map((x) => `<b>${esc(x.name)}</b> −${fmt(-x.diff)}`).join(" · ")}`);
+      out.push(`   ↳ يكفي غداً نحو <b>${fmt(Math.max(1, Math.round(r.actual * 1.1)))}</b> — والفرق يبقى طازجاً`);
+    }
+  }
+
+  // وأصناف بِيعت ولم تدخل اللوحة أصلاً: أصدق إشارةٍ على طلبٍ جديد
   const inPlan = new Set(fCats.map((c) => c.name));
-  const strangers = [...actual.entries()].filter(([k, q]) => !inPlan.has(k) && q >= 5).sort((a, b) => b[1] - a[1]);
+  const strangers = [...actualCat.entries()].filter(([k, q]) => !inPlan.has(k) && q >= 5).sort((a, b) => b[1] - a[1]);
   if (strangers.length) {
     out.push("", `👀 <b>بِيع خارج اللوحة:</b> ${strangers.map(([k, q]) => `${esc(k)} (${fmt(q)})`).join(" · ")}`);
   }
 
-  out.push("", `<i>الخطّة أُعيد بناؤها من بيانات ما قبل ${day} وحدها، فلا يُحسَب اليوم لنفسه.</i>`);
-  return out.join("
-");
+  out.push("", `<i>الخطّة أُعيد بناؤها من بيانات ما قبل ${day} وحدها، فلا يُحسَب اليوم لنفسه. والتوقّع يتحسّن كل أسبوع — ويحتاج شهراً ليستقرّ.</i>`);
+  return out.join("\n");
 }
 
 async function viewDailyFinal() {
