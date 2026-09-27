@@ -125,7 +125,7 @@ function Scatter() {
  */
 function SceneLockup() {
   return (
-    <div className="wall-scene">
+    <div className="wall-scene wall-vis" style={{ animationName: "wall-vis-lockup" }}>
       <Scatter />
       <div style={{ ...at(MID), display: "flex", alignItems: "baseline", gap: "3vw", transform: "translateX(-50%)" }}>
         {/* اللوحة `dir="rtl"` فأوّل ابنٍ يقع يميناً — والاسم يُقرأ أولاً */}
@@ -158,7 +158,7 @@ const MOS = [0, 1, 2, 3, 4, 5, 6];
 function SceneMosaic() {
   const line = [...MOS, ...MOS];
   return (
-    <div className="wall-scene" style={{ overflow: "hidden" }}>
+    <div className="wall-scene wall-vis" style={{ overflow: "hidden", animationName: "wall-vis-mosaic" }}>
       <div
         className="wall-anim"
         style={{
@@ -195,7 +195,7 @@ function SceneMosaic() {
  */
 function SceneMenu() {
   return (
-    <div className="wall-scene">
+    <div className="wall-scene wall-vis" style={{ animationName: "wall-vis-menu" }}>
       <span
         className="wall-anim wall-stamp"
         style={{ position: "absolute", left: MID, top: "16%", fontSize: `calc(${H1} * 1.1)`, display: "block", animationName: "wall-menu-title" }}
@@ -256,7 +256,7 @@ const BURGER_STACK = [
 
 function SceneBurger() {
   return (
-    <div className="wall-scene">
+    <div className="wall-scene wall-vis" style={{ animationName: "wall-vis-hero" }}>
       {BURGER_STACK.map((l) => (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -327,7 +327,7 @@ const DISHES = [
 
 function SceneItems() {
   return (
-    <div className="wall-scene">
+    <div className="wall-scene wall-vis" style={{ animationName: "wall-vis-items" }}>
       <span
         className="wall-anim wall-stamp"
         style={{
@@ -374,7 +374,7 @@ function SceneItems() {
  */
 function SceneServices() {
   return (
-    <div className="wall-scene">
+    <div className="wall-scene wall-vis" style={{ animationName: "wall-vis-services" }}>
       {WALL_SERVICES.map((s, i) => (
         <div
           key={s.title}
@@ -405,7 +405,7 @@ function SceneServices() {
 /** ٠٧ — «كل شيء طازج / ومن الرمادي» */
 function SceneFresh() {
   return (
-    <div className="wall-scene">
+    <div className="wall-scene wall-vis" style={{ animationName: "wall-vis-fresh" }}>
       <Line anim="wall-fresh1" y={`calc(50% - ${H1} * 1.5)`} text={WALL_COPY.freshTop} accent={WALL_COPY.freshAccentTop} />
       <Line anim="wall-fresh2" y={`calc(50% + ${H1} * 0.5)`} text={WALL_COPY.freshBottom} accent={WALL_COPY.freshAccentBottom} />
 
@@ -427,7 +427,7 @@ function SceneClean() {
   // الخلفية البيضاء يرفعها `Backdrop` صعوداً كالماء — كان هنا مسحٌ أفقي ثانٍ
   // يغطّي عليه، فصار غطاءين على مشهدٍ واحد
   return (
-    <div className="wall-scene" style={{ overflow: "hidden" }}>
+    <div className="wall-scene wall-vis" style={{ overflow: "hidden", animationName: "wall-vis-clean" }}>
       <span
         className="wall-anim"
         style={{ ...at(MID), fontSize: `calc(${H1} * 1.3)`, fontWeight: 900, color: "#2c1e16", whiteSpace: "nowrap", animationName: "wall-clean1" }}
@@ -488,7 +488,7 @@ const BOARD: { x: string; bg: string; img: string; word: string }[] = [
 
 function SceneBoard() {
   return (
-    <div className="wall-scene">
+    <div className="wall-scene wall-vis" style={{ animationName: "wall-vis-board" }}>
       {BOARD.map((b, i) => (
         <div
           key={b.x}
@@ -554,7 +554,7 @@ const STRIP = [
 function SceneStrip() {
   const line = [...STRIP, ...STRIP];
   return (
-    <div className="wall-scene" style={{ overflow: "hidden" }}>
+    <div className="wall-scene wall-vis" style={{ overflow: "hidden", animationName: "wall-vis-strip" }}>
       <div
         className="wall-anim"
         style={{
@@ -662,7 +662,7 @@ const PIZZA_STACK = [
 
 function ScenePizza() {
   return (
-    <div className="wall-scene">
+    <div className="wall-scene wall-vis" style={{ animationName: "wall-vis-hero" }}>
       <SceneKfc />
       {PIZZA_STACK.map((l) => (
         // eslint-disable-next-line @next/next/no-img-element
@@ -849,7 +849,7 @@ function SceneCards() {
   return (
     <>
       {CARD_GROUPS.map((group, g) => (
-        <div className="wall-scene" key={g}>
+        <div className="wall-scene wall-vis" key={g} style={{ animationName: "wall-vis-cards" }}>
           <div
             className="wall-anim"
             style={{
@@ -901,7 +901,7 @@ function SceneBanners() {
   return (
     <>
       {BAN_PAIRS.map((pair, g) => (
-        <div className="wall-scene" key={g}>
+        <div className="wall-scene wall-vis" key={g} style={{ animationName: "wall-vis-banners" }}>
           {pair.map((n, i) => (
             // eslint-disable-next-line @next/next/no-img-element
             <img

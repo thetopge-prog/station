@@ -8,6 +8,7 @@ import {
   loopPhase,
   phaseDelta,
   sceneAt,
+  scenePct,
   SCENES,
   sceneStarts,
   scenesTotal,
@@ -227,5 +228,77 @@ describe("phaseDelta", () => {
     expect(src).toContain("((want - have) % LOOP + LOOP + LOOP / 2) % LOOP - LOOP / 2");
     // ولا يُصحَّح على تخمين: بلا قياسٍ من الحركة لا تصحيح
     expect(src).toContain("if (have !== null)");
+  });
+});
+
+/**
+ * إخفاء المشهد خارج نافذته — وهو ما يمنع «The system is out of memory».
+ *
+ * النوافذ مكتوبةٌ بيدٍ في ملفّ الأنماط (لأن `@keyframes` لا تقبل متغيّرات)،
+ * ومشتقّةٌ من جدول المشاهد هنا. فإن طالت مدّة مشهدٍ ولم تُحدَّث نافذته هناك
+ * اختفى نصفه على الجدار — عطلٌ لا يظهر إلا بعد النشر. فيُطابَق الاثنان.
+ */
+describe("نوافذ الإخفاء", () => {
+  const css = readFileSync(new URL("../../app/wall.css", import.meta.url), "utf8");
+
+  /** يقرأ كتلة @keyframes بالأقواس المتوازنة — لا بسطرٍ فارغ */
+  function keyframeBody(name: string): string | null {
+    const i = css.indexOf(`@keyframes ${name} `);
+    if (i < 0) return null;
+    const open = css.indexOf("{", i);
+    let depth = 0;
+    for (let j = open; j < css.length; j++) {
+      if (css[j] === "{") depth++;
+      else if (css[j] === "}" && --depth === 0) return css.slice(open + 1, j);
+    }
+    return null;
+  }
+
+  /** المدى الذي يكون فيه المشهد ظاهراً، بالنسب */
+  function visibleWindow(id: string): { from: number; to: number } | null {
+    const body = keyframeBody(`wall-vis-${id}`);
+    if (!body) return null;
+    const stops: { at: number; visible: boolean }[] = [];
+    for (const m of body.matchAll(/([\d.,%\s]+?)\{([^}]*)\}/g)) {
+      const visible = /visibility:\s*visible/.test(m[2]);
+      for (const p of m[1].split(",").map((x) => parseFloat(x)).filter((n) => !Number.isNaN(n))) {
+        stops.push({ at: p, visible });
+      }
+    }
+    stops.sort((a, b) => a.at - b.at);
+    const first = stops.find((s) => s.visible);
+    if (!first) return null;
+    const end = stops.find((s) => s.at > first.at && !s.visible);
+    return { from: first.at, to: end?.at ?? 100 };
+  }
+
+  it("لكل مشهدٍ نافذة إخفاء", () => {
+    for (const s of SCENES) expect(visibleWindow(s.id), s.id).not.toBeNull();
+  });
+
+  it("والنافذة تغطّي المشهد كلّه — فلا يُقصّ أوّله ولا آخره", () => {
+    for (const s of SCENES) {
+      const w = visibleWindow(s.id)!;
+      const want = scenePct(s.id);
+      expect(w.from, `${s.id}: الظهور يبدأ متأخّراً`).toBeLessThanOrEqual(want.from);
+      expect(w.to, `${s.id}: الظهور ينتهي مبكّراً`).toBeGreaterThanOrEqual(want.to);
+    }
+  });
+
+  /** وهامشٌ واسع يُبقي مشهدين ظاهرين معاً، فتعود الذاكرة كما كانت */
+  it("ولا تتجاوزها بأكثر من نصف ثانية", () => {
+    for (const s of SCENES) {
+      const w = visibleWindow(s.id)!;
+      const want = scenePct(s.id);
+      expect(want.from - w.from, `${s.id}: هامش البداية واسع`).toBeLessThanOrEqual(0.3);
+      expect(w.to - want.to, `${s.id}: هامش النهاية واسع`).toBeLessThanOrEqual(0.3);
+    }
+  });
+
+  it("وكل مشهدٍ في الصفحة يحمل الصنف واسم حركته", () => {
+    const tsx = readFileSync(new URL("../../components/cafe/WallScenes.tsx", import.meta.url), "utf8");
+    for (const s of SCENES) expect(tsx, s.id).toContain(`animationName: "wall-vis-${s.id}"`);
+    // السهم والخلفية يبقيان ظاهرَين دائماً: السهم يعبر بين المشاهد، والخلفية تحتها كلّها
+    expect(tsx.match(/className="wall-scene"/g)?.length, "غير السهم والخلفية لا يبقى مشهدٌ بلا إخفاء").toBe(2);
   });
 });
