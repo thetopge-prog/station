@@ -116,11 +116,14 @@ export async function listPrepOrders(stationId: string | null = null): Promise<P
   const empIds = [...new Set(orders.flatMap((o) => [o.cashier_id, o.expediter_id]).filter(Boolean))] as string[];
   // the last two lookups also have nothing to say to each other
   const [{ data: menu }, { data: emps }] = await Promise.all([
-    itemIds.length ? svc.from("menu_items").select("id, category_id").in("id", itemIds) : Promise.resolve({ data: [] }),
+    itemIds.length ? svc.from("menu_items").select("id, category_id, station_id").in("id", itemIds) : Promise.resolve({ data: [] }),
     empIds.length ? svc.from("employees").select("id, name_ar").in("id", empIds) : Promise.resolve({ data: [] }),
   ]);
 
   const catOfItem = new Map((menu ?? []).map((m) => [m.id, m.category_id]));
+  // ومحطة الصنف نفسه إن كُتبت — نفس قاعدة الطباعة (0107)، وإلّا اختلفت شاشة
+  // المطبخ عن الورقة الخارجة منه
+  const stationOfItem = new Map((menu ?? []).map((m) => [m.id, m.station_id ?? null]));
   const cat = new Map(cats.map((c) => [c.id, c]));
   const stationName = new Map(stations.map((s) => [s.id, s.name_ar]));
   const empName = new Map((emps ?? []).map((e) => [e.id, e.name_ar]));
@@ -129,7 +132,7 @@ export async function listPrepOrders(stationId: string | null = null): Promise<P
   for (const it of rawItems ?? []) {
     const categoryId = it.item_id ? catOfItem.get(it.item_id) ?? null : null;
     const c = categoryId ? cat.get(categoryId) ?? null : null;
-    const sid = c?.station_id ?? null;
+    const sid = (it.item_id ? stationOfItem.get(it.item_id) ?? null : null) ?? c?.station_id ?? null;
     const arr = byOrder.get(it.order_id) ?? [];
     arr.push({
       id: it.id,

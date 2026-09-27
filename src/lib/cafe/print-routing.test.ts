@@ -187,3 +187,61 @@ describe("routing helpers", () => {
     expect(orphaned.map((i) => i.name_ar)).toEqual(["الويدجز", "جبن"]);
   });
 });
+
+/**
+ * محطة الصنف الواحد (0107).
+ *
+ * خمسة أصناف تُطبخ في المطبخ وبقيّة قسمها لا. ونقل القسم كان يجرّ ثمانية عشر
+ * صنفاً لم يطلبها أحد — فصار الصنف يحمل محطته، وتغلب محطة قسمه.
+ */
+describe("محطة الصنف تغلب محطة القسم", () => {
+  const printers: PrinterRow[] = [
+    { id: "p1", name_ar: "الكاشير", kind: "receipt", station_id: null, is_active: true, copies: 1 },
+    { id: "p2", name_ar: "المطبخ", kind: "station", station_id: "st-kitchen", is_active: true, copies: 1 },
+    { id: "p3", name_ar: "التجهيز", kind: "expediter", station_id: null, is_active: true, copies: 1 },
+  ];
+  const stations: StationRow[] = [
+    { id: "st-kitchen", name_ar: "المطبخ" },
+    { id: "st-counter", name_ar: "الكاونتر" },
+  ];
+  // قسم «فرايز» على الكاونتر — ولا طابعة للكاونتر
+  const categoryStation = { "cat-fries": "st-counter" };
+
+  const line = (name: string, station_id: string | null = null) => ({
+    name_ar: name, flavor_ar: null, qty: 1, unit_price: 1000, category_id: "cat-fries", station_id,
+  });
+
+  const run = (items: ReturnType<typeof line>[]) =>
+    routeOrder({ order: ORDER, items, printers, stations, categoryStation });
+
+  it("الصنف الذي يحمل محطة يصل إلى طابعتها رغم قسمه", () => {
+    const t = run([line("الكرلي", "st-kitchen"), line("فنكر كوب")]);
+    const kitchen = t.find((x) => x.kind === "station");
+    expect(kitchen?.lines.map((l) => l.name)).toEqual(["الكرلي"]);
+  });
+
+  it("وزميله في القسم نفسه لا يتبعه — وهذا كل الغرض", () => {
+    const t = run([line("فنكر كوب"), line("جكن فرايز")]);
+    expect(t.some((x) => x.kind === "station")).toBe(false);
+  });
+
+  it("وتذكرة التجهيز تعرف أن المطبخ طبخه فلا يُحضِّره المجهّز", () => {
+    const t = run([line("الكرلي", "st-kitchen"), line("فنكر كوب")]);
+    const exp = t.find((x) => x.kind === "expediter")!;
+    expect(exp.lines.find((l) => l.name === "الكرلي")?.kitchen).toBe(true);
+    expect(exp.lines.find((l) => l.name === "فنكر كوب")?.kitchen).toBeFalsy();
+  });
+
+  it("ولا مال على ورقة المطبخ مهما تغيّر التوجيه", () => {
+    const t = run([line("الكرلي", "st-kitchen")]);
+    const kitchen = t.find((x) => x.kind === "station")!;
+    expect(kitchen.money).toBeNull();
+    expect(kitchen.lines.every((l) => l.amount === null)).toBe(true);
+  });
+
+  it("وصنفٌ بلا محطة ولا قسمٍ موجَّه يبقى بلا توجيه", () => {
+    expect(unroutedItems([line("فنكر كوب")], {}).map((i) => i.name_ar)).toEqual(["فنكر كوب"]);
+    expect(unroutedItems([line("الكرلي", "st-kitchen")], {})).toEqual([]);
+    expect(stationsForOrder([line("الكرلي", "st-kitchen")], {})).toEqual(["st-kitchen"]);
+  });
+});

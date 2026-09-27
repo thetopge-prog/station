@@ -207,7 +207,9 @@ export async function buildOrderJobs(
   // over a second for paper that could have taken a fifth of that. None of
   // them depends on another — only on the order and its lines, already here.
   const [{ data: menu }, { data: cats }, { data: stationRows }, { data: staffRows }, { data: partner }, configs, { data: session }] = await Promise.all([
-    itemIds.length ? svc.from("menu_items").select("id, category_id").in("id", itemIds) : Promise.resolve({ data: [] as { id: string; category_id: string }[] }),
+    itemIds.length
+      ? svc.from("menu_items").select("id, category_id, station_id").in("id", itemIds)
+      : Promise.resolve({ data: [] as { id: string; category_id: string; station_id: string | null }[] }),
     svc.from("categories").select("id, station_id"),
     svc.from("stations").select("id, name_ar"),
     staffIds.length ? svc.from("employees").select("id, name_ar").in("id", staffIds) : Promise.resolve({ data: [] as { id: string; name_ar: string }[] }),
@@ -218,6 +220,8 @@ export async function buildOrderJobs(
     order.session_id ? svc.from("cashier_sessions").select("cashier_name").eq("id", order.session_id).maybeSingle() : Promise.resolve({ data: null as { cashier_name: string | null } | null }),
   ]);
   const catOfItem = new Map((menu ?? []).map((m) => [m.id, m.category_id]));
+  // محطة الصنف نفسه حين تكون مكتوبة — تغلب محطة قسمه (0107)
+  const stationOfItem = new Map((menu ?? []).map((m) => [m.id, m.station_id ?? null]));
 
   const categoryStation: Record<string, string | null> = {};
   for (const c of cats ?? []) categoryStation[c.id] = c.station_id;
@@ -235,6 +239,7 @@ export async function buildOrderJobs(
     qty: i.qty,
     unit_price: i.unit_price,
     category_id: i.item_id ? catOfItem.get(i.item_id) ?? null : null,
+    station_id: i.item_id ? stationOfItem.get(i.item_id) ?? null : null,
     note: i.note ?? null,
   }));
 

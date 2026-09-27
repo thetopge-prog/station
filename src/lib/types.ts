@@ -143,14 +143,17 @@ export type Database = {
         Row: Timestamped & {
           category_id: string; name_ar: string; name_en: string | null; description_ar: string | null; description_en: string | null; image_url: string | null;
           price: number; cost: number; flavors: string[]; is_active: boolean; sort: number;
+          /** 0107 — محطة هذا الصنف وحده، تغلب محطة قسمه. فارغة = يرث القسم */
+          station_id: string | null;
         };
         Insert: {
           id?: string; category_id: string; name_ar: string; description_ar?: string | null; image_url?: string | null;
           price?: number; cost?: number; flavors?: string[]; is_active?: boolean; sort?: number; created_at?: string;
+          station_id?: string | null;
         };
         Update: Partial<{
           category_id: string; name_ar: string; name_en: string | null; description_ar: string | null; description_en: string | null; image_url: string | null;
-          price: number; cost: number; flavors: string[]; is_active: boolean; sort: number;
+          price: number; cost: number; flavors: string[]; is_active: boolean; sort: number; station_id: string | null;
         }>;
         Relationships: [];
       };

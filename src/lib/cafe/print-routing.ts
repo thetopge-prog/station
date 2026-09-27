@@ -14,8 +14,8 @@
  *     ├─ تذكرة الشواية      → كنتاكي + زنجر   (بلا مبالغ)
  *     └─ تذكرة التجهيز      → كل الأصناف      (بلا مبالغ، مع رمز الاستلام)
  *
- * Routing is DATA, not code: an item goes to a station because its category row
- * carries that station_id. Re-assigning fries from the fryer to the grill, or
+ * Routing is DATA, not code: an item goes to a station because its own row or
+ * its category row carries that station_id. Re-assigning fries from the fryer to the grill, or
  * adding a whole new category, is an edit on /printers — never a deploy.
  *
  * Two invariants this module exists to guarantee:
@@ -36,6 +36,15 @@ export type PrintItem = {
   unit_price: number;
   /** categories.id — the routing key. null ⇒ unknown category ⇒ no station. */
   category_id: string | null;
+  /**
+   * stations.id for THIS item, overriding whatever its category says.
+   *
+   * Five items — البونلس, بصل مقرمش, خبز الثوم, الويدجز, الكرلي — are cooked in
+   * the kitchen while the rest of their categories are not. Moving the two
+   * categories would have dragged eighteen uninvolved items onto the kitchen
+   * printer. null ⇒ inherit the category, which is still the normal case.
+   */
+  station_id?: string | null;
   /** «بدون بصل» — this line's own note, printed under it */
   note?: string | null;
 };
@@ -147,6 +156,16 @@ const CHANNEL_AR: Record<PrintOrder["channel"], string> = {
   takeaway: "سفري",
 };
 
+/**
+ * Where this line is cooked: its own station if it carries one, else its
+ * category's. One function because three call sites used to repeat the
+ * expression, and a rule copied three times is a rule that drifts.
+ */
+function stationOf(it: PrintItem, categoryStation: Record<string, string | null>): string | null {
+  if (it.station_id) return it.station_id;
+  return it.category_id ? categoryStation[it.category_id] ?? null : null;
+}
+
 /** Split one order into the tickets its printers should receive. */
 export function routeOrder(input: RouteInput): Ticket[] {
   const { order, items, printers, stations, categoryStation, trackUrl } = input;
@@ -209,7 +228,7 @@ export function routeOrder(input: RouteInput): Ticket[] {
   // items simply never appears as a key here.
   const byStation = new Map<string, PrintItem[]>();
   for (const it of items) {
-    const st = it.category_id ? categoryStation[it.category_id] ?? null : null;
+    const st = stationOf(it, categoryStation);
     if (!st) continue; // sauces, drinks — nothing to cook
     const arr = byStation.get(st) ?? [];
     arr.push(it);
@@ -258,7 +277,7 @@ export function routeOrder(input: RouteInput): Ticket[] {
       stationId: null,
       stationName: null,
       lines: items.map((it) => {
-        const st = it.category_id ? categoryStation[it.category_id] ?? null : null;
+        const st = stationOf(it, categoryStation);
         return {
           name: it.name_ar,
           flavor: it.flavor_ar,
@@ -293,7 +312,7 @@ export function stationsForOrder(
 ): string[] {
   const seen = new Set<string>();
   for (const it of items) {
-    const st = it.category_id ? categoryStation[it.category_id] ?? null : null;
+    const st = stationOf(it, categoryStation);
     if (st) seen.add(st);
   }
   return [...seen];
@@ -309,5 +328,5 @@ export function unroutedItems(
   items: PrintItem[],
   categoryStation: Record<string, string | null>,
 ): PrintItem[] {
-  return items.filter((it) => !(it.category_id ? categoryStation[it.category_id] ?? null : null));
+  return items.filter((it) => !stationOf(it, categoryStation));
 }
