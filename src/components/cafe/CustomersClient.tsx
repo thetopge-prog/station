@@ -14,6 +14,8 @@ import {
   type ExportFormat,
 } from "@/lib/cafe/customer-actions";
 import { formatIqdLabel } from "@/lib/cafe/money";
+import type { BotUser } from "@/lib/cafe/bot-users";
+import { BotUsersPanel } from "./BotUsersPanel";
 
 /**
  * سجلّ أرقام الزبائن.
@@ -41,7 +43,7 @@ const CHANNEL: Record<string, string> = {
 
 const day = (iso: string | null) => (iso ? iso.slice(0, 10) : "—");
 
-export function CustomersClient({ book, failed }: { book: CustomerBook; failed: string | null }) {
+export function CustomersClient({ book, bots, failed }: { book: CustomerBook; bots: BotUser[]; failed: string | null }) {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<SortKey>("orders");
@@ -170,6 +172,8 @@ export function CustomersClient({ book, failed }: { book: CustomerBook; failed: 
       </div>
 
       {msg && <p className="rounded-xl border-2 border-border bg-card px-3 py-2 text-sm font-black">{msg}</p>}
+
+      <BotUsersPanel rows={bots} />
 
       <div className="flex flex-wrap items-center gap-2">
         <label className="relative flex-1 min-w-52">

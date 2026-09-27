@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { requireAdmin } from "./auth";
 import { toCsv, toVcf } from "./contacts-export";
+import { cartSum, localPhone, stepLabel, type BotStateShape, type BotUser } from "./bot-users";
 
 /**
  * سجلّ أرقام الزبائن — للإدارة وحدها.
@@ -177,4 +178,69 @@ export async function updateCustomer(id: string, patch: { name?: string; phone?:
   if (error) return { ok: false as const, error: error.message };
   revalidatePath("/customers");
   return { ok: true as const };
+}
+
+/**
+ * زبائن البوت — من كلّم واتساب، وأين توقّف.
+ *
+ * ثلاثة استعلامات لا واحدٌ لكل زبون: الحالات، ثم الأسماء، ثم عدد الطلبات —
+ * نفس نمط `flushWaiting`. والمحادثات اليوم بالعشرات، فلا حاجة إلى صفحات.
+ */
+export async function listBotUsers(): Promise<BotUser[]> {
+  await requireAdmin();
+  const svc = createSupabaseServiceClient();
+  const { data: rows, error } = await svc
+    .from("bot_state")
+    .select("chat_id, state, updated_at")
+    .like("chat_id", "wa:%")
+    .order("updated_at", { ascending: false })
+    .limit(2000);
+  if (error) throw new Error(`تعذّر جلب محادثات البوت: ${error.message}`);
+
+  // مفتاحان لكل محادثة: `wa:<id>` فيه السلّة، و`wa:<id>:ui` أثرُ الأزرار. يُدمَجان
+  // في صفٍّ واحد — وإلّا ظهر الزبون مرّتين، مرّةً بسلّة ومرّةً فارغاً
+  const byId = new Map<string, { st: BotStateShape | null; last: string }>();
+  for (const r of rows ?? []) {
+    const ui = r.chat_id.endsWith(":ui");
+    const waId = r.chat_id.slice(3, ui ? -3 : undefined);
+    const prev = byId.get(waId);
+    const st = ui ? null : (r.state as BotStateShape | null);
+    byId.set(waId, {
+      st: st ?? prev?.st ?? null,
+      last: prev && prev.last > r.updated_at ? prev.last : r.updated_at,
+    });
+  }
+
+  const phones = [...byId.keys()].map(localPhone).filter((p): p is string => !!p);
+  const nameOf = new Map<string, string>();
+  const ordersOf = new Map<string, number>();
+  if (phones.length) {
+    const [{ data: cs }, { data: os }] = await Promise.all([
+      svc.from("customers").select("phone, name_ar").in("phone", phones),
+      svc.from("orders").select("customer_phone").eq("status", "paid").in("customer_phone", phones),
+    ]);
+    for (const c of cs ?? []) if (c.phone && c.name_ar) nameOf.set(c.phone, c.name_ar);
+    for (const o of os ?? []) {
+      const p = o.customer_phone;
+      if (p) ordersOf.set(p, (ordersOf.get(p) ?? 0) + 1);
+    }
+  }
+
+  return [...byId.entries()]
+    .map(([waId, v]) => {
+      const phone = localPhone(waId);
+      const { count, total } = cartSum(v.st?.cart);
+      return {
+        waId,
+        phone,
+        foreign: !phone,
+        name: phone ? (nameOf.get(phone) ?? null) : null,
+        lastSeen: v.last,
+        step: stepLabel(v.st?.step),
+        cartCount: count,
+        cartTotal: total,
+        orders: phone ? (ordersOf.get(phone) ?? 0) : 0,
+      };
+    })
+    .sort((a, b) => b.lastSeen.localeCompare(a.lastSeen));
 }
