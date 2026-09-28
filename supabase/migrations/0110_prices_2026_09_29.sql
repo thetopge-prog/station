@@ -89,3 +89,38 @@ begin
     end if;
   end loop;
 end $$;
+
+-- ── الأسماء ───────────────────────────────────────────────────────────
+--
+-- ثلاثة أسماء يريدها المالك كما يكتبها هو، وفيها تصحيحُ خطإٍ مطبوع:
+-- «دبل برجكر» كانت تخرج هكذا على التذاكر والمنيو منذ البداية.
+--
+-- ولا يضيع التاريخ: `sales_by_item_day` تسمّي المبيعات القديمة بالاسم
+-- **الحالي** للصنف (coalesce(m.name_ar, i.name_ar))، فتُنسب مبيعات الأمس إلى
+-- الاسم الجديد ولا ينشطر التوقّع بين اسمين. أما فواتير الأمس المطبوعة فتحتفظ
+-- بما كُتب عليها وقتها، وهو الصحيح.
+--
+-- وتأتي بعد الأسعار عمداً: قائمة الأسعار فوق تنادي الأصناف بأسمائها القديمة.
+
+do $$
+declare r record; v_n int;
+begin
+  for r in
+    select * from (values
+      ('بركر لحم',             'بركر لحم كلاسيك'),
+      ('دبل برجكر لحم بالجبن', 'دبل بركر بالجبن'),
+      ('رول دجاج',             'رول دجاج باربكيو')
+    ) as t(old_name, new_name)
+  loop
+    -- اسمٌ جديد يحمله صنفٌ آخر يوقف الترحيل: اسمان متطابقان يربكان الكاشير
+    -- والبوت معاً
+    if exists (select 1 from public.menu_items where name_ar = r.new_name) then
+      raise exception 'الاسم الجديد مستعمل أصلاً: %', r.new_name;
+    end if;
+    update public.menu_items set name_ar = r.new_name where name_ar = r.old_name and is_active;
+    get diagnostics v_n = row_count;
+    if v_n <> 1 then
+      raise exception 'توقّعت صنفاً واحداً باسم % فوجدت %', r.old_name, v_n;
+    end if;
+  end loop;
+end $$;
