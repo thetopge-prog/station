@@ -220,6 +220,30 @@ export async function tellMySpot(
   }
 }
 
+/**
+ * «نجهّزه على ميز؟ أو سفري؟» — الزبون يقول كيف يريده بعد أن يؤكّده.
+ *
+ * من يطلب من داخل المطعم كان يُعامَل استلاماً دائماً: يُلفّ في كيسٍ ويُسلَّم
+ * على الكاونتر. ومنهم من جاء ليجلس، فيقف ومعه كيسٌ يفكّه على طاولة.
+ *
+ * ويصل في وقته: طلب الزبون يبقى «قيد الانتظار» حتى يقبله الكاشير، والتذاكر
+ * تُطبع عند القبول — فاختيارٌ يصل بعد ثوانٍ من التأكيد يسبق الورقة والمطبخ.
+ */
+export async function tellMyServing(
+  orderId: string,
+  onTable: boolean,
+): Promise<"saved" | "gone" | "error"> {
+  if (isDemoServer()) return "saved";
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc("serve_my_order", { p_order: orderId, p_table: onTable });
+    if (error) return "error";
+    return (data as "saved" | "gone") ?? "error";
+  } catch {
+    return "error";
+  }
+}
+
 /** Customer-side order tracking — looks up their own orders by unguessable id. */
 export async function getMyOrders(ids: string[]): Promise<PublicOrder[]> {
   if (!ids.length || isDemoServer()) return [];

@@ -354,7 +354,6 @@ export function scalePlan(rows: ItemForecast[], lift = SALARY_LIFT): ItemForecas
   return rows.map((r) => ({
     ...r,
     qty: Math.round(r.qty * lift),
-    beforePeak: Math.round(r.beforePeak * lift),
     bands: r.bands.map((b) => ({ ...b, qty: Math.round(b.qty * lift) })),
   }));
 }

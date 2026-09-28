@@ -9,6 +9,7 @@ import {
   cancelMyOrder,
   getMyOrders,
   submitOrder,
+  tellMyServing,
   tellMySpot,
   type OrderLineInput,
 } from "@/lib/cafe/order-actions";
@@ -195,6 +196,9 @@ export function MenuClient({
   // «وين طابك؟» — يُملأ بعد الوصول لا قبله، فمواقف المطعم لا تكفي دائماً
   const [spot, setSpot] = useState("");
   const [spotState, setSpotState] = useState<"idle" | "busy" | "sent">("idle");
+  // «على ميز أو سفري» — لمن طلب من داخل المطعم. null = لم يختر بعد
+  const [serve, setServe] = useState<"table" | "bag" | null>(null);
+  const [serveBusy, setServeBusy] = useState(false);
 
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
   const pillRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -665,6 +669,15 @@ export function MenuClient({
       setSpotState("idle");
       setErr(r === "gone" ? "الطلب لم يعد مفتوحاً" : "لا اتصال — اتصل بالمطعم " + BRAND.phoneDisplay);
     }
+  }
+
+  async function sendServing(onTable: boolean) {
+    if (!confirmed?.orderId || serveBusy) return;
+    setServeBusy(true);
+    const r = await tellMyServing(confirmed.orderId, onTable);
+    setServeBusy(false);
+    if (r === "saved") setServe(onTable ? "table" : "bag");
+    else setErr(r === "gone" ? "الطلب لم يعد مفتوحاً" : "لا اتصال — اتصل بالمطعم " + BRAND.phoneDisplay);
   }
 
   // «داخل المطعم» خيار فقط لمن جاء برابطه؛ من الشارع يختار من ثلاثة
@@ -1349,6 +1362,57 @@ export function MenuClient({
                 {NEXT_STEP[confirmed.mode](confirmed.table)}
               </p>
             )}
+            {/*
+              «نجهّزه على ميز أو سفري؟» — لطلب الاستلام وحده، بعد التأكيد.
+
+              من يطلب من داخل المطعم كان يُعامَل استلاماً دائماً: يُلفّ في كيسٍ
+              ويُسلَّم على الكاونتر. ومنهم من جاء ليجلس، فيقف ومعه كيسٌ يفكّه
+              على طاولة.
+
+              ويصل في وقته: الطلب يبقى «قيد الانتظار» حتى يقبله الكاشير،
+              والتذاكر تُطبع عند القبول — فاختيارٌ يصل بعد ثوانٍ يسبق الورقة.
+            */}
+            {confirmed.mode === "pickup" &&
+              confirmed.orderId &&
+              orderPhase !== "cancelled" && (
+                <div className="mt-4 rounded-2xl border-2 border-primary/40 bg-secondary p-3 text-start">
+                  {serve ? (
+                    <p className="text-center text-sm font-black text-primary">
+                      {serve === "table" ? "تمام 🍽 — نجهّزه على ميز وتفضّل بالجلوس" : "تمام 🥡 — نجهّزه سفري"}
+                      <button
+                        onClick={() => setServe(null)}
+                        className="mx-auto mt-2 block text-xs font-bold text-muted-foreground underline"
+                      >
+                        غيّرت رأيك؟ عدّله
+                      </button>
+                    </p>
+                  ) : (
+                    <>
+                      <p className="text-center text-base font-black">شلون نجهّزه؟</p>
+                      <p className="mt-0.5 text-center text-xs font-bold text-muted-foreground">
+                        إذا راح تقعد عدنا نقدّمه على الطاولة، وإذا مستعجل نعبّيه سفري
+                      </p>
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => void sendServing(true)}
+                          disabled={serveBusy}
+                          className="min-h-14 rounded-2xl border-2 border-primary bg-card px-2 font-black text-primary disabled:opacity-50"
+                        >
+                          🍽 على ميز
+                        </button>
+                        <button
+                          onClick={() => void sendServing(false)}
+                          disabled={serveBusy}
+                          className="min-h-14 rounded-2xl border-2 border-border bg-card px-2 font-black disabled:opacity-50"
+                        >
+                          🥡 سفري
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
             {/*
               «وين طابك؟» — يظهر لطلب السيارة وحده، بعد التأكيد.
               وصفُ السيارة كُتب وهو يطلب من بيته؛ أما مكانه فلا يعرفه إلا بعد
