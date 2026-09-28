@@ -107,7 +107,19 @@ async function resolveStaff(): Promise<Staff | null> {
     // already confirmed for this exact token. Everywhere else, and whenever the
     // cloud is reachable, a failed check stays a failed check.
     if (hubEnabled() && token && !(await cloudReachable())) return recallSession(token);
-    writeCache(token, null);
+    /*
+     * ولا تُخزَّن «لا أحد».
+     *
+     * كان الفشل يُحفَظ دقيقةً كاملة بمفتاح الرمز نفسه. فإذا تعثّر التحقّق مرّةً
+     * واحدة — عثرة شبكة، أو خادمٌ بارد — صار الرمز السليم مرفوضاً ستّين ثانية،
+     * ولا مخرج منها إلا تسجيل دخولٍ جديد يولّد رمزاً آخر بمفتاحٍ آخر.
+     *
+     * وهذا بعينه ما كان يراه الموظّف: خطأ، ثم يعيد الدخول، ثم يدخل.
+     *
+     * والتخزين الموجب يبقى — هو سبب وجود الخزين أصلاً (شاشةٌ تسأل كل أربع
+     * ثوانٍ). أما السلبي فلا يوفّر شيئاً: من لا جلسة له يُحوَّل إلى الدخول ولا
+     * يعود يسأل.
+     */
     return null;
   }
 

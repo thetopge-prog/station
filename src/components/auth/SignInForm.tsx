@@ -32,6 +32,12 @@ export function SignInForm({ redirectTo, stale = false }: { redirectTo: string; 
           if (n <= 2) {
             const { data } = await supabase.auth.refreshSession();
             if (!cancelled && data.session) {
+              // نجح التجديد، فالعدّاد يعود صفراً.
+              //
+              // كان يتراكم طوال اليوم: كل ارتدادةٍ تزيده ولا شيء ينقصه إلا
+              // دخولٌ بكلمة مرور. فثلاث ارتداداتٍ متفرّقة — كلٌّ منها شُفيت
+              // وحدها — تجتمع فتُخرِج الموظّف وتقول له «انتهت جلستك».
+              sessionStorage.removeItem(STALE_KEY);
               router.replace(redirectTo);
               return;
             }

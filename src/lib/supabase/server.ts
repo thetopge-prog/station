@@ -63,21 +63,55 @@ export async function currentAccessToken(): Promise<string | null> {
   return parseSessionCookie(cookieStore.get(AUTH_STORAGE_KEY)?.value)?.accessToken ?? null;
 }
 
-/** Returns the authenticated user (validated against Supabase Auth) or null. */
+/**
+ * هل رفض خادم المصادقة هذا الرمز فعلاً، أم أنّنا لم نصل إليه؟
+ *
+ * الفرق بينهما هو الفرق بين «انتهت جلستك» و«الشبكة تعثّرت لحظة» — وكانا
+ * يُعامَلان سواءً: أي فشلٍ يُقرأ «غير مسجَّل»، فيُطرد موظّفٌ رمزُه سليم لأن
+ * طلباً واحداً تأخّر.
+ *
+ * والرفض وحده يحمل رمز حالة ٤٠١ أو ٤٠٣. أما انقطاع الشبكة ومهلة الاتصال
+ * وخطأ الخادم ٥٠٠ فلا تقول شيئاً عن الجلسة.
+ */
+export function isAuthRejection(error: { status?: number } | null | undefined): boolean {
+  const st = error?.status;
+  return st === 401 || st === 403;
+}
+
+/**
+ * Returns the authenticated user (validated against Supabase Auth) or null.
+ *
+ * وقاعدة البيانات في طوكيو — الرحلة منها إلى الرمادي ~٣٢٠ مللي ثانية كما يقول
+ * تعليق `auth.ts` — فعثرةٌ واحدة واردة. ولذلك تُعاد المحاولة مرّةً حين لا يكون
+ * الفشل رفضاً: محاولةٌ ثانية أرخص من طرد كاشيرٍ أمام زبون.
+ */
 export async function getServerUser(): Promise<User | null> {
   const cookieStore = await cookies();
   const session = parseSessionCookie(cookieStore.get(AUTH_STORAGE_KEY)?.value);
   if (!session) return null;
 
-  try {
+  const ask = async () => {
     const { url, anonKey } = getSupabaseEnv();
     const supabase = createClient<Database>(url, anonKey, {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     });
-    const { data, error } = await supabase.auth.getUser(session.accessToken);
-    if (error) return null;
-    return data.user;
+    return supabase.auth.getUser(session.accessToken);
+  };
+
+  try {
+    const { data, error } = await ask();
+    if (!error) return data.user;
+    // رفضٌ صريح: الجلسة انتهت أو أُبطلت، ولا تُعاد المحاولة
+    if (isAuthRejection(error)) return null;
+    const again = await ask();
+    return again.error ? null : again.data.user;
   } catch {
-    return null;
+    // لم يخرج الطلب أصلاً — عثرةُ شبكة. محاولةٌ واحدة ثم نستسلم
+    try {
+      const again = await ask();
+      return again.error ? null : again.data.user;
+    } catch {
+      return null;
+    }
   }
 }
