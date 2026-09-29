@@ -167,11 +167,19 @@ function Assert-JobLeft([string]$Name) {
   # was queued to print AGAIN on the next sale. Three slips where two were due.
   # A job still queued after three seconds in a definite fault state is the
   # only thing reported here; a slow printer is not a broken one.
+  # Look BEFORE sleeping. The first version slept 300ms and only then looked,
+  # so every ticket paid that third of a second even when the spooler had
+  # already taken it - and with three tickets a sale, sent one after another,
+  # that was most of a second of the cashier standing and watching the paper.
+  # A short first poll keeps a genuinely slow spooler from being asked twice
+  # in the same millisecond.
   $deadline = (Get-Date).AddSeconds(3)
+  $wait = 40
   do {
-    Start-Sleep -Milliseconds 300
     $mine = @(Get-PrintJob -PrinterName $Name -ErrorAction SilentlyContinue | Where-Object { $_.DocumentName -eq "Station" })
     if ($mine.Count -eq 0) { return }
+    Start-Sleep -Milliseconds $wait
+    if ($wait -lt 300) { $wait = $wait * 2 }
   } while ((Get-Date) -lt $deadline)
   $bad = @($mine | Where-Object { ([string]$_.JobStatus) -match "Error|Offline|PaperOut|PaperJam|Paused|UserIntervention" })
   if ($bad.Count) { throw ("printer '" + $Name + "' took the job but holds it: " + [string]$bad[0].JobStatus) }

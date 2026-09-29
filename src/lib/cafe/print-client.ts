@@ -114,6 +114,20 @@ export async function printJobs(jobs: PrintJob[]): Promise<PrintOutcome> {
   const errors: string[] = [];
   let sent = 0;
 
+  /*
+   * متوازيةٌ بين الطابعات، متتابعةٌ داخل الطابعة الواحدة.
+   *
+   * كانت التذاكر تُرسَل واحدةً بعد أخرى. والوكيل ينتظر خروج كل تذكرة من طابور
+   * الطباعة قبل أن يجيب — إلى ثلاث ثوانٍ — فثلاث تذاكر تنتظر ثلاث مرّات على
+   * التوالي، والكاشير واقفٌ ينظر إلى الورق.
+   *
+   * وتذكرتان إلى **الطابعة نفسها** تبقيان بالترتيب: الإيصال وتذكرة التجهيز
+   * كلاهما على طابعة الكاونتر، ووكيلُنا يميّز أعماله بالاسم «Station» — فلو
+   * أُرسلتا معاً لرأى كلٌّ منهما عملَ الأخرى ولاختلط الحكم عليهما.
+   *
+   * أما طابعة المطبخ فلا شأن لها بطابور الكاونتر، فتُرسَل في اللحظة نفسها.
+   */
+  const lanes = new Map<string, PrintJob[]>();
   for (const job of pending) {
     // An unconfigured printer (no host, no share) is skipped, not queued:
     // retrying it forever would mask the fact that nobody set it up. But it
@@ -125,13 +139,22 @@ export async function printJobs(jobs: PrintJob[]): Promise<PrintOutcome> {
       skipped.push(job.printerName);
       continue;
     }
-    const r = await postJob(job);
-    if (r.ok) sent += job.copies;
-    else {
-      failed.push({ ...job, queuedAt: job.queuedAt ?? Date.now() });
-      if (r.error) errors.push(`${job.printerName}: ${r.error}`);
-    }
+    const key = job.printerId || job.share || job.host || job.printerName;
+    lanes.set(key, [...(lanes.get(key) ?? []), job]);
   }
+
+  await Promise.all(
+    [...lanes.values()].map(async (lane) => {
+      for (const job of lane) {
+        const r = await postJob(job);
+        if (r.ok) sent += job.copies;
+        else {
+          failed.push({ ...job, queuedAt: job.queuedAt ?? Date.now() });
+          if (r.error) errors.push(`${job.printerName}: ${r.error}`);
+        }
+      }
+    }),
+  );
 
   writeQueue(failed);
   return { sent, queued: failed.length, agent: failed.length === 0 || sent > 0, skipped, errors };

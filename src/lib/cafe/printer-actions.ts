@@ -63,11 +63,16 @@ export type PrintJob = {
 export async function listPrinters(): Promise<PrinterConfig[]> {
   await requireStaff();
   const svc = createSupabaseServiceClient();
-  const { data } = await svc
-    .from("printers")
-    .select("id, name_ar, kind, station_id, host, port, share, copies, is_active, sort")
-    .order("sort", { ascending: true });
-  const { data: stations } = await svc.from("stations").select("id, name_ar");
+  // وهذان كذلك: الطابعات والمحطات لا يعرف أحدهما الآخر. وهذه الدالّة تُنادى
+  // داخل الموجة المتوازية في buildOrderJobs، فتتابعُها كان يجعل تلك الموجة
+  // ذهابين وإياباً بدل واحد
+  const [{ data }, { data: stations }] = await Promise.all([
+    svc
+      .from("printers")
+      .select("id, name_ar, kind, station_id, host, port, share, copies, is_active, sort")
+      .order("sort", { ascending: true }),
+    svc.from("stations").select("id, name_ar"),
+  ]);
   const names = new Map((stations ?? []).map((s) => [s.id, s.name_ar]));
   return (data ?? []).map((p) => ({
     ...p,
@@ -185,19 +190,20 @@ export async function buildOrderJobs(
 
   const svc = createSupabaseServiceClient();
 
-  const { data: order } = await svc
-    .from("orders")
-    // one literal string, not a concatenation: supabase-js infers the row type
-    // from the select text, and `a + b` erases that inference
-    .select("id, order_seq, pickup_code, channel, table_no, note, subtotal, discount, extra, extra_note, customer_phone, address_note, customer_name, cashier_id, expediter_id, partner_id, partner_ref, partner_total, created_at, session_id")
-    .eq("id", orderId)
-    .maybeSingle();
+  // الطلب وأسطره: سؤالان لا يعرف أحدهما الآخر، وكلاهما يحتاج رقم الطلب وحده.
+  // كانا متتابعين فكلّفا ذهابين وإياباً — والقاعدة على بعد ~٢٦٥ مللي ثانية
+  // مقيسة، فربع ثانيةٍ تُدفع بلا سبب قبل أن تبدأ الورقة
+  const [{ data: order }, { data: rawItems }] = await Promise.all([
+    svc
+      .from("orders")
+      // one literal string, not a concatenation: supabase-js infers the row type
+      // from the select text, and `a + b` erases that inference
+      .select("id, order_seq, pickup_code, channel, table_no, note, subtotal, discount, extra, extra_note, customer_phone, address_note, customer_name, cashier_id, expediter_id, partner_id, partner_ref, partner_total, created_at, session_id")
+      .eq("id", orderId)
+      .maybeSingle(),
+    svc.from("order_items").select("name_ar, flavor_ar, qty, unit_price, item_id, note").eq("order_id", orderId),
+  ]);
   if (!order) return { jobs: [], unrouted: [] };
-
-  const { data: rawItems } = await svc
-    .from("order_items")
-    .select("name_ar, flavor_ar, qty, unit_price, item_id, note")
-    .eq("order_id", orderId);
 
   const itemIds = [...new Set((rawItems ?? []).map((i) => i.item_id).filter(Boolean))] as string[];
   const staffIds = [order.cashier_id, order.expediter_id].filter(Boolean) as string[];
