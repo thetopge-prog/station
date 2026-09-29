@@ -1,4 +1,4 @@
--- منيو الطلاب — الطبقة السفلى.
+-- منيو الطلاب — الطبقة السفلى. من الابتدائية إلى الجامعة.
 --
 -- منيو مغلق: الطالب يسجّل، تُقرأ هويته، تقبله الإدارة، فيرى أصنافاً وأسعاراً
 -- لا يراها غيره. ويدعو زملاءه برابطه فيربح نقاطاً حين يُقبَل من دعاه.
@@ -20,7 +20,17 @@ create table if not exists public.students (
   customer_id uuid references public.customers(id) on delete set null,
   phone text not null unique,
   name_ar text not null,
-  university text not null,
+  /*
+   * المرحلة — من الابتدائية إلى الجامعة.
+   *
+   * البرنامج دعمٌ للطالب لا خصمٌ لطلبة الجامعة وحدهم: تلميذ الابتدائية طالبٌ
+   * كذلك، وأهله هم من يطلب له. فالمرحلة تُسأل أولاً، ويتبدّل ما بعدها بحسبها.
+   */
+  stage text not null default 'جامعة'
+    check (stage in ('ابتدائية', 'متوسطة', 'إعدادية', 'معهد', 'جامعة')),
+  /** اسم المدرسة أو الجامعة — نصّ حرّ، فمدارس الأنبار بالمئات */
+  school text not null,
+  /** الصفّ أو الكلية — «الخامس العلمي»، «كلية الهندسة» */
   college text,
   instagram text,
   /*
@@ -33,7 +43,7 @@ create table if not exists public.students (
   id_hash text unique,
   -- ما قرأته الكاميرا، نصّاً، ليراجعه الإنسان. **ولا صورة تُخزَّن أبداً**
   id_name text,
-  id_university text,
+  id_school text,
   status text not null default 'pending' check (status in ('pending', 'active', 'rejected')),
   reject_note text,
   reviewed_by uuid references public.employees(id) on delete set null,
@@ -102,9 +112,9 @@ revoke insert, update, delete on public.student_variant_public from anon, authen
 -- سطحٌ ضيّق كما في 0070: دالّتان لـ`anon`، كلٌّ تعيد ما يلزم صفحته ولا شيء
 -- غيره. لا جدول `students` مقروء من المتصفّح، ولا حالةُ أحدٍ سوى صاحب الرمز.
 create or replace function public.student_by_token(p_token text)
-returns table(id uuid, name_ar text, status text, ref_code text, university text, points int, invited int)
+returns table(id uuid, name_ar text, status text, ref_code text, stage text, school text, points int, invited int)
 language sql security definer set search_path = public stable as $$
-  select s.id, s.name_ar, s.status, s.ref_code, s.university,
+  select s.id, s.name_ar, s.status, s.ref_code, s.stage, s.school,
          coalesce(c.points, 0),
          (select count(*)::int from students x where x.referred_by = s.id and x.status = 'active')
   from students s
@@ -119,9 +129,10 @@ $$;
  * يقبل. فخطأ النموذج لا يفتح الباب على خصمٍ أربعين بالمئة.
  */
 create or replace function public.register_student(
-  p_name text, p_university text, p_phone text,
+  p_name text, p_school text, p_phone text,
+  p_stage text default 'جامعة',
   p_college text default null, p_instagram text default null,
-  p_id_hash text default null, p_id_name text default null, p_id_university text default null,
+  p_id_hash text default null, p_id_name text default null, p_id_school text default null,
   p_ref text default null
 ) returns text language plpgsql security definer set search_path = public as $$
 declare v_phone text; v_ref uuid; v_customer uuid; v_token text;
@@ -129,7 +140,10 @@ begin
   v_phone := public.norm_iq_phone(p_phone);
   if v_phone is null then raise exception 'bad phone'; end if;
   if length(trim(coalesce(p_name, ''))) < 2 then raise exception 'bad name'; end if;
-  if length(trim(coalesce(p_university, ''))) < 2 then raise exception 'bad university'; end if;
+  if length(trim(coalesce(p_school, ''))) < 2 then raise exception 'bad school'; end if;
+  if p_stage is not null and p_stage not in ('ابتدائية','متوسطة','إعدادية','معهد','جامعة') then
+    raise exception 'bad stage';
+  end if;
 
   -- مسجَّلٌ سلفاً: يُعاد رمزه بدل صفٍّ ثانٍ. والطالب ينسى أنه سجّل، فيسجّل
   -- ثانيةً — وهذا يردّه إلى صفحته بدل أن يقول له «الرقم مستعمل»
@@ -146,20 +160,21 @@ begin
 
   v_customer := public.customer_for_order(v_phone, trim(p_name));
 
-  insert into students (phone, name_ar, university, college, instagram,
-                        id_hash, id_name, id_university, referred_by, customer_id)
-    values (v_phone, left(trim(p_name), 120), left(trim(p_university), 120),
+  insert into students (phone, name_ar, stage, school, college, instagram,
+                        id_hash, id_name, id_school, referred_by, customer_id)
+    values (v_phone, left(trim(p_name), 120), coalesce(nullif(trim(p_stage), ''), 'جامعة'),
+            left(trim(p_school), 120),
             nullif(left(trim(coalesce(p_college, '')), 120), ''),
             nullif(left(regexp_replace(trim(coalesce(p_instagram, '')), '^@', ''), 60), ''),
             p_id_hash, nullif(left(trim(coalesce(p_id_name, '')), 120), ''),
-            nullif(left(trim(coalesce(p_id_university, '')), 120), ''),
+            nullif(left(trim(coalesce(p_id_school, '')), 120), ''),
             v_ref, v_customer)
     returning token into v_token;
   return v_token;
 end $$;
 
-revoke all on function public.register_student(text, text, text, text, text, text, text, text, text) from public;
+revoke all on function public.register_student(text, text, text, text, text, text, text, text, text, text) from public;
 grant execute on function public.student_by_token(text) to anon, authenticated;
-grant execute on function public.register_student(text, text, text, text, text, text, text, text, text) to anon, authenticated;
+grant execute on function public.register_student(text, text, text, text, text, text, text, text, text, text) to anon, authenticated;
 
 notify pgrst, 'reload schema';

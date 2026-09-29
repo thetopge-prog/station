@@ -17,7 +17,7 @@ export function StudentHeader({ card }: { card: StudentCard }) {
   const link = `${typeof window === "undefined" ? "https://stationiraq.com" : window.location.origin}/student/join?ref=${card.ref_code}`;
 
   async function share() {
-    const text = `تعال على منيو الطلاب بمطعم المحطة 🎓 أسعار خاصة للطلاب:\n${link}`;
+    const text = `«ستيشن مع الطالب» — برنامج دعم الطلبة بمطعم المحطة 🎓 أسعار خاصّة وأصناف تخصّنا:\n${link}`;
     try {
       if (navigator.share) {
         await navigator.share({ text });
@@ -46,7 +46,7 @@ export function StudentHeader({ card }: { card: StudentCard }) {
             <GraduationCap className="size-5 text-primary" />
             {card.name_ar}
           </p>
-          <p className="text-xs font-bold text-muted-foreground">{card.university}</p>
+          <p className="text-xs font-bold text-muted-foreground">{card.stage} · {card.school}</p>
         </div>
         <div className="flex items-center gap-4 text-center">
           <div>

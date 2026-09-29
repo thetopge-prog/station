@@ -385,27 +385,27 @@ export type Database = {
         Row: {
           id: string; token: string; ref_code: string;
           referred_by: string | null; customer_id: string | null;
-          phone: string; name_ar: string; university: string;
+          phone: string; name_ar: string; stage: string; school: string;
           college: string | null; instagram: string | null;
           /** بصمة رقم البطاقة — لا الرقم، ولا الصورة */
-          id_hash: string | null; id_name: string | null; id_university: string | null;
+          id_hash: string | null; id_name: string | null; id_school: string | null;
           status: StudentStatus; reject_note: string | null;
           reviewed_by: string | null; created_at: string; activated_at: string | null;
         };
         Insert: {
           id?: string; token?: string; ref_code?: string;
           referred_by?: string | null; customer_id?: string | null;
-          phone: string; name_ar: string; university: string;
+          phone: string; name_ar: string; stage?: string; school: string;
           college?: string | null; instagram?: string | null;
-          id_hash?: string | null; id_name?: string | null; id_university?: string | null;
+          id_hash?: string | null; id_name?: string | null; id_school?: string | null;
           status?: StudentStatus; reject_note?: string | null;
           reviewed_by?: string | null; created_at?: string; activated_at?: string | null;
         };
         Update: Partial<{
           referred_by: string | null; customer_id: string | null;
-          phone: string; name_ar: string; university: string;
+          phone: string; name_ar: string; stage: string; school: string;
           college: string | null; instagram: string | null;
-          id_hash: string | null; id_name: string | null; id_university: string | null;
+          id_hash: string | null; id_name: string | null; id_school: string | null;
           status: StudentStatus; reject_note: string | null;
           reviewed_by: string | null; activated_at: string | null;
         }>;
@@ -799,12 +799,12 @@ export type Database = {
       mark_table_clean: { Args: { p_name: string }; Returns: undefined };
       mark_table_dirty: { Args: { p_name: string }; Returns: undefined };
       refund_order: { Args: { p_order: string }; Returns: undefined };
-      student_by_token: { Args: { p_token: string }; Returns: { id: string; name_ar: string; status: StudentStatus; ref_code: string; university: string; points: number; invited: number }[] };
+      student_by_token: { Args: { p_token: string }; Returns: { id: string; name_ar: string; status: StudentStatus; ref_code: string; stage: string; school: string; points: number; invited: number }[] };
       register_student: {
         Args: {
-          p_name: string; p_university: string; p_phone: string;
+          p_name: string; p_school: string; p_phone: string; p_stage?: string;
           p_college?: string | null; p_instagram?: string | null;
-          p_id_hash?: string | null; p_id_name?: string | null; p_id_university?: string | null;
+          p_id_hash?: string | null; p_id_name?: string | null; p_id_school?: string | null;
           p_ref?: string | null;
         };
         Returns: string;

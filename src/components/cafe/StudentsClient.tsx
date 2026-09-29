@@ -45,7 +45,7 @@ export function StudentsClient({
     if (!n) return students;
     const d = n.replace(/\D/g, "");
     return students.filter(
-      (s) => s.name_ar.includes(n) || s.university.includes(n) || (d && s.phone.includes(d)),
+      (s) => s.name_ar.includes(n) || s.school.includes(n) || s.stage.includes(n) || (d && s.phone.includes(d)),
     );
   }, [students, q]);
 
@@ -107,7 +107,7 @@ export function StudentsClient({
                       <div>
                         <p className="text-base font-black">{s.name_ar}</p>
                         <p className="text-sm font-bold text-muted-foreground">
-                          {s.university}
+                          <b>{s.stage}</b> · {s.school}
                           {s.college ? ` · ${s.college}` : ""} · <bdi dir="ltr">{s.phone}</bdi>
                           {s.instagram ? ` · @${s.instagram}` : ""}
                         </p>
@@ -118,7 +118,7 @@ export function StudentsClient({
                         {s.scanned ? (
                           <p className="mt-1 rounded-lg bg-secondary px-2 py-1 text-xs font-black">
                             📇 قرأنا من البطاقة: {s.id_name || "—"}
-                            {s.id_university ? ` · ${s.id_university}` : ""}
+                            {s.id_school ? ` · ${s.id_school}` : ""}
                           </p>
                         ) : (
                           <p className="mt-1 text-xs font-black text-muted-foreground">📇 ما صوّر بطاقته — راجعه بنفسك</p>
@@ -152,7 +152,7 @@ export function StudentsClient({
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="ابحث باسم أو جامعة أو رقم…"
+              placeholder="ابحث باسم أو مدرسة أو مرحلة أو رقم…"
               className="w-full rounded-xl border-2 border-border bg-card py-2.5 pe-3 ps-9 text-base font-bold outline-none focus:border-primary"
             />
           </label>
@@ -162,7 +162,7 @@ export function StudentsClient({
               <thead>
                 <tr className="border-b border-border text-right text-muted-foreground">
                   <th className="py-2 ps-3 font-bold">الطالب</th>
-                  <th className="py-2 font-bold">الجامعة</th>
+                  <th className="py-2 font-bold">المرحلة والمدرسة</th>
                   <th className="py-2 font-bold">الحالة</th>
                   <th className="py-2 font-bold">نقاطه</th>
                   <th className="py-2 font-bold">دعواته</th>
@@ -176,7 +176,7 @@ export function StudentsClient({
                       {s.name_ar}
                       <span className="ms-2 font-bold text-muted-foreground"><bdi dir="ltr">{s.phone}</bdi></span>
                     </td>
-                    <td className="py-2 font-bold">{s.university}</td>
+                    <td className="py-2 font-bold"><b>{s.stage}</b> · {s.school}</td>
                     <td className="py-2">
                       <span className={`rounded-full px-2 py-0.5 text-xs font-black ${STATUS[s.status].cls}`}>
                         {STATUS[s.status].label}

@@ -20,14 +20,17 @@ import type { StudentStatus } from "@/lib/types";
 
 export type RegisterInput = {
   name: string;
-  university: string;
+  /** اسم المدرسة أو الجامعة */
+  school: string;
   phone: string;
+  /** المرحلة: من الابتدائية إلى الجامعة */
+  stage?: string;
   college?: string | null;
   instagram?: string | null;
   /** ما قرأته الكاميرا — نصّاً. الصورة لا تصل إلى هنا ولا تُخزَّن */
   idNumber?: string | null;
   idName?: string | null;
-  idUniversity?: string | null;
+  idSchool?: string | null;
   ref?: string | null;
 };
 
@@ -35,20 +38,21 @@ export async function registerStudent(
   input: RegisterInput,
 ): Promise<{ ok: true; token: string } | { ok: false; error: string }> {
   // نفس الفحص الذي على الشاشة، معاداً هنا: الشاشة تُساعد، والخادم يحكم
-  const bad = studentFormError({ name: input.name, university: input.university, phone: input.phone });
+  const bad = studentFormError({ name: input.name, school: input.school, phone: input.phone, stage: input.stage });
   if (bad) return { ok: false, error: bad };
 
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.rpc("register_student", {
     p_name: input.name.trim(),
-    p_university: input.university.trim(),
+    p_school: input.school.trim(),
     p_phone: input.phone.trim(),
+    p_stage: input.stage?.trim() || "جامعة",
     p_college: input.college?.trim() || null,
     p_instagram: cleanInstagram(input.instagram),
     // البصمة تُحسب على الخادم: رقم البطاقة لا يُخزَّن، والصورة لا تُرسَل أصلاً
-    p_id_hash: input.idNumber ? idFingerprint(input.idNumber, input.university) : null,
+    p_id_hash: input.idNumber ? idFingerprint(input.idNumber, input.school) : null,
     p_id_name: input.idName?.trim() || null,
-    p_id_university: input.idUniversity?.trim() || null,
+    p_id_school: input.idSchool?.trim() || null,
     p_ref: input.ref?.trim() || null,
   });
 
@@ -67,7 +71,8 @@ export type StudentCard = {
   name_ar: string;
   status: StudentStatus;
   ref_code: string;
-  university: string;
+  stage: string;
+  school: string;
   points: number;
   invited: number;
 };
@@ -89,7 +94,7 @@ export type AdminStudent = StudentCard & {
   college: string | null;
   instagram: string | null;
   id_name: string | null;
-  id_university: string | null;
+  id_school: string | null;
   /** هل قُرئت بطاقته أصلاً — فالمراجع يعرف على أي شيء يحكم */
   scanned: boolean;
   referred_by_name: string | null;
@@ -101,7 +106,7 @@ export async function listStudents(): Promise<AdminStudent[]> {
   const svc = createSupabaseServiceClient();
   const { data, error } = await svc
     .from("students")
-    .select("id, name_ar, status, ref_code, university, phone, college, instagram, id_hash, id_name, id_university, referred_by, customer_id, created_at")
+    .select("id, name_ar, status, ref_code, stage, school, phone, college, instagram, id_hash, id_name, id_school, referred_by, customer_id, created_at")
     .order("created_at", { ascending: false })
     .limit(2000);
   if (error) throw new Error(`تعذّر جلب الطلاب: ${error.message}`);
@@ -124,12 +129,13 @@ export async function listStudents(): Promise<AdminStudent[]> {
     name_ar: r.name_ar,
     status: r.status,
     ref_code: r.ref_code,
-    university: r.university,
+    stage: r.stage,
+    school: r.school,
     phone: r.phone,
     college: r.college,
     instagram: r.instagram,
     id_name: r.id_name,
-    id_university: r.id_university,
+    id_school: r.id_school,
     scanned: !!r.id_hash,
     points: r.customer_id ? pointsOf.get(r.customer_id) ?? 0 : 0,
     invited: invitedOf.get(r.id) ?? 0,

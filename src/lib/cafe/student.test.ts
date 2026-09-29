@@ -5,7 +5,9 @@ import {
   normaliseDigits,
   referralKey,
   studentFormError,
-  UNIVERSITIES,
+  isMinorStage,
+  schoolLabel,
+  STAGES,
 } from "./student";
 
 describe("بصمة البطاقة", () => {
@@ -64,7 +66,7 @@ describe("معرّف إنستغرام", () => {
 });
 
 describe("نموذج التسجيل", () => {
-  const ok = { name: "أحمد علي", university: "جامعة الأنبار", phone: "07801234567" };
+  const ok = { name: "أحمد علي", school: "جامعة الأنبار", phone: "07801234567" };
 
   it("المكتمل يمرّ", () => {
     expect(studentFormError(ok)).toBeNull();
@@ -76,16 +78,36 @@ describe("نموذج التسجيل", () => {
   });
 
   it("ويردّ الناقص برسالةٍ تقول ما الناقص", () => {
-    expect(studentFormError({ ...ok, name: "أ" })).toBe("اكتب اسمك الكامل");
-    expect(studentFormError({ ...ok, university: "" })).toBe("اختر جامعتك");
+    expect(studentFormError({ ...ok, name: "أ" })).toBe("اكتب الاسم الكامل");
+    expect(studentFormError({ ...ok, school: "" })).toContain("اكتب اسم");
     expect(studentFormError({ ...ok, phone: "0780" })).toContain("07XXXXXXXXX");
   });
 });
 
-describe("قائمة الجامعات", () => {
-  it("فيها جامعة الأنبار و«أخرى» لمن ليست جامعته فيها", () => {
-    expect(UNIVERSITIES).toContain("جامعة الأنبار");
-    expect(UNIVERSITIES[UNIVERSITIES.length - 1]).toBe("أخرى");
-    expect(new Set(UNIVERSITIES).size).toBe(UNIVERSITIES.length);
+/** البرنامج دعمٌ للطالب لا خصمٌ لطلبة الجامعة وحدهم */
+describe("المراحل الدراسية", () => {
+  it("تبدأ من الابتدائية وتنتهي بالجامعة، بلا تكرار", () => {
+    expect(STAGES.map((s) => s.id)).toEqual(["ابتدائية", "متوسطة", "إعدادية", "معهد", "جامعة"]);
+    expect(new Set(STAGES.map((s) => s.id)).size).toBe(STAGES.length);
+  });
+
+  /** التلميذ ليس عنده هاتف ولا هوية — وأهله هم من يطلب له */
+  it("والابتدائية والمتوسطة مرحلتا أطفال", () => {
+    expect(isMinorStage("ابتدائية")).toBe(true);
+    expect(isMinorStage("متوسطة")).toBe(true);
+    expect(isMinorStage("إعدادية")).toBe(false);
+    expect(isMinorStage("جامعة")).toBe(false);
+    expect(isMinorStage("لا شيء")).toBe(false);
+  });
+
+  it("ويُنادى مكان الدراسة باسمه في كل مرحلة", () => {
+    expect(schoolLabel("جامعة")).toBe("الجامعة");
+    expect(schoolLabel("معهد")).toBe("المعهد");
+    expect(schoolLabel("ابتدائية")).toBe("المدرسة");
+  });
+
+  it("والنموذج يرفض مرحلةً لا وجود لها", () => {
+    expect(studentFormError({ name: "أحمد علي", school: "مدرسة", phone: "07801234567", stage: "روضة" }))
+      .toBe("اختر المرحلة الدراسية");
   });
 });
