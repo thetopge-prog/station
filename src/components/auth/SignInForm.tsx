@@ -73,7 +73,31 @@ export function SignInForm({ redirectTo, stale = false }: { redirectTo: string; 
       // «123») are stored zero-padded to 6, so pad the same way on login.
       const realPassword = password.length < 6 ? password.padEnd(6, "0") : password;
       const supabase = createSupabaseBrowserClient();
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password: realPassword });
+
+      /*
+       * محاولةٌ ثانية إن رمت الأولى.
+       *
+       * مكتبة المصادقة تأخذ قفلاً واحداً لكل تبويب حول كل عملياتها. وهذه
+       * الصفحة تسأل عن الجلسة أوّل ما تُفتح — وإن كانت الكوكي قديمة تبعت
+       * المكتبة طلبَ تجديدٍ إلى طوكيو وهي ممسكةٌ بالقفل. فمن يكتب كلمته بسرعة
+       * ويضغط «دخول» قبل أن يعود ذلك الطلب يصطدم بالقفل، فتنتهي مهلته.
+       *
+       * وخطأ المهلة ليس `AuthError`، فالمكتبة **ترميه** بدل أن تعيده — فلا
+       * يصل إلى فروع الرسائل تحت، بل إلى `catch` الأخير الذي كان يقول «فشل
+       * تسجيل الدخول» بلا سبب. وهو ما رآه المالك: خطأ، ثم يعيد فيدخل.
+       *
+       * والقفل يُفرَج عنه بانتهاء الطلب الأول — فالانتظار نصف ثانية وإعادة
+       * المحاولة يكفيان، ويصيران مكان الضغطة الثانية التي كان يضغطها بيده.
+       */
+      const attempt = () => supabase.auth.signInWithPassword({ email, password: realPassword });
+      let res: Awaited<ReturnType<typeof attempt>>;
+      try {
+        res = await attempt();
+      } catch {
+        await new Promise((r) => setTimeout(r, 600));
+        res = await attempt();
+      }
+      const { error: signInError } = res;
       if (signInError) {
         // السبب الحقيقي لا رسالة عامة: كلمة مرور خاطئة ≠ حظر مؤقت ≠ انقطاع
         const m = signInError.message || "";
@@ -90,8 +114,11 @@ export function SignInForm({ redirectTo, stale = false }: { redirectTo: string; 
       }
       sessionStorage.removeItem(STALE_KEY);
       router.replace(redirectTo);
-    } catch {
-      setError(t("auth.error"));
+    } catch (e) {
+      // ويُقال السبب لا «فشل» وحدها: رسالةٌ بلا سبب لا تُشخَّص، وقد كلّفتنا
+      // ليلةً كاملة من التخمين
+      const m = e instanceof Error ? e.message : String(e);
+      setError(`${t("auth.error")}${m ? ` (${m.slice(0, 80)})` : ""}`);
     } finally {
       setLoading(false);
     }
