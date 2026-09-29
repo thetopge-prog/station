@@ -39,6 +39,14 @@ export type SubmitOrderInput = {
   address?: string | null;
   /** curbside only — «كيا سوداء» so the runner finds the car */
   carNote?: string | null;
+  /**
+   * معرّف الطالب، من صفحته وحدها.
+   *
+   * تمريره **لا يكفي**: `place_order` يقرأ حالته من القاعدة، ولا يُسعَّر
+   * تسعير الطلاب إلا من حالته `active`. فالرمز يفتح الصفحة، والقبول يفتح
+   * السعر.
+   */
+  studentId?: string | null;
   /** dine-in only — drives which table is big enough */
   guests?: number | null;
   /** what the customer will pay with at handover; no online payment exists */
@@ -113,6 +121,7 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
     p_address: input.address?.trim() || null,
     p_source: "web",
     p_customer_name: input.name?.trim() || null,
+    p_student: input.studentId || null,
   });
   if (error || !data?.[0]) {
     // The line died between the reachability probe and this call. Never lose a

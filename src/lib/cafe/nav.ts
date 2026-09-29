@@ -1,4 +1,4 @@
-import { Armchair, Bike, Boxes, CalendarClock, Calculator, ChefHat, ClipboardCheck, ClipboardList, CreditCard, HandCoins, HelpCircle, LayoutDashboard, MonitorPlay, PackageCheck, Percent, Printer, QrCode, ScanLine, Sparkles, Truck, UtensilsCrossed, Users, Wallet, Wrench, type LucideIcon, History, Star, Sparkle } from "lucide-react";
+import { Armchair, Bike, Boxes, CalendarClock, Calculator, ChefHat, ClipboardCheck, ClipboardList, CreditCard, HandCoins, HelpCircle, LayoutDashboard, MonitorPlay, PackageCheck, Percent, Printer, QrCode, ScanLine, Sparkles, Truck, UtensilsCrossed, Users, Wallet, Wrench, type LucideIcon, History, Star, Sparkle, GraduationCap } from "lucide-react";
 import { canAccess, type StaffRole } from "./roles";
 
 /**
@@ -34,6 +34,7 @@ export const NAV: NavItem[] = [
   { href: "/tables", label: "الطاولات", short: "الطاولات", allow: ["cashier", "cleaner"], group: "البيع", icon: Armchair },
   // الإدارة: كل ما يمسّ المال أو الأسعار للمدير وحده؛ الكاشير يبيع ويسجّل مصروفاً وديناً
   { href: "/customers", label: "الزبائن", short: "الزبائن", allow: [], group: "البيع", icon: Users },
+  { href: "/students", label: "منيو الطلاب", short: "الطلاب", allow: [], group: "البيع", icon: GraduationCap },
   { href: "/loyalty", label: "الولاء", short: "الولاء", allow: [], group: "البيع", icon: CreditCard },
   { href: "/offers", label: "العروض", short: "العروض", allow: [], group: "البيع", icon: Percent },
   { href: "/debts", label: "سجل الديون", short: "الديون", allow: ["cashier"], group: "البيع", icon: HandCoins },

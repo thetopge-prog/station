@@ -16,6 +16,9 @@ export type VariantKind = "size" | "flavor";
 
 type Timestamped = { id: string; created_at: string };
 
+/** حالة الطالب: مسجَّل بانتظار المراجعة، مقبول، مرفوض */
+export type StudentStatus = "pending" | "active" | "rejected";
+
 export type Database = {
   public: {
     Tables: {
@@ -145,6 +148,10 @@ export type Database = {
           price: number; cost: number; flavors: string[]; is_active: boolean; sort: number;
           /** 0107 — محطة هذا الصنف وحده، تغلب محطة قسمه. فارغة = يرث القسم */
           station_id: string | null;
+          /** 0112 — سعر الطالب للحجم الأساسي. فارغ = لا خصم */
+          student_price: number | null;
+          /** 0112 — لا يظهر إلا في منيو الطلاب */
+          student_only: boolean;
         };
         Insert: {
           id?: string; category_id: string; name_ar: string; description_ar?: string | null; image_url?: string | null;
@@ -154,6 +161,7 @@ export type Database = {
         Update: Partial<{
           category_id: string; name_ar: string; name_en: string | null; description_ar: string | null; description_en: string | null; image_url: string | null;
           price: number; cost: number; flavors: string[]; is_active: boolean; sort: number; station_id: string | null;
+          student_price: number | null; student_only: boolean;
         }>;
         Relationships: [];
       };
@@ -161,14 +169,18 @@ export type Database = {
         Row: Timestamped & {
           item_id: string; kind: VariantKind; name_ar: string;
           price_override: number | null; cost_override: number | null; is_active: boolean; sort: number;
+          /** 0112 — سعر الطالب لهذا الحجم. فارغ = لا خصم على هذا الحجم */
+          student_price: number | null;
         };
         Insert: {
           id?: string; item_id: string; kind?: VariantKind; name_ar: string;
           price_override?: number | null; cost_override?: number | null; is_active?: boolean; sort?: number; created_at?: string;
+          student_price?: number | null;
         };
         Update: Partial<{
           item_id: string; kind: VariantKind; name_ar: string;
           price_override: number | null; cost_override: number | null; is_active: boolean; sort: number;
+          student_price: number | null;
         }>;
         Relationships: [];
       };
@@ -369,6 +381,36 @@ export type Database = {
         Update: Partial<{ name_ar: string; name_en: string; sort: number; is_active: boolean }>;
         Relationships: [];
       };
+      students: {
+        Row: {
+          id: string; token: string; ref_code: string;
+          referred_by: string | null; customer_id: string | null;
+          phone: string; name_ar: string; university: string;
+          college: string | null; instagram: string | null;
+          /** بصمة رقم البطاقة — لا الرقم، ولا الصورة */
+          id_hash: string | null; id_name: string | null; id_university: string | null;
+          status: StudentStatus; reject_note: string | null;
+          reviewed_by: string | null; created_at: string; activated_at: string | null;
+        };
+        Insert: {
+          id?: string; token?: string; ref_code?: string;
+          referred_by?: string | null; customer_id?: string | null;
+          phone: string; name_ar: string; university: string;
+          college?: string | null; instagram?: string | null;
+          id_hash?: string | null; id_name?: string | null; id_university?: string | null;
+          status?: StudentStatus; reject_note?: string | null;
+          reviewed_by?: string | null; created_at?: string; activated_at?: string | null;
+        };
+        Update: Partial<{
+          referred_by: string | null; customer_id: string | null;
+          phone: string; name_ar: string; university: string;
+          college: string | null; instagram: string | null;
+          id_hash: string | null; id_name: string | null; id_university: string | null;
+          status: StudentStatus; reject_note: string | null;
+          reviewed_by: string | null; activated_at: string | null;
+        }>;
+        Relationships: [];
+      };
       printers: {
         Row: Timestamped & {
           name_ar: string; kind: PrinterKind; station_id: string | null;
@@ -489,6 +531,20 @@ export type Database = {
         Row: { id: string; item_id: string; kind: VariantKind; name_ar: string; name_en: string | null; price: number; sort: number };
         Relationships: [];
       };
+      student_menu_public: {
+        Row: {
+          id: string; category_id: string; name_ar: string; name_en: string | null;
+          description_ar: string | null; description_en: string | null; image_url: string | null;
+          price: number; flavors: string[]; sort: number; student_only: boolean;
+          category_name: string; category_name_en: string | null; category_image: string | null; category_sort: number;
+          category_late_cutoff: boolean;
+        };
+        Relationships: [];
+      };
+      student_variant_public: {
+        Row: { id: string; item_id: string; kind: VariantKind; name_ar: string; name_en: string | null; price: number; sort: number };
+        Relationships: [];
+      };
       active_offers: {
         Row: { id: string; title: string; description: string | null };
         Relationships: [];
@@ -595,6 +651,8 @@ export type Database = {
           p_channel: OrderChannel; p_lines: Json; p_customer?: string | null; p_table?: string | null;
           p_note?: string | null; p_phone?: string | null; p_address?: string | null;
           p_source?: "pos" | "web" | "whatsapp"; p_customer_name?: string | null;
+          /** 0113 — معرّف الطالب. حالته تُقرأ من القاعدة، فلا يكفي تمريره */
+          p_student?: string | null;
         };
         Returns: { order_id: string; order_seq: number; pickup_code: string | null; table_no: string | null }[];
       };
@@ -741,6 +799,16 @@ export type Database = {
       mark_table_clean: { Args: { p_name: string }; Returns: undefined };
       mark_table_dirty: { Args: { p_name: string }; Returns: undefined };
       refund_order: { Args: { p_order: string }; Returns: undefined };
+      student_by_token: { Args: { p_token: string }; Returns: { id: string; name_ar: string; status: StudentStatus; ref_code: string; university: string; points: number; invited: number }[] };
+      register_student: {
+        Args: {
+          p_name: string; p_university: string; p_phone: string;
+          p_college?: string | null; p_instagram?: string | null;
+          p_id_hash?: string | null; p_id_name?: string | null; p_id_university?: string | null;
+          p_ref?: string | null;
+        };
+        Returns: string;
+      };
       get_card: { Args: { p_serial: string }; Returns: { id: string; name_ar: string | null; points: number }[] };
       create_card: { Args: { p_phone: string | null; p_name: string | null }; Returns: string };
       adjust_points: { Args: { p_customer: string; p_delta: number; p_reason: string; p_key?: string | null }; Returns: number };

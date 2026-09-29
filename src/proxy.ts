@@ -30,11 +30,15 @@ import { AUTH_STORAGE_KEY, parseSessionCookie } from "@/lib/supabase/constants";
 // sees them. On Netlify the edge gate runs BEFORE next.config redirects, so it
 // saw the raw /delivery and answered the customer with a login page. Listing
 // them here is correct on both hosts: the redirect to public /menu still runs.
+// /student — the student menu: register, the card, and the menu itself. Public
+// like /menu; the unguessable token in the path is the key, exactly as
+// /card/[serial] works. /api/student carries the id-card reader, which must
+// answer a phone that has no session.
 // /api/whatsapp — Meta's webhook. It authenticates itself twice over (a verify
 // token on the GET handshake, an HMAC of the body on every POST) and cannot
 // follow a redirect to /sign-in: Meta reads the 307 as a failed delivery and
 // eventually unsubscribes the whole webhook.
-const PUBLIC_PREFIXES = ["/sign-in", "/menu", "/kiosk", "/card", "/api/orders", "/api/calls", "/api/delivery", "/api/whatsapp", "/api/wall", "/api/build", "/privacy", "/order", "/delivery", "/pickup", "/car", "/queue", "/tv", "/en", "/tr", "/it", "/ku", "/scan", "/kentucky", "/robots.txt", "/sitemap.xml", "/wall", "/w1", "/w2", "/w3", "/w4"];
+const PUBLIC_PREFIXES = ["/sign-in", "/menu", "/kiosk", "/card", "/api/orders", "/api/calls", "/api/delivery", "/api/whatsapp", "/api/wall", "/api/build", "/privacy", "/order", "/student", "/api/student", "/delivery", "/pickup", "/car", "/queue", "/tv", "/en", "/tr", "/it", "/ku", "/scan", "/kentucky", "/robots.txt", "/sitemap.xml", "/wall", "/w1", "/w2", "/w3", "/w4"];
 const LOGIN_PATHS = new Set(["/", "/sign-in"]);
 
 function isPublic(pathname: string): boolean {

@@ -105,6 +105,7 @@ export function MenuClient({
   offers = {},
   initialMode = null,
   initialPhone = null,
+  studentId = null,
   layout = "rows",
 }: {
   menu: MenuCategoryView[];
@@ -117,6 +118,13 @@ export function MenuClient({
   initialMode?: FulfilmentMode | null;
   /** من رابط بوت واتساب: رقم الزبون مملوء سلفاً */
   initialPhone?: string | null;
+  /**
+   * معرّف الطالب المقبول — من صفحة الطالب وحدها.
+   *
+   * يُمرَّر إلى الخادم ليُسعَّر الطلب تسعير الطلاب. وتمريره لا يكفي: القاعدة
+   * تقرأ حالته وترفض السعر إن لم يكن مقبولاً. فالصفحة تطلب، والخادم يحكم.
+   */
+  studentId?: string | null;
 }) {
   const scanned = !!table;
   const cats = useMemo(() => menu.filter((c) => c.items.length > 0), [menu]);
@@ -601,6 +609,7 @@ export function MenuClient({
       carNote: mode === "curbside" ? carNote.trim() || null : null,
       guests: mode === "dinein" ? guests : null,
       paymentPref: scanned ? null : payment,
+      studentId,
     });
     setBusy(false);
     if (!res.ok) return setErr(res.error);

@@ -100,3 +100,50 @@ export async function getPublicMenu(): Promise<MenuCategoryView[]> {
   // customer who leaves — serve the last menu we saw instead.
   return (hubEnabled() ? await cachedMenu() : null) ?? result;
 }
+
+/**
+ * منيو الطالب المقبول — كل الأصناف بسعر الطالب حيث كُتب.
+ *
+ * منفصلةٌ عن `getPublicMenu` ولا تشاركها خزينها: ذاك يُخدَم لكل زبون، وخلطُ
+ * أسعار الطلاب به يعني بيع الجميع بسعر الطالب — وهو أسوأ ما يمكن أن يخطئ فيه
+ * هذا الملفّ. ولا خزين هنا أصلاً: الطلاب قلّة، والصفحة تُفتح مرّاتٍ لا آلافاً.
+ *
+ * وتُنادى للمقبول وحده. والطالب قيد المراجعة يأخذ `getPublicMenu()` — فلا يرى
+ * صنفاً طلابياً يضعه في السلّة ثم يرفضه الخادم عند الإرسال.
+ */
+export async function getStudentMenu(): Promise<MenuCategoryView[]> {
+  if (isDemoServer()) return DEMO_MENU;
+  const supabase = await createSupabaseServerClient();
+  const [{ data: rows }, { data: vars }] = await Promise.all([
+    supabase.from("student_menu_public").select("*").order("category_sort").order("sort"),
+    supabase.from("student_variant_public").select("*").order("sort"),
+  ]);
+
+  const varsByItem = new Map<string, MenuVariantView[]>();
+  for (const v of vars ?? []) {
+    const arr = varsByItem.get(v.item_id) ?? [];
+    arr.push({ id: v.id, name_ar: v.name_ar, name_en: v.name_en, price: v.price });
+    varsByItem.set(v.item_id, arr);
+  }
+
+  const cats = new Map<string, MenuCategoryView>();
+  for (const r of rows ?? []) {
+    let c = cats.get(r.category_name);
+    if (!c) {
+      c = { name_ar: r.category_name, name_en: r.category_name_en, image_url: r.category_image, lateCutoff: !!r.category_late_cutoff, items: [] };
+      cats.set(r.category_name, c);
+    }
+    c.items.push({
+      id: r.id,
+      name_ar: r.name_ar,
+      name_en: r.name_en,
+      description: r.description_ar,
+      description_en: r.description_en,
+      image_url: r.image_url,
+      price: r.price,
+      flavors: r.flavors ?? [],
+      variants: varsByItem.get(r.id) ?? [],
+    });
+  }
+  return [...cats.values()];
+}
