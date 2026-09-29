@@ -121,7 +121,18 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
     p_address: input.address?.trim() || null,
     p_source: "web",
     p_customer_name: input.name?.trim() || null,
-    p_student: input.studentId || null,
+    /*
+     * ولا يُرسَل إلا حين يوجد.
+     *
+     * الترحيل 0113 يُسقط التوقيع القديم ذا التسعة معاملات ويضع واحداً بعشرة.
+     * وبين تطبيق الترحيل ووصول النشر دقيقتان تعمل فيهما **النسخة القديمة** من
+     * التطبيق — فلو أرسلت هذه دائماً لانكسر الطلب على نسخةٍ لا تعرف المعامل،
+     * ولو أرسلته القديمة لانكسر على دالّةٍ لا تقبله.
+     *
+     * وحذفُه حين يكون فارغاً يجعل النسختين ترسلان الشيء نفسه: تسعة معاملات
+     * تقبلها الدالّة الجديدة بقيمتها الافتراضية. فلا نافذة انكسار أصلاً.
+     */
+    ...(input.studentId ? { p_student: input.studentId } : {}),
   });
   if (error || !data?.[0]) {
     // The line died between the reachability probe and this call. Never lose a
