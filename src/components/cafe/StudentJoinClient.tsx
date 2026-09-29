@@ -2,27 +2,31 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpen, Camera, Heart, Loader2, ShieldCheck } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, Camera, Check, GraduationCap, Heart, Loader2, ShieldCheck } from "lucide-react";
 import { registerStudent } from "@/lib/cafe/student-actions";
 import { classLabel, isMinorStage, schoolLabel, STAGES, studentFormError } from "@/lib/cafe/student";
 
 /**
- * «ستيشن مع الطالب» — التسجيل.
+ * تسجيل الطالب — خطوتان لا استمارة طويلة.
  *
- * هذه ليست صفحة خصم، هي صفحة برنامجٍ لدعم الطالب من الابتدائية إلى الجامعة.
- * والفرق بينهما في النبرة قبل الشيفرة: لا كلمة «خصم» في العنوان، ولا نسبة
- * كبيرة تُصرخ بها — بل ما نقدّمه، ولمن، ولماذا.
+ * الأولى: من أنت (المرحلة). والثانية: بياناتك. والفصل ليس زينة — المرحلة
+ * تبدّل كل حقلٍ بعدها، فسؤالها أولاً يجعل الخطوة الثانية مكتوبةً لصاحبها:
+ * تلميذ الابتدائية يُسأل عن مدرسته وصفّه وهاتف وليّه، والجامعيّ عن جامعته
+ * وكلّيته وهاتفه هو.
  *
- * **والمرحلة تُسأل أولاً وتُبدّل ما بعدها:** تلميذ الابتدائية ليس عنده هاتف
- * ولا هوية جامعية، وأهله هم من يطلب له. فيُسأل عن هاتف وليّه، ولا تُطلب منه
- * بطاقة — ولا يُعرَض على طفلٍ أن يصوّر هويته أصلاً.
+ * واستمارةٌ واحدة طويلة تُخيف على الهاتف، وخطوتان قصيرتان تُكمَلان.
+ *
+ * **ولا يُعرَض على طفلٍ أن يصوّر هويته** — قارئ البطاقة يظهر للإعدادية فما
+ * فوق، ولا يُخزَّن ما يقرؤه صورةً في أي حال.
  */
 
 const FIELD =
-  "w-full rounded-xl border-2 border-border bg-card px-3 py-2.5 text-base font-bold outline-none focus:border-primary";
+  "w-full rounded-2xl border-2 border-border bg-card px-4 py-3 text-base font-bold outline-none transition focus:border-primary";
 
 export function StudentJoinClient({ refCode }: { refCode: string | null }) {
   const router = useRouter();
+  const [step, setStep] = useState<1 | 2>(1);
   const [stage, setStage] = useState<string>("جامعة");
   const [name, setName] = useState("");
   const [school, setSchool] = useState("");
@@ -51,16 +55,16 @@ export function StudentJoinClient({ refCode }: { refCode: string | null }) {
         ok: boolean; name?: string; university?: string; college?: string; studentNo?: string;
       };
       if (!j.ok) {
-        setScanNote("ما قدرنا نقرأ البطاقة — كمّل التسجيل وراح نراجعها بأنفسنا.");
+        setScanNote("ما قدرنا نقرأ البطاقة — كمّل وراح نراجعها بأنفسنا.");
         return;
       }
       setScanned({ name: j.name ?? "", school: j.university ?? "", studentNo: j.studentNo ?? "" });
       if (j.name && !name.trim()) setName(j.name);
       if (j.university && !school.trim()) setSchool(j.university);
       if (j.college && !cls.trim()) setCls(j.college);
-      setScanNote("قرأنا البطاقة ✅ — راجع الحقول وصحّحها إذا لزم.");
+      setScanNote("قرأنا البطاقة — راجع الحقول وصحّحها إذا لزم.");
     } catch {
-      setScanNote("ما قدرنا نقرأ البطاقة — كمّل التسجيل عادي.");
+      setScanNote("ما قدرنا نقرأ البطاقة — كمّل عادي.");
     } finally {
       setScanning(false);
     }
@@ -97,147 +101,163 @@ export function StudentJoinClient({ refCode }: { refCode: string | null }) {
   }
 
   return (
-    <main dir="rtl" className="mx-auto w-full max-w-md space-y-5 p-5">
-      {/* ── الهوية: برنامج دعم، لا قسيمة خصم ───────────────────── */}
-      <header className="rounded-3xl border-2 border-primary/30 bg-secondary p-5 text-center">
-        <BookOpen className="mx-auto size-10 text-primary" />
-        <h1 className="mt-2 text-2xl font-black">ستيشن مع الطالب</h1>
-        <p className="mt-1 text-sm font-bold leading-relaxed text-muted-foreground">
-          برنامج لدعم طلبة الأنبار — <b>من الابتدائية إلى الجامعة</b>.
-          <br />
-          لأن الدراسة تتعب، والأكل الطيب جزء من يومك.
-        </p>
-        <div className="mt-3 grid grid-cols-3 gap-2 text-[11px] font-black">
-          <div className="rounded-xl bg-card px-2 py-2">أسعار خاصّة للطالب</div>
-          <div className="rounded-xl bg-card px-2 py-2">أصناف تخصّكم</div>
-          <div className="rounded-xl bg-card px-2 py-2">نقاط تتجمّع لك</div>
+    <main dir="rtl" className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-5 pb-8 pt-6">
+      {/* ── الترويسة وخطوتاها ─────────────────────────────────── */}
+      <header className="mb-5">
+        <Link href="/student" className="mb-3 inline-flex items-center gap-1 text-sm font-bold text-muted-foreground">
+          <ArrowRight className="size-4" />
+          رجوع
+        </Link>
+        <div className="flex items-center gap-3">
+          <GraduationCap className="size-8 shrink-0 text-primary" />
+          <div>
+            <h1 className="text-xl font-black leading-tight">التسجيل بالبرنامج</h1>
+            <p className="text-xs font-bold text-muted-foreground">
+              {step === 1 ? "الخطوة ١ من ٢ — مرحلتك الدراسية" : "الخطوة ٢ من ٢ — بياناتك"}
+            </p>
+          </div>
+        </div>
+        <div className="mt-3 flex gap-1.5">
+          <span className="h-1.5 flex-1 rounded-full bg-primary" />
+          <span className={`h-1.5 flex-1 rounded-full ${step === 2 ? "bg-primary" : "bg-border"}`} />
         </div>
         {refCode && (
-          <p className="mt-3 flex items-center justify-center gap-1.5 rounded-xl bg-primary/10 px-3 py-2 text-sm font-black text-primary">
-            <Heart className="size-4" />
+          <p className="mt-3 flex items-center gap-1.5 rounded-2xl bg-primary/10 px-3 py-2 text-sm font-black text-primary">
+            <Heart className="size-4 shrink-0" />
             دعاك زميلك — سجّل وخلّيه يربح نقاطه
           </p>
         )}
       </header>
 
-      <form onSubmit={onSubmit} className="space-y-4">
-        {/* ── المرحلة أولاً: هي التي تبدّل كل ما بعدها ───────────── */}
-        <fieldset className="space-y-2">
-          <legend className="text-sm font-black">المرحلة الدراسية</legend>
-          <div className="grid grid-cols-3 gap-2">
+      {step === 1 ? (
+        <>
+          <div className="grid gap-2.5">
             {STAGES.map((s) => (
               <button
                 key={s.id}
                 type="button"
-                onClick={() => setStage(s.id)}
-                className={`min-h-16 rounded-xl border-2 px-2 text-center transition ${
-                  stage === s.id
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-card hover:bg-secondary"
+                onClick={() => { setStage(s.id); setStep(2); }}
+                className={`flex min-h-16 items-center justify-between rounded-2xl border-2 px-4 text-right transition active:scale-[0.99] ${
+                  stage === s.id ? "border-primary bg-primary/5" : "border-border bg-card hover:bg-secondary"
                 }`}
               >
-                <span className="block text-sm font-black">{s.label}</span>
-                <span className="block text-[10px] font-bold opacity-80">{s.hint}</span>
+                <span>
+                  <span className="block text-lg font-black">{s.label}</span>
+                  <span className="block text-xs font-bold text-muted-foreground">{s.hint}</span>
+                </span>
+                <span className={`flex size-7 items-center justify-center rounded-full border-2 ${stage === s.id ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}>
+                  {stage === s.id && <Check className="size-4" />}
+                </span>
               </button>
             ))}
           </div>
-        </fieldset>
-
-        <label className="block space-y-1">
-          <span className="text-sm font-black">{minor ? "اسم التلميذ" : "الاسم الكامل"}</span>
-          <input value={name} onChange={(e) => setName(e.target.value)} className={FIELD} placeholder="الاسم الثلاثي" />
-        </label>
-
-        <label className="block space-y-1">
-          <span className="text-sm font-black">اسم {schoolLabel(stage)}</span>
-          <input
-            value={school}
-            onChange={(e) => setSchool(e.target.value)}
-            className={FIELD}
-            placeholder={stage === "جامعة" ? "جامعة الأنبار" : "مثلاً: ثانوية الرمادي للبنين"}
-          />
-        </label>
-
-        <label className="block space-y-1">
-          <span className="text-sm font-black">
-            {classLabel(stage)} <span className="font-bold text-muted-foreground">(اختياري)</span>
-          </span>
-          <input
-            value={cls}
-            onChange={(e) => setCls(e.target.value)}
-            className={FIELD}
-            placeholder={stage === "جامعة" ? "كلية الهندسة" : "الخامس العلمي"}
-          />
-        </label>
-
-        <label className="block space-y-1">
-          <span className="text-sm font-black">{minor ? "هاتف ولي الأمر" : "رقم الهاتف"}</span>
-          <input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className={FIELD}
-            placeholder="07XXXXXXXXX"
-            inputMode="tel"
-            dir="ltr"
-          />
-          {minor && (
-            <span className="block text-[11px] font-bold text-muted-foreground">
-              التلميذ ما عنده هاتف غالباً — والطلب يوصل على هاتف الأهل.
+          <p className="mt-4 text-center text-xs font-bold text-muted-foreground">
+            اختر مرحلتك وننتقل للخطوة الثانية
+          </p>
+        </>
+      ) : (
+        <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
+          <button
+            type="button"
+            onClick={() => setStep(1)}
+            className="flex items-center justify-between rounded-2xl border-2 border-border bg-secondary px-4 py-2.5 text-right"
+          >
+            <span>
+              <span className="block text-[11px] font-bold text-muted-foreground">المرحلة</span>
+              <span className="block text-base font-black">{stage}</span>
             </span>
-          )}
-        </label>
+            <span className="text-xs font-black text-primary">تغيير</span>
+          </button>
 
-        {/* ── قارئ البطاقة: للكبار وحدهم، ولا صورة تُحفظ ────────── */}
-        {!minor && (
-          <div className="rounded-2xl border-2 border-primary/40 bg-secondary p-3">
-            <p className="flex items-center gap-1.5 text-base font-black">
-              <ShieldCheck className="size-4 text-primary" />
-              صوّر هويتك الدراسية
-            </p>
-            <p className="mt-1 text-xs font-bold leading-relaxed text-muted-foreground">
-              نقرأ منها <b>الاسم واسم {schoolLabel(stage)} ورقمك</b> فقط — <b>ولا نحتفظ بالصورة إطلاقاً</b>.
-              وهي اختيارية: تكدر تكمّل بدونها وتراجعها الإدارة.
-            </p>
-            <label className="mt-2 flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary bg-card font-black text-primary">
-              {scanning ? <Loader2 className="size-5 animate-spin" /> : <Camera className="size-5" />}
-              {scanning ? "جارٍ القراءة…" : scanned ? "صوّرها من جديد" : "افتح الكاميرا"}
+          <label className="block space-y-1.5">
+            <span className="text-sm font-black">{minor ? "اسم التلميذ" : "الاسم الكامل"}</span>
+            <input value={name} onChange={(e) => setName(e.target.value)} className={FIELD} placeholder="الاسم الثلاثي" />
+          </label>
+
+          <label className="block space-y-1.5">
+            <span className="text-sm font-black">اسم {schoolLabel(stage)}</span>
+            <input
+              value={school}
+              onChange={(e) => setSchool(e.target.value)}
+              className={FIELD}
+              placeholder={stage === "جامعة" ? "جامعة الأنبار" : "ثانوية الرمادي للبنين"}
+            />
+          </label>
+
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block space-y-1.5">
+              <span className="text-sm font-black">{classLabel(stage)}</span>
               <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                disabled={scanning}
-                onChange={(e) => void onPick(e.target.files?.[0] ?? null)}
+                value={cls}
+                onChange={(e) => setCls(e.target.value)}
+                className={FIELD}
+                placeholder={stage === "جامعة" ? "الهندسة" : "السادس العلمي"}
               />
             </label>
-            {scanNote && <p className="mt-2 text-xs font-black">{scanNote}</p>}
+            <label className="block space-y-1.5">
+              <span className="text-sm font-black">{minor ? "هاتف الأهل" : "رقم الهاتف"}</span>
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className={FIELD}
+                placeholder="07XXXXXXXXX"
+                inputMode="tel"
+                dir="ltr"
+              />
+            </label>
           </div>
-        )}
+          {minor && (
+            <p className="-mt-2 text-[11px] font-bold text-muted-foreground">
+              التلميذ ما عنده هاتف غالباً — والطلب يوصل على هاتف الأهل.
+            </p>
+          )}
 
-        {!minor && (
-          <label className="block space-y-1">
-            <span className="text-sm font-black">
-              إنستغرام <span className="font-bold text-muted-foreground">(اختياري)</span>
-            </span>
-            <input value={instagram} onChange={(e) => setInstagram(e.target.value)} className={FIELD} placeholder="@username" dir="ltr" />
-          </label>
-        )}
+          {!minor && (
+            <>
+              <div className="rounded-2xl border-2 border-primary/40 bg-secondary p-3">
+                <p className="flex items-center gap-1.5 text-base font-black">
+                  <ShieldCheck className="size-4 shrink-0 text-primary" />
+                  صوّر هويتك الدراسية
+                  <span className="ms-auto rounded-full bg-card px-2 py-0.5 text-[10px] font-black text-muted-foreground">اختياري</span>
+                </p>
+                <p className="mt-1 text-xs font-bold leading-relaxed text-muted-foreground">
+                  نقرأ منها الاسم و{schoolLabel(stage)} ورقمك فقط — <b className="text-foreground">ولا نحتفظ بالصورة إطلاقاً</b>.
+                </p>
+                <label className={`mt-2.5 flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed font-black transition ${scanned ? "border-primary bg-primary/10 text-primary" : "border-primary bg-card text-primary"}`}>
+                  {scanning ? <Loader2 className="size-5 animate-spin" /> : scanned ? <Check className="size-5" /> : <Camera className="size-5" />}
+                  {scanning ? "جارٍ القراءة…" : scanned ? "قُرئت — صوّرها من جديد؟" : "افتح الكاميرا"}
+                  <input type="file" accept="image/*" capture="environment" className="hidden" disabled={scanning} onChange={(e) => void onPick(e.target.files?.[0] ?? null)} />
+                </label>
+                {scanNote && <p className="mt-2 text-xs font-black">{scanNote}</p>}
+              </div>
 
-        {err && (
-          <p className="rounded-xl border-2 border-destructive bg-destructive/10 px-3 py-2 text-sm font-black text-destructive">{err}</p>
-        )}
+              <label className="block space-y-1.5">
+                <span className="text-sm font-black">
+                  إنستغرام <span className="font-bold text-muted-foreground">(اختياري)</span>
+                </span>
+                <input value={instagram} onChange={(e) => setInstagram(e.target.value)} className={FIELD} placeholder="@username" dir="ltr" />
+              </label>
+            </>
+          )}
 
-        <button
-          type="submit"
-          disabled={busy}
-          className="min-h-14 w-full rounded-2xl bg-primary text-lg font-black text-primary-foreground disabled:opacity-50"
-        >
-          {busy ? "جارٍ التسجيل…" : "سجّلني بالبرنامج"}
-        </button>
-        <p className="text-center text-xs font-bold leading-relaxed text-muted-foreground">
-          تراجع الإدارة الطلب، ويوصلك الرد. وبياناتك تبقى عندنا ولا تُشارَك مع أحد.
-        </p>
-      </form>
+          {err && (
+            <p className="rounded-2xl border-2 border-destructive bg-destructive/10 px-3 py-2.5 text-sm font-black text-destructive">{err}</p>
+          )}
+
+          <div className="mt-auto space-y-2 pt-2">
+            <button
+              type="submit"
+              disabled={busy}
+              className="min-h-14 w-full rounded-2xl bg-primary text-lg font-black text-primary-foreground shadow-lg transition active:scale-[0.99] disabled:opacity-50"
+            >
+              {busy ? "جارٍ التسجيل…" : "سجّلني بالبرنامج"}
+            </button>
+            <p className="text-center text-[11px] font-bold leading-relaxed text-muted-foreground">
+              تراجع الإدارة الطلب ويوصلك الرد. وبياناتك تبقى عندنا ولا تُشارَك مع أحد.
+            </p>
+          </div>
+        </form>
+      )}
     </main>
   );
 }
