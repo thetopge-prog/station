@@ -381,6 +381,22 @@ export type Database = {
         Update: Partial<{ name_ar: string; name_en: string; sort: number; is_active: boolean }>;
         Relationships: [];
       };
+      price_log: {
+        Row: {
+          id: number; item_id: string | null; variant_id: string | null;
+          name_ar: string; kind: "price" | "student_price";
+          old_price: number | null; new_price: number | null;
+          changed_by: string | null; at: string; business_day: string;
+        };
+        Insert: {
+          item_id?: string | null; variant_id?: string | null;
+          name_ar: string; kind: "price" | "student_price";
+          old_price?: number | null; new_price?: number | null;
+          changed_by?: string | null; at?: string; business_day?: string;
+        };
+        Update: Partial<{ name_ar: string; old_price: number | null; new_price: number | null }>;
+        Relationships: [];
+      };
       students: {
         Row: {
           id: string; token: string; ref_code: string;
