@@ -18,6 +18,7 @@ import { formatIqdLabel } from "@/lib/cafe/money";
 import { cashierCheckout, type PayMethod } from "@/lib/cafe/cashier-actions";
 import type { Partner } from "@/lib/cafe/partner-actions";
 import { buildOrderJobs, buildReceiptJob } from "@/lib/cafe/printer-actions";
+import { PagerQrPanel } from "./PagerQrPanel";
 import {
   printJobs,
   kickDrawer as kickDrawerAgent,
@@ -1390,6 +1391,12 @@ export function CashierClient({
               >
                 طلب جديد
               </button>
+              {/* لمن لا يأخذ إيصالاً — والإيصال نفسه يحمل الرمز مطبوعاً */}
+              {receipt?.orderId && (
+                <div className="col-span-2">
+                  <PagerQrPanel orderId={receipt.orderId} orderNumber={receipt.orderNumber} />
+                </div>
+              )}
             </div>
           </div>
         </div>

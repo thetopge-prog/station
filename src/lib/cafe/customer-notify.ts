@@ -1,4 +1,5 @@
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
+import { sendPushTo } from "./push";
 
 /**
  * يُبلّغ زبون البوت عن طلبه — من الفعل الذي ضغطه الكاشير نفسه.
@@ -29,12 +30,15 @@ export async function notifyCustomerOrder(orderId: string, event: OrderEvent): P
   const tg = process.env.TELEGRAM_BOT_TOKEN;
   const wa = process.env.WHATSAPP_TOKEN;
   const waPhoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-  if (!tg && !wa) return;
+  // والدفع قناةٌ ثالثة الآن: الخروج المبكّر كان يمنع البيجر من الوصول أصلاً
+  // في محلٍّ لا بوت فيه
+  const push = !!process.env.WEB_PUSH_PRIVATE_KEY;
+  if (!tg && !wa && !push) return;
   try {
     const svc = createSupabaseServiceClient();
     const { data: o } = await svc
       .from("orders")
-      .select("telegram_chat_id, whatsapp_wa_id, order_seq, channel")
+      .select("telegram_chat_id, whatsapp_wa_id, order_seq, channel, pickup_code")
       .eq("id", orderId)
       .maybeSingle();
     if (!o) return;
@@ -51,6 +55,35 @@ export async function notifyCustomerOrder(orderId: string, event: OrderEvent): P
         signal: AbortSignal.timeout(3000),
       });
     }
+    /*
+     * البيجر: أجهزة الزبون المشتركة على هذا الطلب.
+     *
+     * ويُحذف الصفّ بعد الإرسال — البيجر لمرّة واحدة بطبيعته، والحذف يمنع
+     * تراكم الاشتراكات بلا مكنسةٍ دورية. ولا يُحذف إلا بعد محاولة الإرسال،
+     * فلا يضيع التنبيه لأننا نظّفنا مبكّراً.
+     */
+    if (push) {
+      const { data: devices } = await svc
+        .from("push_subscriptions")
+        .select("endpoint, p256dh, auth")
+        .eq("order_id", orderId);
+      if (devices?.length) {
+        await sendPushTo(
+          devices.map((d) => ({ endpoint: d.endpoint, p256dh: d.p256dh, auth: d.auth })),
+          {
+            title: event === "ready" ? `طلبك رقم ${n} جاهز 🍔` : `طلبك رقم ${n}`,
+            body: plain(html),
+            url: `/t/${orderId}`,
+            tag: `pager-${orderId}`,
+          },
+        );
+        // انتهى دور هذا البيجر: أُرسل أو تعذّر، وفي الحالتين لا يُعاد
+        if (event === "ready" || event === "handed" || event === "cancelled") {
+          await svc.from("push_subscriptions").delete().eq("order_id", orderId);
+        }
+      }
+    }
+
     if (o.whatsapp_wa_id && wa && waPhoneId) {
       await fetch(`https://graph.facebook.com/v21.0/${waPhoneId}/messages`, {
         method: "POST",

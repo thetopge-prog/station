@@ -150,7 +150,14 @@ describe("print routing", () => {
     const receipt = tickets.find((t) => t.kind === "receipt")!;
     const exp = tickets.find((t) => t.kind === "expediter")!;
 
-    expect(receipt.qr).toBe("https://station.iq/t/042-7391");
+    /*
+     * المعرّف لا «الرقم-الرمز».
+     *
+     * رمز الاستلام ثلاثة أحرف تُعاد كل يوم، فهو يُخمَّن. والرابط يفتح صفحةً
+     * تعرض محتوى الطلب وتفتح اشتراك إشعارات — فلا يُحرَس بما يُخمَّن.
+     */
+    expect(receipt.qr).toBe(`https://station.iq/t/${ORDER.orderId}`);
+    expect(receipt.qr).not.toContain(ORDER.pickupCode!);
     // the zero-touch trigger: scanning this is what flips the order to «جاهز».
     // Number and pickup code, not the UUID: seven characters, a version-1 QR
     // a tablet camera reads first time

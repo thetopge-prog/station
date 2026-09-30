@@ -1482,6 +1482,22 @@ export function MenuClient({
                 </div>
               )}
 
+            {/*
+              البيجر: «نبّهك هاتفك لمّا يجهز».
+
+              زبون الويب يملك معرّف طلبه في هذه الشاشة أصلاً، فلا يحتاج مسح
+              رمزٍ ولا ورقة — رابطٌ واحد إلى صفحة البيجر. وهي التي تطلب الإذن
+              وتفتح الصوت، فلا يُكرَّر ذلك المنطق هنا.
+            */}
+            {confirmed.orderId && orderPhase !== "cancelled" && (
+              <a
+                href={`/t/${confirmed.orderId}`}
+                className="mt-4 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl border-2 border-primary bg-card font-black text-primary transition active:scale-[0.99]"
+              >
+                📳 نبّهني لمّا يجهز
+              </a>
+            )}
+
             {/* التعديل والإلغاء بيد الزبون حتى يبدأ المطبخ — لا رسالة تُقرأ متأخرة */}
             {confirmed.orderId && orderPhase === "started" && (
               <p className="mt-3 text-sm font-black text-primary">

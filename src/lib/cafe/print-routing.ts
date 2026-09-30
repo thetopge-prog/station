@@ -218,7 +218,18 @@ export function routeOrder(input: RouteInput): Ticket[] {
         extra: order.extras.reduce((s, x) => s + x.price, 0),
         total: order.total,
       },
-      qr: trackUrl ? `${trackUrl}/${order.orderNumber}${order.pickupCode ? `-${order.pickupCode}` : ""}` : null,
+      /*
+       * رمز المتابعة — **المعرّف لا رقم الطلب**.
+       *
+       * كان `042-7391`: رقمُ طلبٍ ورمزُ استلامٍ من ثلاثة أحرف يُعاد استعماله
+       * كل يوم — أي يُخمَّن. والصفحة التي يفتحها تعرض محتوى الطلب وتفتح
+       * اشتراك إشعارات، فلا تُحرَس بما يُخمَّن. والـuuid هو الإذن نفسه الذي
+       * تقوم عليه `cancel_my_order` منذ 0088.
+       *
+       * ورمز تذكرة التجهيز شيءٌ آخر ولم يُمَسّ: ذاك يمسحه الموظّف،
+       * و`confirmAssembledByCode` يقرأ منه «الرقم-الرمز».
+       */
+      qr: trackUrl ? `${trackUrl}/${order.orderId}` : null,
       order: meta,
     });
   }

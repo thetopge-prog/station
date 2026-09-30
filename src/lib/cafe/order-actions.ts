@@ -192,6 +192,8 @@ export type PublicOrder = {
   status: string;
   /** «new» until the kitchen touches it — the window in which the customer may still cancel */
   prep_status: string;
+  /** 0115 — يُعرض على صفحة البيجر ليستلم به من الكاونتر */
+  pickup_code: string | null;
   table_no: string | null;
   subtotal: number;
   discount: number;

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { requireAdmin, requireStaff } from "./auth";
+import { SITE_URL } from "@/lib/site/url";
 import { routeOrder, unroutedItems, type PrintItem, type PrinterRow, type StationRow } from "./print-routing";
 import { identifyDoc, renderTicketDoc, testSlipDoc, type TicketDoc } from "./escpos";
 import { BRAND } from "@/lib/brand";
@@ -286,6 +287,9 @@ export async function buildOrderJobs(
     printers,
     stations,
     categoryStation,
+    // رمز البيجر على الإيصال: يمسحه الزبون فينبّهه هاتفه لمّا يجهز.
+    // كان هذا المعامل معلَناً ولا يُمرَّر من أحد، فالرمز لا يُطبع أصلاً
+    trackUrl: `${SITE_URL}/t`,
   });
 
   const jobs = toJobs(tickets, configs, order.channel, kickDrawer);

@@ -265,9 +265,11 @@ export type Database = {
         Relationships: [];
       };
       push_subscriptions: {
-        Row: Timestamped & { endpoint: string; p256dh: string; auth: string };
-        Insert: { id?: string; endpoint: string; p256dh: string; auth: string; created_at?: string };
-        Update: Partial<{ endpoint: string; p256dh: string; auth: string }>;
+        Row: { id: string; endpoint: string; p256dh: string; auth: string; created_at: string;
+          /** 0115 — فارغ = جهاز موظّف. مملوء = بيجر زبونٍ لطلبٍ واحد */
+          order_id: string | null };
+        Insert: { id?: string; endpoint: string; p256dh: string; auth: string; created_at?: string; order_id?: string | null };
+        Update: Partial<{ endpoint: string; p256dh: string; auth: string; order_id: string | null }>;
         Relationships: [];
       };
       ingredients: {
@@ -815,6 +817,10 @@ export type Database = {
       mark_table_clean: { Args: { p_name: string }; Returns: undefined };
       mark_table_dirty: { Args: { p_name: string }; Returns: undefined };
       refund_order: { Args: { p_order: string }; Returns: undefined };
+      pager_subscribe: {
+        Args: { p_order: string; p_endpoint: string; p_p256dh: string; p_auth: string };
+        Returns: string;
+      };
       student_by_token: { Args: { p_token: string }; Returns: { id: string; name_ar: string; status: StudentStatus; ref_code: string; stage: string; school: string; points: number; invited: number }[] };
       register_student: {
         Args: {
