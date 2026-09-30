@@ -195,6 +195,8 @@ export type PublicOrder = {
   /** 0115 — يُعرض على صفحة البيجر ليستلم به من الكاونتر */
   pickup_code: string | null;
   table_no: string | null;
+  /** 0115 — تُقرأ على صفحة البيجر: نصّ الجاهزية يختلف بحسبها */
+  channel: Fulfilment;
   subtotal: number;
   discount: number;
   created_at: string;

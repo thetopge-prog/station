@@ -81,6 +81,9 @@ returns jsonb language sql security definer set search_path = public stable as $
       'status', o.status,
       'prep_status', o.prep_status,
       'table_no', o.table_no,
+      -- الطريقة: صفحة البيجر تقول لزبون السيارة «الساعي طالع إلك» لا
+      -- «استلمه من الكاونتر» — وهو جالسٌ بسيارته ينتظر
+      'channel', o.channel,
       'subtotal', o.subtotal,
       'discount', o.discount,
       'created_at', o.created_at,

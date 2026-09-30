@@ -13,11 +13,21 @@ import { sendPushTo } from "./push";
  */
 export type OrderEvent = "accepted" | "ready" | "handed" | "cancelled";
 
-const TEXT: Record<OrderEvent, (n: string, pickup: boolean) => string | null> = {
+/**
+ * ما يُقال عند كل حدث — وبحسب طريقة الاستلام، لا نصّاً واحداً للجميع.
+ *
+ * «تفضّل استلمه من الكاونتر» جملةٌ خاطئة لزبونٍ جالسٍ في سيارته ينتظر الساعي
+ * أن يطلع إليه: تُقيمه من مقعده بلا سبب، وقد يدخل فيتقاطع مع الساعي الخارج.
+ */
+const TEXT: Record<OrderEvent, (n: string, pickup: boolean, curbside?: boolean) => string | null> = {
   accepted: (n, pickup) =>
     `✅ طلبك رقم <b>${n}</b> انقبل وبدينا بيه.` + (pickup ? "\nنخبرك لمن يجهز للاستلام." : "\nنخبرك لمن يطلع للتوصيل."),
-  ready: (n, pickup) =>
-    pickup ? `🍔 طلبك رقم <b>${n}</b> جاهز — تفضّل استلمه من الكاونتر.` : `✅ طلبك رقم <b>${n}</b> تم تجهيزه.`,
+  ready: (n, pickup, curbside) =>
+    curbside
+      ? `🚗 طلبك رقم <b>${n}</b> جاهز — الساعي طالع إلك، انتظر بسيارتك.`
+      : pickup
+        ? `🍔 طلبك رقم <b>${n}</b> جاهز — تفضّل استلمه من الكاونتر.`
+        : `✅ طلبك رقم <b>${n}</b> تم تجهيزه.`,
   // «سلّم للسائق» — للتوصيل فقط؛ الاستلام يكفيه «جاهز»
   handed: (n, pickup) => (pickup ? null : `🛵 طلبك رقم <b>${n}</b> استلمه موظف التوصيل — يوصلك بدقايق.`),
   cancelled: (n) => `❌ عذراً — أُلغي طلبك رقم <b>${n}</b>. راسلنا إذا كان بالغلط.`,
@@ -44,7 +54,7 @@ export async function notifyCustomerOrder(orderId: string, event: OrderEvent): P
     if (!o) return;
 
     const n = String(o.order_seq).padStart(3, "0");
-    const html = TEXT[event](n, o.channel === "pickup");
+    const html = TEXT[event](n, o.channel === "pickup", o.channel === "curbside");
     if (!html) return;
 
     if (o.telegram_chat_id && tg) {

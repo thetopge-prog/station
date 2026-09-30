@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BellOff, BellRing, Check, ChefHat, Clock, Share, Smartphone, VolumeX } from "lucide-react";
+import { BellOff, BellRing, Car, Check, ChefHat, Clock, Share, Smartphone, VolumeX } from "lucide-react";
 import { chimeReady } from "@/lib/cafe/chime";
 import { getMyOrders } from "@/lib/cafe/order-actions";
 import { subscribeToPager } from "@/lib/cafe/pager-actions";
@@ -39,6 +39,7 @@ export function PagerClient({
   orderSeq,
   pickupCode,
   createdAt,
+  channel,
   initialPhase,
   pushKey,
 }: {
@@ -46,6 +47,8 @@ export function PagerClient({
   orderSeq: string;
   pickupCode: string | null;
   createdAt: string;
+  /** طريقة الاستلام — تُغيّر ما يُقال عند الجاهزية، لا شكل الصفحة */
+  channel: string;
   initialPhase: Phase;
   pushKey: string | null;
 }) {
@@ -57,6 +60,8 @@ export function PagerClient({
   const rang = useRef(false);
   const [mins, setMins] = useState(0);
   const [ringing, setRinging] = useState(false);
+  const curbside = channel === "curbside";
+  const delivery = channel === "delivery";
 
   /**
    * الرنين — **متكرّرٌ حتى يُسكته الزبون**، لا رنّةً واحدة.
@@ -256,7 +261,20 @@ export function PagerClient({
             <Check className="size-8" />
             جاهز!
           </p>
-          <p className="text-base font-bold">تفضّل استلمه من الكاونتر</p>
+          {/*
+            كلٌّ يُقال له ما يفعله هو.
+
+            «استلمه من الكاونتر» تُقيم زبون السيارة من مقعده بلا سبب — وقد
+            يدخل فيتقاطع مع الساعي الخارج إليه، فيضيع الاثنان.
+          */}
+          <p className="flex items-center gap-1.5 text-base font-bold">
+            {curbside && <Car className="size-5 text-primary" />}
+            {curbside
+              ? "الساعي طالع إلك — انتظر بسيارتك"
+              : delivery
+                ? "طلبك طالع للتوصيل"
+                : "تفضّل استلمه من الكاونتر"}
+          </p>
           {/* زرّ البيجر نفسه: يسكت الرنين حين يراه الزبون */}
           {ringing && (
             <button
@@ -278,6 +296,12 @@ export function PagerClient({
             <Clock className="size-4" />
             {mins < 1 ? "توّه انطلب" : `صار له ${mins} دقيقة`}
           </p>
+          {curbside && (
+            <p className="mt-1 flex items-center gap-1.5 rounded-xl bg-secondary px-3 py-1.5 text-xs font-black text-primary">
+              <Car className="size-4 shrink-0" />
+              ابقَ بسيارتك — ننبّهك ويطلعلك الساعي
+            </p>
+          )}
 
           {/* نبضةٌ تقول إن الصفحة حيّة تراقب — وصفحةٌ ساكنة تبدو معطّلة */}
           <div className="mt-4 flex items-center gap-2" aria-hidden>
