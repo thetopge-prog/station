@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BellRing, Check, ChefHat, Clock, Share, Smartphone } from "lucide-react";
+import { BellOff, BellRing, Check, ChefHat, Clock, Share, Smartphone, VolumeX } from "lucide-react";
 import { chimeReady } from "@/lib/cafe/chime";
 import { getMyOrders } from "@/lib/cafe/order-actions";
 import { subscribeToPager } from "@/lib/cafe/pager-actions";
@@ -38,12 +38,14 @@ export function PagerClient({
   orderId,
   orderSeq,
   pickupCode,
+  createdAt,
   initialPhase,
   pushKey,
 }: {
   orderId: string;
   orderSeq: string;
   pickupCode: string | null;
+  createdAt: string;
   initialPhase: Phase;
   pushKey: string | null;
 }) {
@@ -53,22 +55,97 @@ export function PagerClient({
   const [note, setNote] = useState<string | null>(null);
   const [needsInstall, setNeedsInstall] = useState(false);
   const rang = useRef(false);
+  const [mins, setMins] = useState(0);
+  const [ringing, setRinging] = useState(false);
 
-  /** رنّةٌ واحدة لا تتكرّر مع كل استطلاع */
+  /**
+   * الرنين — **متكرّرٌ حتى يُسكته الزبون**، لا رنّةً واحدة.
+   *
+   * هذا ما يستبدل جهاز البيجر فعلاً. الجهاز يهتزّ ويرنّ حتى تضغط زرّه، ورنّةٌ
+   * واحدة مدّتها نصف ثانية تضيع في ضجّة مطعمٍ ليلاً — فيبقى الزبون قاعداً
+   * وطلبُه يبرد على الرفّ.
+   *
+   * فيُعاد كل ثلاث ثوانٍ حتى دقيقة كاملة، أو حتى يضغط «استلمت».
+   */
   const ring = useCallback(() => {
     if (rang.current) return;
     rang.current = true;
-    try {
-      chimeReady();
-    } catch {
-      /* الصوت مرفوض — الاهتزاز والشاشة يبقيان */
-    }
-    try {
-      navigator.vibrate?.([300, 120, 300, 120, 500]);
-    } catch {
-      /* لا اهتزاز على هذا الجهاز */
-    }
+    setRinging(true);
   }, []);
+
+  // نبضة الإنذار: صوتٌ واهتزاز معاً، وتتوقّف بالضغط أو بعد دقيقة
+  useEffect(() => {
+    if (!ringing) return;
+    let beats = 0;
+    const beat = () => {
+      try {
+        chimeReady();
+      } catch {
+        /* الصوت مكتوم أو مرفوض — الاهتزاز والشاشة يبقيان */
+      }
+      try {
+        navigator.vibrate?.([400, 150, 400]);
+      } catch {
+        /* لا اهتزاز على هذا الجهاز */
+      }
+      // دقيقةٌ تكفي: إنذارٌ لا ينتهي يصير إزعاجاً يُغلَق التطبيق بسببه
+      if (++beats >= 20) setRinging(false);
+    };
+    beat();
+    const id = setInterval(beat, 3000);
+    return () => clearInterval(id);
+  }, [ringing]);
+
+  /*
+   * عدّاد الانتظار.
+   *
+   * صفحةٌ ساكنة خمس عشرة دقيقة تبدو معطّلة، فيقفلها الزبون ويقف عند الكاونتر
+   * — وهو ما بُني البيجر ليمنعه. ورقمٌ يكبر كل دقيقة يقول «أنا شغّالة» بلا
+   * كلام. و`Date.now()` في أثرٍ لا في الرندر: React 19 يرفض النداء غير الصافي.
+   */
+  useEffect(() => {
+    const tick = () => setMins(Math.max(0, Math.floor((Date.now() - Date.parse(createdAt)) / 60_000)));
+    const first = setTimeout(tick, 0);
+    const id = setInterval(tick, 30_000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(id);
+    };
+  }, [createdAt]);
+
+  /*
+   * إبقاء الشاشة موقدة — وهذه ليست رفاهية، هي ما يجعل الوعد صادقاً.
+   *
+   * «ننبّهك ما دامت الصفحة مفتوحة» ينكسر بعد ثلاثين ثانية: الهاتف يُطفئ شاشته،
+   * فتُعلَّق الصفحة، فلا صفّارة ولا اهتزاز. وهذا هو مسار الآيفون الأساسي عندنا
+   * — فلولا هذا القفل لكان وعداً لا يُوفى.
+   *
+   * ولا يُطلب إلا بعد لمسة «نبّهني»: المتصفّحات ترفضه بلا تفاعل، وهي اللمسة
+   * نفسها التي تفتح الصوت. ونفس نمط `use-display-watchdog` لشاشات المحل.
+   */
+  useEffect(() => {
+    if (!armed || phase !== "preparing") return;
+    type WakeLock = { release: () => Promise<void> };
+    let lock: WakeLock | null = null;
+    const nav = navigator as Navigator & { wakeLock?: { request: (t: "screen") => Promise<WakeLock> } };
+    const acquire = async () => {
+      try {
+        lock = (await nav.wakeLock?.request("screen")) ?? null;
+      } catch {
+        /* مرفوض أو غير مدعوم — الإشعار يبقى، وخطة الطاقة تتكفّل */
+      }
+    };
+    void acquire();
+    // القفل يسقط كلّما أُخفيت الصفحة — يُستعاد عند العودة
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void acquire();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      void lock?.release().catch(() => {});
+    };
+  }, [armed, phase]);
 
   // الاستطلاع: يتباطأ حين تُخفى الصفحة، ويتوقّف حين ينتهي الطلب
   useEffect(() => {
@@ -180,6 +257,16 @@ export function PagerClient({
             جاهز!
           </p>
           <p className="text-base font-bold">تفضّل استلمه من الكاونتر</p>
+          {/* زرّ البيجر نفسه: يسكت الرنين حين يراه الزبون */}
+          {ringing && (
+            <button
+              onClick={() => setRinging(false)}
+              className="mt-5 flex min-h-16 w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-6 text-xl font-black text-white shadow-lg transition active:scale-[0.98]"
+            >
+              <BellOff className="size-6" />
+              شفته — وقّف التنبيه
+            </button>
+          )}
         </>
       ) : (
         <>
@@ -189,8 +276,19 @@ export function PagerClient({
           </p>
           <p className="flex items-center gap-1.5 text-sm font-bold text-muted-foreground">
             <Clock className="size-4" />
-            ننبّهك أول ما يجهز
+            {mins < 1 ? "توّه انطلب" : `صار له ${mins} دقيقة`}
           </p>
+
+          {/* نبضةٌ تقول إن الصفحة حيّة تراقب — وصفحةٌ ساكنة تبدو معطّلة */}
+          <div className="mt-4 flex items-center gap-2" aria-hidden>
+            {[0, 1, 2].map((i) => (
+              <span
+                key={i}
+                className="size-2.5 animate-pulse rounded-full bg-primary"
+                style={{ animationDelay: `${i * 0.35}s`, animationDuration: "1.6s" }}
+              />
+            ))}
+          </div>
 
           {!armed ? (
             <button
@@ -201,10 +299,27 @@ export function PagerClient({
               نبّهني لمّا يجهز
             </button>
           ) : (
-            <p className="mt-5 flex items-center gap-1.5 rounded-2xl bg-secondary px-4 py-3 text-base font-black text-primary">
-              <Check className="size-5" />
-              {pushOn ? "التنبيه شغّال — تكدر تقفل الصفحة" : "التنبيه شغّال"}
-            </p>
+            <div className="mt-5 w-full rounded-2xl bg-secondary px-4 py-3">
+              <p className="flex items-center justify-center gap-1.5 text-base font-black text-primary">
+                <Check className="size-5" />
+                {pushOn ? "التنبيه شغّال — تكدر تقفل الهاتف" : "التنبيه شغّال"}
+              </p>
+              {/* الفرق بين الحالتين يُقال صراحةً: من بقي على الصفحة يجب أن
+                  يعرف أنها يجب أن تبقى مفتوحة، ولا يُترك يظنّ غير ذلك */}
+              <p className="mt-1 text-center text-xs font-bold text-muted-foreground">
+                {pushOn
+                  ? "يوصلك إشعار حتى لو سكّرت الصفحة"
+                  : "خلّي هذه الصفحة مفتوحة — الشاشة راح تبقى شغّالة وتصفّر لمّا يجهز"}
+              </p>
+              {/*
+                الوضع الصامت يكتم كل شيء — وهذا الفرق بينه وبين جهاز البيجر،
+                فيُقال قبل أن ينتظر لا بعد أن يفوته طلبه
+              */}
+              <p className="mt-2 flex items-center justify-center gap-1.5 rounded-xl bg-card px-2 py-1.5 text-[11px] font-black">
+                <VolumeX className="size-3.5 shrink-0 text-primary" />
+                تأكّد أن جوالك مو على الصامت
+              </p>
+            </div>
           )}
 
           {note && <p className="mt-2 text-sm font-bold text-muted-foreground">{note}</p>}

@@ -48,6 +48,7 @@ export default async function PagerPage({ params }: { params: Promise<{ id: stri
       orderId={order.id}
       orderSeq={String(order.order_seq).padStart(3, "0")}
       pickupCode={order.pickup_code}
+      createdAt={order.created_at}
       initialPhase={phase}
       pushKey={process.env.WEB_PUSH_PUBLIC_KEY ?? null}
     />
