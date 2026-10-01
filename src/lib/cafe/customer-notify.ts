@@ -1,5 +1,6 @@
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { sendPushTo } from "./push";
+import { confirmText, type SummaryItem } from "./order-summary";
 
 /**
  * يُبلّغ زبون البوت عن طلبه — من الفعل الذي ضغطه الكاشير نفسه.
@@ -20,6 +21,7 @@ export type OrderEvent = "accepted" | "ready" | "handed" | "cancelled";
  * أن يطلع إليه: تُقيمه من مقعده بلا سبب، وقد يدخل فيتقاطع مع الساعي الخارج.
  */
 const TEXT: Record<OrderEvent, (n: string, pickup: boolean, curbside?: boolean) => string | null> = {
+  // يُستبدَل بنصٍّ مفصّل حين تُقرأ الأصناف؛ وهذا احتياطٌ إن تعذّرت قراءتها
   accepted: (n, pickup) =>
     `✅ طلبك رقم <b>${n}</b> انقبل وبدينا بيه.` + (pickup ? "\nنخبرك لمن يجهز للاستلام." : "\nنخبرك لمن يطلع للتوصيل."),
   ready: (n, pickup, curbside) =>
@@ -48,14 +50,33 @@ export async function notifyCustomerOrder(orderId: string, event: OrderEvent): P
     const svc = createSupabaseServiceClient();
     const { data: o } = await svc
       .from("orders")
-      .select("telegram_chat_id, whatsapp_wa_id, order_seq, channel, pickup_code")
+      .select("telegram_chat_id, whatsapp_wa_id, order_seq, channel, pickup_code, subtotal, discount, extra, table_no, note")
       .eq("id", orderId)
       .maybeSingle();
     if (!o) return;
 
     const n = String(o.order_seq).padStart(3, "0");
-    const html = TEXT[event](n, o.channel === "pickup", o.channel === "curbside");
+    let html = TEXT[event](n, o.channel === "pickup", o.channel === "curbside");
     if (!html) return;
+
+    // رسالة التأكيد تحمل ما طلبه ومجموعه وكيف يصله (طلب الإدارة). وقراءة
+    // الأصناف استعلامٌ ثانٍ، فلا يُدفع إلا عند القبول — «جاهز» لا يحتاجه.
+    if (event === "accepted") {
+      const { data: rows } = await svc
+        .from("order_items")
+        .select("name_ar, flavor_ar, qty, line_total")
+        .eq("order_id", orderId);
+      html = confirmText({
+        orderNo: n,
+        items: (rows ?? []) as SummaryItem[],
+        subtotal: o.subtotal ?? 0,
+        discount: o.discount,
+        extra: o.extra,
+        channel: o.channel,
+        note: o.note,
+        tableNo: o.table_no,
+      });
+    }
 
     if (o.telegram_chat_id && tg) {
       await fetch(`https://api.telegram.org/bot${tg}/sendMessage`, {

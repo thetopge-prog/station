@@ -94,7 +94,12 @@ async function sendReviewAsks(svc: ReturnType<typeof createSupabaseServiceClient
   const { data: rows } = await svc
     .from("orders")
     .select("id, whatsapp_wa_id, customer_name, review_focus, handed_at, channel")
-    .eq("ask_review", true)
+    // كان `.eq("ask_review", true)` — أي من أشّره الكاشير وحده. وطلبت الإدارة
+    // أن تصل كل زبونٍ سُلّم طلبه. ومنع التكرار يحمله `review_asked_at` وحده
+    // الآن، وهو مختومٌ قبل الإرسال فيكفي.
+    //
+    // ⚠ ويبقى `whatsapp_wa_id` شرطاً: من لم يراسلنا على واتساب تمنع ميتا
+    // إرسال رسالةٍ حرّة إليه، ويبقى في قائمة /reviews ليُرسلها موظّف بيده.
     .is("review_asked_at", null)
     .not("handed_at", "is", null)
     .not("whatsapp_wa_id", "is", null)

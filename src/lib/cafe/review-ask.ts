@@ -22,10 +22,13 @@ export const REVIEW_URL = BRAND.reviewUrl;
  * الطريق. فخمس عشرة دقيقةً هناك تصل والزبون ما زال ينتظر على بابه — وهي أسوأ
  * لحظةٍ تُطلب فيها خدمة. ثلاثون تكفي ليأكل.
  *
- * أما الاستلام والسفري والسيارة فالطعام بيده لحظةَ الختم.
+ * أما الاستلام والسفري والسيارة فالطعام بيده لحظةَ الختم — فعشرون دقيقة.
  */
 export const reviewDelayMs = (channel: string | null): number =>
-  (channel === "delivery" ? 30 : 15) * 60_000;
+  (channel === "delivery" ? 30 : REVIEW_WAIT_MIN) * 60_000;
+
+/** عشرون دقيقة — طلب الإدارة. والتوصيل يبقى أطول للسبب أعلاه */
+export const REVIEW_WAIT_MIN = 20;
 
 /** هل حان وقت السؤال عن هذا الطلب؟ */
 export const reviewDue = (handedAt: string | null, channel: string | null, now = Date.now()): boolean => {

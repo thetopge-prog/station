@@ -4,16 +4,17 @@ import { REVIEW_URL, reviewDelayMs, reviewDue, reviewMessage } from "./review-as
 describe("توقيت طلب التقييم", () => {
   it("التوصيل ينتظر ضعف غيره — handed_at فيه تسليمٌ للسائق لا للزبون", () => {
     expect(reviewDelayMs("delivery")).toBe(30 * 60_000);
-    expect(reviewDelayMs("pickup")).toBe(15 * 60_000);
-    expect(reviewDelayMs("curbside")).toBe(15 * 60_000);
-    expect(reviewDelayMs(null)).toBe(15 * 60_000);
+    // عشرون دقيقة لمن بيده طعامه لحظة الختم — طلب الإدارة
+    expect(reviewDelayMs("pickup")).toBe(20 * 60_000);
+    expect(reviewDelayMs("curbside")).toBe(20 * 60_000);
+    expect(reviewDelayMs(null)).toBe(20 * 60_000);
   });
 
   it("لا يحين قبل موعده ولا يفوت بعده", () => {
     const now = Date.parse("2026-09-25T12:00:00Z");
     const handed = (min: number) => new Date(now - min * 60_000).toISOString();
-    expect(reviewDue(handed(14), "pickup", now)).toBe(false);
-    expect(reviewDue(handed(16), "pickup", now)).toBe(true);
+    expect(reviewDue(handed(19), "pickup", now)).toBe(false);
+    expect(reviewDue(handed(21), "pickup", now)).toBe(true);
     expect(reviewDue(handed(16), "delivery", now)).toBe(false);
     expect(reviewDue(handed(31), "delivery", now)).toBe(true);
   });
