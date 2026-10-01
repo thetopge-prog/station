@@ -30,11 +30,23 @@ const TODAY = () => new Date().toISOString().slice(0, 10);
 
 type OrderItem = { name_ar: string; flavor_ar: string | null; qty: number; line_total: number };
 
-export function PartnersClient({ partners, menu = [] }: { partners: PartnerBalance[]; menu?: AdminCategory[] }) {
+export function PartnersClient({
+  partners,
+  menu = [],
+  epoch = "",
+  opening = {},
+}: {
+  partners: PartnerBalance[];
+  menu?: AdminCategory[];
+  /** بداية المبيعات (0116) — الكشف يفتح عندها، وما قبلها سطرٌ واحد */
+  epoch?: string;
+  /** متبقّي ما قبل البداية لكل شركة (0117) */
+  opening?: Record<string, number>;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState<string | null>(null);
   const [rows, setRows] = useState<LedgerRow[]>([]);
-  const [from, setFrom] = useState("");
+  const [from, setFrom] = useState(epoch);
   const [to, setTo] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -323,6 +335,19 @@ export function PartnersClient({ partners, menu = [] }: { partners: PartnerBalan
                     اليوم
                   </button>
                 </div>
+
+                {/* الحركة القديمة مخفيّة تفصيلاً (طلب الإدارة) ومجموعة هنا في سطر.
+                    وبدونه لا يُجمع الكشف: بنود أيامٍ قليلة تحت رصيدٍ بالملايين —
+                    والرصيد صحيح، إذ هو حسابٌ جارٍ لا مبيعاتُ فترة. */}
+                {epoch && (opening[p.id] ?? 0) !== 0 && (
+                  <div className="mb-2 flex items-center justify-between gap-3 rounded-xl border border-dashed border-border bg-secondary/30 px-3 py-2 text-sm">
+                    <span className="font-bold text-muted-foreground">
+                      رصيد سابق قبل {epoch}
+                      <span className="mr-2 text-xs font-normal">— تفصيله في البوت: «الحساب السابق»</span>
+                    </span>
+                    <span className="font-black tabular-nums">{formatIqdLabel(opening[p.id] ?? 0)}</span>
+                  </div>
+                )}
 
                 {busy && <p className="py-4 text-center text-sm text-muted-foreground">جارٍ التحميل…</p>}
                 {!busy && rows.length === 0 && (

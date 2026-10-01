@@ -647,6 +647,11 @@ export type Database = {
       save_daily_count: { Args: { p_day: string; p_counted: number; p_deposited: number; p_note: string | null; p_snapshot: Json; p_close?: boolean }; Returns: undefined };
       // 0116 — مضافة يدوياً إلى الملف المولَّد حتى يُعاد توليده
       sales_epoch: { Args: Record<string, never>; Returns: string };
+      // 0117 — كذلك
+      partner_opening: {
+        Args: { p_before: string };
+        Returns: { partner_id: string; name_ar: string; billed: number; settled: number; orders_count: number; opening: number }[];
+      };
       stock_value: { Args: Record<string, never>; Returns: number };
       // الحضور والورديات (0062)
       attendance_open: { Args: { p_employee: string; p_shift: string | null }; Returns: undefined };

@@ -940,8 +940,45 @@ async function viewPartners() {
   return lines.join("\n");
 }
 
+/**
+ * «الحساب السابق» — حركة كل شركة قبل بداية المبيعات (0116)، كلٌّ على حدة.
+ *
+ * ⚠ وهذا عرضٌ لا تصفير: الرصيد المستحق في «حسابات شركات التوصيل» يبقى كاملاً
+ * شاملاً هذا السابق. فوترةٌ ناقص تسديد حسابٌ جارٍ، وقصّه يقلبه سالباً ويقول
+ * «دفعت زيادة» عن شركةٍ تدين لنا.
+ */
+async function viewPartnersLegacy() {
+  const epoch = await salesEpoch();
+  if (epoch === EPOCH_FLOOR) return "🗄️ لم تُضبط بداية جديدة للمبيعات بعد.";
+
+  const rows = (await rpc("partner_opening", { p_before: epoch })) as Row[];
+  const live = (await partnerBalances()) as Row[];
+  const balOf = new Map(live.map((p) => [String(p.id), +p.balance]));
+
+  const act = rows.filter((r) => +r.billed > 0 || +r.settled > 0);
+  if (!act.length) return `🗄️ لا حركة لأي شركة قبل ${epoch}.`;
+
+  const lines = ["🗄️ <b>حسابات شركات التوصيل — السابق</b>", `<i>كل ما قبل ${epoch}</i>`, ""];
+  let sum = 0;
+  for (const r of act) {
+    const open = +r.opening;
+    sum += open;
+    lines.push(
+      `<b>${esc(r.name_ar)}</b>`,
+      `   مبيعات سابقة: ${fmt(r.billed)} · مسدّد: ${fmt(r.settled)} · ${r.orders_count} طلب`,
+      `   🔸 متبقٍّ من السابق: <b>${fmt(open)} د.ع</b>`,
+      `   📌 رصيدها الكلّي الآن: <b>${fmt(balOf.get(String(r.partner_id)) ?? open)} د.ع</b>`,
+      "",
+    );
+  }
+  lines.push("━━━━━━━━━━━━", `🔸 <b>مجموع المتبقّي من السابق: ${fmt(sum)} د.ع</b>`, "",
+    "<i>هذه الأرقام داخلة في الرصيد المستحق ولم تُطرح منه.</i>");
+  return lines.join("\n").slice(0, 4000);
+}
+
 function kbPartners(rows: Row[]) {
   const kb: unknown[][] = rows.map((p) => [{ text: `📄 ${p.name_ar}`, callback_data: `prtl|${p.id}` }]);
+  kb.push([{ text: "🗄️ الحساب السابق", callback_data: "prtp" }]);
   kb.push([{ text: "➕ إضافة شركة", callback_data: "prta" }, { text: "🔄 تحديث", callback_data: "prt" }]);
   kb.push(BACK);
   return kb;
@@ -1397,6 +1434,9 @@ async function onCallback(cb: Row) {
   if (cmd === "short") return say(chatId, await viewShortages(), [[{ text: "🛒 قائمة المشتريات", callback_data: "po" }], BACK], mid);
   if (cmd === "po") return say(chatId, await viewPurchaseList(), [[{ text: "🔄 تحديث", callback_data: "po" }], BACK], mid);
   if (cmd === "prt") return say(chatId, await viewPartners(), kbPartners((await partnerBalances()) as Row[]), mid);
+  if (cmd === "prtp") {
+    return say(chatId, await viewPartnersLegacy(), [[{ text: "⬅️ الشركات", callback_data: "prt" }], BACK], mid);
+  }
   if (cmd === "prtl") {
     const [p] = (await rest(`delivery_partners?id=eq.${a}&select=is_active`)) as Row[];
     return say(chatId, await viewPartnerLedger(a), kbLedger(a, !!p?.is_active), mid);

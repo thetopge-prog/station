@@ -1,5 +1,5 @@
 import { requireAdmin } from "@/lib/cafe/auth";
-import { listPartnerBalances, type PartnerBalance } from "@/lib/cafe/partner-actions";
+import { listPartnerBalances, listPartnerOpenings, type PartnerBalance } from "@/lib/cafe/partner-actions";
 import { listMenuAdmin, type AdminCategory } from "@/lib/cafe/menu-admin-actions";
 import { isDemoServer } from "@/lib/cafe/demo";
 import { PartnersClient } from "@/components/cafe/PartnersClient";
@@ -12,10 +12,18 @@ export default async function PartnersPage() {
   if (!isDemoServer()) await requireAdmin();
   let partners: PartnerBalance[] = [];
   let menu: AdminCategory[] = [];
+  let epoch = "";
+  let opening: Record<string, number> = {};
   try {
-    if (!isDemoServer()) [partners, menu] = await Promise.all([listPartnerBalances(), listMenuAdmin()]);
+    if (!isDemoServer()) {
+      const [b, m, o] = await Promise.all([listPartnerBalances(), listMenuAdmin(), listPartnerOpenings()]);
+      partners = b;
+      menu = m;
+      epoch = o.epoch;
+      opening = o.opening;
+    }
   } catch {
     // not an admin, or signed out — empty state rather than a stack trace
   }
-  return <PartnersClient partners={partners} menu={menu} />;
+  return <PartnersClient partners={partners} menu={menu} epoch={epoch} opening={opening} />;
 }

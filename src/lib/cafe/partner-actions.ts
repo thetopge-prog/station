@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
+import { getSalesEpoch } from "./sales-epoch";
 import { requireAdmin, requireStaff } from "./auth";
 
 /**
@@ -63,6 +64,25 @@ export async function listPartnerBalances(): Promise<PartnerBalance[]> {
   const svc = createSupabaseServiceClient();
   const { data } = await svc.from("partner_balances").select("*");
   return (data ?? []).sort((a, b) => b.balance - a.balance || a.name_ar.localeCompare(b.name_ar, "ar"));
+}
+
+/**
+ * «الرصيد السابق» لكل شركة — متبقّي ما قبل بداية المبيعات (0116/0117).
+ *
+ * طلبت الإدارة إخفاء الحركة القديمة من الشاشة. وإخفاؤها بلا هذا الرقم يجعل
+ * الكشف لا يُجمع: بنودُ فترةٍ قصيرة تحت رصيدٍ يساوي ملايين. فيُعرض سطراً
+ * واحداً، وتبقى المعادلة مغلقة: سابق + فوترة الفترة − تسديدها = الرصيد.
+ */
+export async function listPartnerOpenings(): Promise<{ epoch: string; opening: Record<string, number> }> {
+  await requireAdmin();
+  const epoch = await getSalesEpoch();
+  const svc = createSupabaseServiceClient();
+  const { data } = await svc.rpc("partner_opening", { p_before: epoch });
+  const opening: Record<string, number> = {};
+  for (const r of (data ?? []) as { partner_id: string; opening: number }[]) {
+    opening[r.partner_id] = Number(r.opening) || 0;
+  }
+  return { epoch, opening };
 }
 
 export async function savePartner(input: {

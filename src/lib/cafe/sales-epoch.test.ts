@@ -76,6 +76,17 @@ describe("حسابات الناس لا تُصفَّر", () => {
     expect(mig).not.toContain("debtor_balances");
     expect(mig).not.toContain("partner_balances");
   });
+
+  /*
+   * و«الحساب السابق» (0117) يُضيف دالّة قراءة ولا يُعيد تعريف العرض.
+   * قياسٌ على بيانات حقيقية: توترز تدين لنا بـ٧,٠٠٧,٥٠٠ منها ٦,٩٠٧,٥٠٠ قبل
+   * البداية — فقصّ الفوترة وحدها كان يُخفي ستّة ملايين ونصفاً من ذمّةٍ لنا.
+   */
+  it("و«الحساب السابق» يقرأ ولا يُعيد تعريف الرصيد", () => {
+    const m117 = read("../../../supabase/migrations/0117_partner_opening.sql");
+    expect(m117).toContain("function public.partner_opening");
+    expect(m117).not.toMatch(/view\s+public\.partner_balances/);
+  });
 });
 
 describe("ما يراه الكاشير", () => {
