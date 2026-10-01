@@ -645,6 +645,8 @@ export type Database = {
       customer_for_order: { Args: { p_phone: string; p_name: string | null }; Returns: string | null };
       // الجرد اليومي (0056)
       save_daily_count: { Args: { p_day: string; p_counted: number; p_deposited: number; p_note: string | null; p_snapshot: Json; p_close?: boolean }; Returns: undefined };
+      // 0116 — مضافة يدوياً إلى الملف المولَّد حتى يُعاد توليده
+      sales_epoch: { Args: Record<string, never>; Returns: string };
       stock_value: { Args: Record<string, never>; Returns: number };
       // الحضور والورديات (0062)
       attendance_open: { Args: { p_employee: string; p_shift: string | null }; Returns: undefined };

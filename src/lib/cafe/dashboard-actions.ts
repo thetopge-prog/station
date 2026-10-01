@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { requireAdmin } from "./auth";
 import { businessDay } from "./time";
+import { clampFrom, getSalesEpoch, isBeforeEpoch } from "./sales-epoch";
 
 export type DaySummary = {
   day: string;
@@ -19,7 +20,8 @@ export type DaySummary = {
 export async function getRangeSummary(from: string, to: string): Promise<DaySummary[]> {
   await requireAdmin();
   const svc = createSupabaseServiceClient();
-  const { data, error } = await svc.rpc("range_summary", { p_from: from, p_to: to });
+  const p_from = clampFrom(from, await getSalesEpoch());
+  const { data, error } = await svc.rpc("range_summary", { p_from, p_to: to });
   if (error) throw new Error(error.message);
   return (data ?? []) as DaySummary[];
 }
@@ -40,11 +42,13 @@ export async function getCancellationsToday(day: string): Promise<{ count: numbe
 export async function getDaySummary(day: string): Promise<DaySummary> {
   await requireAdmin();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new Error("تاريخ غير صالح");
+  const empty: DaySummary = { day, sales: 0, orders_count: 0, profit: 0, expenses: 0, net: 0 };
+  if (isBeforeEpoch(day, await getSalesEpoch())) return empty;
   const svc = createSupabaseServiceClient();
   const { data, error } = await svc.rpc("range_summary", { p_from: day, p_to: day });
   if (error) throw new Error(error.message);
   const row = (data ?? [])[0] as DaySummary | undefined;
-  return row ?? { day, sales: 0, orders_count: 0, profit: 0, expenses: 0, net: 0 };
+  return row ?? empty;
 }
 
 // Baghdad is UTC+3 year-round (Iraq has no DST).
@@ -135,6 +139,8 @@ export async function getRecentOrders(limit = 15): Promise<RecentOrder[]> {
   const { data: orders } = await svc
     .from("orders")
     .select("id, order_seq, channel, status, subtotal, table_no, created_at")
+    // بلا هذا الشرط تطفو طلبات ما قبل البداية كلّما هدأ المحل
+    .gte("business_day", await getSalesEpoch())
     .order("created_at", { ascending: false })
     .limit(limit);
   if (!orders?.length) return [];
@@ -188,6 +194,8 @@ const STARTUP_LIMIT = 200;
 export async function getStartupShift(from: string, to: string): Promise<StartupShift> {
   await requireAdmin();
   const empty: StartupShift = { orders: [], count: 0, sales: 0, discounts: 0, capped: false };
+  from = clampFrom(from, await getSalesEpoch());
+  if (from > to) return empty;
   const svc = createSupabaseServiceClient();
 
   // حسابات الإدارة: بالعمود القديم وبجدول الصلاحيات معاً — كما تفعل is_admin()

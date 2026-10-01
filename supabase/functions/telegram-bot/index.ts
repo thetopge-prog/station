@@ -108,8 +108,40 @@ async function restWrite(path: string, method: string, body?: unknown) {
   });
   if (!r.ok) throw new Error(`${method} ${r.status}: ${(await r.text()).slice(0, 160)}`);
 }
-const summary = (from: string, to: string) =>
-  fetch(`${URL_}/rest/v1/rpc/range_summary`, { method: "POST", headers: H, body: JSON.stringify({ p_from: from, p_to: to }) }).then((r) => r.json());
+/**
+ * «بداية المبيعات» (الترحيل 0116) — من أي يوم تُحسب الأرقام المعروضة.
+ *
+ * تُقرأ مرة لكل تحديث وارد، على نمط ownerCache. وإن تعذّرت القراءة يُعرض كل
+ * شيء: رقمٌ زائد يُرى ويُصحَّح، ورقمٌ ناقص يُصدَّق.
+ */
+const EPOCH_FLOOR = "1900-01-01";
+let epochCache: string | null = null;
+async function salesEpoch(): Promise<string> {
+  if (epochCache) return epochCache;
+  try {
+    const r = await fetch(`${URL_}/rest/v1/rpc/sales_epoch`, { method: "POST", headers: H, body: "{}" });
+    if (!r.ok) return EPOCH_FLOOR;
+    const d = await r.json();
+    epochCache = typeof d === "string" ? d : EPOCH_FLOOR;
+  } catch {
+    return EPOCH_FLOOR;
+  }
+  return epochCache;
+}
+
+/**
+ * مجاميع المال المعروضة — وهذه وحدها تُقصّ.
+ *
+ * ⚠ والتوقّع ينادي range_summary مباشرةً (في prepPlanText و planResultText)
+ * لا من هنا، وهذا مقصود: الخطط تقرأ التاريخ كاملاً. من يوحّد النداءين يُسقط
+ * الخطط بلا أن يظهر خطأ — ويحرس ذلك اختبارٌ في sales-epoch.test.ts.
+ */
+const summary = async (from: string, to: string) => {
+  const epoch = await salesEpoch();
+  const p_from = from > epoch ? from : epoch;
+  if (p_from > to) return [];
+  return fetch(`${URL_}/rest/v1/rpc/range_summary`, { method: "POST", headers: H, body: JSON.stringify({ p_from, p_to: to }) }).then((r) => r.json());
+};
 
 async function countOrdersToday() {
   const r = await fetch(`${URL_}/rest/v1/orders?business_day=eq.${baghdadDay()}&select=id`, {
@@ -183,6 +215,7 @@ function mainMenu() {
   return [
     [{ text: "📊 اليوم", callback_data: "rpt|0" }, { text: "📅 الأسبوع", callback_data: "rpt|6" }, { text: "🗓️ الشهر", callback_data: "rpt|29" }],
     [{ text: "📆 مبيعات أمس", callback_data: "day|1" }, { text: "🔎 مبيعات بتاريخ", callback_data: "search" }],
+    [{ text: "🗄️ المبيعات السابقة", callback_data: "legacy" }],
     [{ text: "🧾 الطلبات الآن", callback_data: "now" }, { text: "🍽️ الطاولات", callback_data: "tables" }],
     [{ text: "🔥 الأكثر والأقل مبيعاً", callback_data: "top" }, { text: "📃 مبيعات كل منتج", callback_data: "counts" }],
     [{ text: "📋 المنتجات المتاحة", callback_data: "avail" }, { text: "⚙️ إدارة المنتجات", callback_data: "pcats" }],
@@ -320,6 +353,9 @@ async function viewReport(days: number) {
 /** Full totals for one business day — for reconciling the drawer with a day that
  *  has already rolled over past midnight (business_day is a Baghdad calendar day). */
 async function viewDaySummary(day: string) {
+  if (day < (await salesEpoch())) {
+    return `📆 <b>${day}</b> قبل بداية المبيعات الحالية.\n\nأرقامه محفوظة — افتحها من زرّ «🗄️ المبيعات السابقة».`;
+  }
   const t = sumRows(await summary(day, day));
   const suffix = day === baghdadDay(-1) ? " (أمس)" : day === baghdadDay() ? " (اليوم)" : "";
   return [
@@ -330,6 +366,50 @@ async function viewDaySummary(day: string) {
     `📉 المصروفات: <b>${fmt(t.e)} د.ع</b>`,
     `✅ الصافي: <b>${fmt(t.n)} د.ع</b>`,
   ].join("\n");
+}
+
+/**
+ * «المبيعات السابقة» — كل ما قبل بداية المبيعات (الترحيل 0116).
+ *
+ * التصفير عرضٌ لا حذف: الطلبات القديمة في مكانها كاملةً، وهذا الزرّ هو بابها.
+ * ولا يمرّ من summary() لأن تلك مقصوصة عند البداية — وهذه تقرأ ما قبلها.
+ */
+async function viewLegacySales() {
+  const epoch = await salesEpoch();
+  if (epoch === EPOCH_FLOOR) return "🗄️ لم تُضبط بداية جديدة للمبيعات بعد — كل الأرقام ظاهرة في التقارير العادية.";
+
+  const end = shiftDay(epoch, -1);
+  const first = (await rest("orders?status=eq.paid&select=business_day&order=business_day.asc&limit=1")) as Row[];
+  if (!first.length || first[0].business_day > end) return `🗄️ لا توجد مبيعات قبل ${epoch}.`;
+  const start = first[0].business_day as string;
+
+  const rows = (await rpc("range_summary", { p_from: start, p_to: end })) as Row[];
+  const t = sumRows(rows);
+
+  // تفصيل شهري: الفترة قد تمتدّ شهوراً، وسطرٌ واحد لا يُقرأ منه اتجاه
+  const months = new Map<string, { s: number; c: number }>();
+  for (const d of Array.isArray(rows) ? rows : []) {
+    const m = String(d.day).slice(0, 7);
+    const a = months.get(m) ?? { s: 0, c: 0 };
+    a.s += +d.sales; a.c += +d.orders_count;
+    months.set(m, a);
+  }
+
+  const lines = [
+    "🗄️ <b>المبيعات السابقة</b>",
+    `<i>من ${start} إلى ${end}</i>`, "",
+    `🧾 الطلبات: <b>${t.c}</b>`,
+    `💰 المبيعات: <b>${fmt(t.s)} د.ع</b>`,
+    `📈 الأرباح: <b>${fmt(t.p)} د.ع</b>`,
+    `📉 المصروفات: <b>${fmt(t.e)} د.ع</b>`,
+    `✅ الصافي: <b>${fmt(t.n)} د.ع</b>`,
+  ];
+  if (months.size > 1) {
+    lines.push("", "<b>شهرياً</b>");
+    for (const [m, a] of [...months].sort()) lines.push(`• ${m} — <b>${fmt(a.s)}</b> د.ع (${a.c} طلب)`);
+  }
+  lines.push("", `<i>البداية الجديدة: ${epoch} — هذه الأرقام محفوظة ولم تُحذف.</i>`);
+  return lines.join("\n").slice(0, 4000);
 }
 
 async function viewNow() {
@@ -774,7 +854,7 @@ async function viewDrawer() {
 /** آخر ١٠ عمليات بيع — newest orders, whatever their payment state. */
 async function viewLastSales() {
   const rows = await rest(
-    "orders?select=order_seq,channel,table_no,subtotal,discount,extra,status,created_at,pickup_code&order=created_at.desc&limit=10",
+    `orders?select=order_seq,channel,table_no,subtotal,discount,extra,status,created_at,pickup_code&business_day=gte.${await salesEpoch()}&order=created_at.desc&limit=10`,
   );
   if (!rows.length) return "🧾 لا توجد مبيعات بعد.";
   const st: Record<string, string> = { pending: "⏳", paid: "✅", cancelled: "❌", refunded: "↩️" };
@@ -792,7 +872,7 @@ async function viewLastSales() {
 /** آخر ١٠ عمليات دفع — only what was actually collected, and how. */
 async function viewLastPayments() {
   const rows = await rest(
-    "orders?select=order_seq,subtotal,discount,extra,payment_method,paid_at,cashier_id&status=eq.paid&paid_at=not.is.null&order=paid_at.desc&limit=10",
+    `orders?select=order_seq,subtotal,discount,extra,payment_method,paid_at,cashier_id&status=eq.paid&paid_at=not.is.null&business_day=gte.${await salesEpoch()}&order=paid_at.desc&limit=10`,
   );
   if (!rows.length) return "💳 لا توجد مدفوعات بعد.";
 
@@ -1297,6 +1377,7 @@ async function onCallback(cb: Row) {
     const v = await viewOwners();
     return say(chatId, `حُذف <code>${esc(a)}</code> ✅\n\n${v.text}`, v.kb, mid);
   }
+  if (cmd === "legacy") return say(chatId, await viewLegacySales(), [[{ text: "🔄 تحديث", callback_data: "legacy" }], BACK], mid);
   if (cmd === "now") return say(chatId, await viewNow(), [[{ text: "🔄 تحديث", callback_data: "now" }], BACK], mid);
   if (cmd === "tables") return say(chatId, await viewTables(), [[{ text: "🔄 تحديث", callback_data: "tables" }], BACK], mid);
   if (cmd === "final") return say(chatId, await viewDailyFinal(), [[{ text: "🔄 تحديث", callback_data: "final" }], BACK], mid);
