@@ -148,6 +148,9 @@ export function HistoryClient({
         <input
           type="date"
           value={day}
+          // الكاشير على يومه: الخادم يرفض ما قبله، والحقل يمنع اختياره أصلاً
+          // فلا يرى قائمةً فارغة ويظنّ أن طلبات اليوم ضاعت.
+          min={isAdmin ? undefined : initialDay}
           max={new Date().toISOString().slice(0, 10)}
           onChange={(e) => setDay(e.target.value)}
           dir="ltr"

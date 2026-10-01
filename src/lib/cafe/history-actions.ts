@@ -2,13 +2,17 @@
 
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { requireRole } from "./auth";
+import { businessDay } from "./time";
 
 /**
  * سجلّ الطلبات للكاشير — يوم واحد، بحث نصّي، بلا كلفة ولا ربح.
  *
- * الكاشير يحتاج أن يجد طلباً بعد دقائق أو بعد أيام: زبون يعود بكيس ناقص، أو
- * يسأل «كم دفعت أمس». كان ذلك للإدارة وحدها في لوحة التحكم. هنا الأعمدة التي
- * تهمّ الكاونتر فقط — الكلفة والربح لا يمرّان من هذا الفعل إطلاقاً.
+ * الكاشير يحتاج أن يجد طلباً بعد دقائق: زبون يعود بكيس ناقص، أو يسأل عن
+ * حسابه. والأعمدة هنا ما يهمّ الكاونتر وحده — الكلفة والربح لا يمرّان من هذا
+ * الفعل إطلاقاً.
+ *
+ * ويومه وحده يُفتح له (طلب الإدارة): سؤال عن يومٍ مضى شأن إداري، والإدارة
+ * ترى الأيام كلّها من هنا ومن البوت.
  */
 
 export type HistoryLine = { name_ar: string; flavor_ar: string | null; qty: number; line_total: number };
@@ -39,8 +43,11 @@ export type HistoryOrder = {
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function listOrdersByDay(day: string, q?: string | null): Promise<HistoryOrder[]> {
-  await requireRole("cashier");
+  const staff = await requireRole("cashier");
   if (!DAY.test(day)) return [];
+  // الكاشير يرى يومه وحده (طلب الإدارة): سجلّ البارحة شأن إداري، والكاشير
+  // يحتاج طلبات اليوم ليخدم من يقف أمامه. والإدارة ترى الأيام كلّها.
+  if (!staff.isAdmin && day !== businessDay()) return [];
   const svc = createSupabaseServiceClient();
 
   const { data: orders } = await svc

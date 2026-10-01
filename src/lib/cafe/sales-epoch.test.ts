@@ -77,3 +77,14 @@ describe("حسابات الناس لا تُصفَّر", () => {
     expect(mig).not.toContain("partner_balances");
   });
 });
+
+describe("ما يراه الكاشير", () => {
+  /*
+   * سجلّ الكاشير على يومه وحده (طلب الإدارة). والحارس هنا لأن الشرط سطرٌ
+   * واحد يسهل أن يُزال وهو يُصلح «عطلاً» ظاهره أن اليوم القديم لا يفتح.
+   */
+  it("سجلّ الطلبات يرفض يوماً غير اليوم لغير الإدارة", () => {
+    const src = read("./history-actions.ts");
+    expect(src).toContain("!staff.isAdmin && day !== businessDay()");
+  });
+});
