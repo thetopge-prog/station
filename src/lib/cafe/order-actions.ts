@@ -2,6 +2,7 @@
 
 import { isShopOpen } from "./shop-open";
 import { isDemoServer } from "./demo";
+import { rememberCustomer } from "./remember-me";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { sendNewOrderPush } from "./push";
 import { hubEnabled, noteCloudSeq } from "@/lib/hub/store";
@@ -157,6 +158,13 @@ export async function submitOrder(input: SubmitOrderInput): Promise<SubmitOrderR
     seq: placed.order_seq,
     table: input.table?.trim() || null,
     count: input.lines.reduce((s, l) => s + l.qty, 0),
+  });
+  // الجهاز يتذكّر صاحبه: المرّة القادمة تُملأ الحقول وحدها بلا بحثٍ برقم
+  // هاتف — ولا يوجد في النظام مسارٌ يُدخَل فيه رقم فيخرج منه عنوان.
+  await rememberCustomer({
+    name: input.name ?? undefined,
+    phone: input.phone ?? undefined,
+    address: input.address ?? undefined,
   });
   return {
     ok: true,

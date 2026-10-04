@@ -1,4 +1,5 @@
-import { Activity, Armchair, Bike, Boxes, CalendarClock, Calculator, ChefHat, ClipboardCheck, ClipboardList, CreditCard, HandCoins, HelpCircle, LayoutDashboard, MonitorPlay, PackageCheck, Percent, Printer, QrCode, ScanLine, Sparkles, Truck, UtensilsCrossed, Users, Wallet, Wrench, type LucideIcon, History, Star, Sparkle, GraduationCap } from "lucide-react";
+import {
+  Gift, Activity, Armchair, Bike, Boxes, CalendarClock, Calculator, ChefHat, ClipboardCheck, ClipboardList, CreditCard, HandCoins, HelpCircle, LayoutDashboard, MonitorPlay, PackageCheck, Percent, Printer, QrCode, ScanLine, Sparkles, Truck, UtensilsCrossed, Users, Wallet, Wrench, type LucideIcon, History, Star, Sparkle, GraduationCap } from "lucide-react";
 import { canAccess, type StaffRole } from "./roles";
 
 /**
@@ -41,6 +42,7 @@ export const NAV: NavItem[] = [
   { href: "/debts", label: "سجل الديون", short: "الديون", allow: ["cashier"], group: "البيع", icon: HandCoins },
   // للكاشير لا للإدارة: من يقف عند الكاونتر هو من يرسلها بين طلبٍ وطلب،
   // ولا مال على الصفحة — أسماءٌ وأرقامٌ ونصٌّ جاهز
+  { href: "/coupons", label: "الخصومات والكوبونات", short: "الكوبونات", allow: ["cashier"], group: "البيع", icon: Gift },
   { href: "/reviews", label: "رسائل التقييم", short: "التقييم", allow: ["cashier"], group: "البيع", icon: Star },
 
   { href: "/expediter", label: "التجهيز", short: "التجهيز", allow: ["expediter", "cashier"], group: "المطبخ", icon: PackageCheck },

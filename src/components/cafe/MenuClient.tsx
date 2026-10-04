@@ -105,6 +105,8 @@ export function MenuClient({
   offers = {},
   initialMode = null,
   initialPhone = null,
+  initialName = null,
+  initialAddress = null,
   studentId = null,
   layout = "rows",
 }: {
@@ -118,6 +120,9 @@ export function MenuClient({
   initialMode?: FulfilmentMode | null;
   /** من رابط بوت واتساب: رقم الزبون مملوء سلفاً */
   initialPhone?: string | null;
+  /** ما حفظه جهازه بعد طلبه السابق (0120) — لا بحثٌ برقم هاتف */
+  initialName?: string | null;
+  initialAddress?: string | null;
   /**
    * معرّف الطالب المقبول — من صفحة الطالب وحدها.
    *
@@ -181,9 +186,9 @@ export function MenuClient({
   const [mode, setMode] = useState<FulfilmentMode | null>(
     scanned ? "dinein" : initialMode,
   );
-  const [name, setName] = useState("");
+  const [name, setName] = useState(initialName ?? "");
   const [phone, setPhone] = useState(initialPhone ?? "");
-  const [address, setAddress] = useState("");
+  const [address, setAddress] = useState(initialAddress ?? "");
   const [carNote, setCarNote] = useState("");
   const [guests, setGuests] = useState(2);
   const [note, setNote] = useState("");

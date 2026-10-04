@@ -225,6 +225,33 @@ export type Database = {
         Update: Partial<{ reset_at: string; by_employee: string | null }>;
         Relationships: [];
       };
+      // 0120 — مضافة يدوياً إلى الملف المولَّد حتى يُعاد توليده
+      coupons: {
+        Row: Timestamped & {
+          code: string; kind: string; value: number; item_id: string | null; customer_id: string | null;
+          phone: string | null; max_uses: number; used_count: number; min_order: number | null;
+          expires_on: string | null; note: string | null; created_by: string | null; is_active: boolean;
+        };
+        Insert: {
+          id?: string; code: string; kind: string; value: number; item_id?: string | null;
+          customer_id?: string | null; phone?: string | null; max_uses?: number; used_count?: number;
+          min_order?: number | null; expires_on?: string | null; note?: string | null;
+          created_by?: string | null; is_active?: boolean; created_at?: string;
+        };
+        Update: Partial<{ is_active: boolean; note: string | null; max_uses: number; expires_on: string | null }>;
+        Relationships: [];
+      };
+      coupon_redemptions: {
+        Row: Timestamped & {
+          coupon_id: string; order_id: string | null; amount: number; business_day: string; by_employee: string | null;
+        };
+        Insert: {
+          id?: string; coupon_id: string; order_id?: string | null; amount: number;
+          business_day?: string; by_employee?: string | null; created_at?: string;
+        };
+        Update: Partial<{ order_id: string | null }>;
+        Relationships: [];
+      };
       item_offers: {
         Row: Timestamped & { item_id: string; offer_price: number; business_day: string; note: string | null };
         Insert: { id?: string; item_id: string; offer_price: number; business_day?: string; note?: string | null; created_at?: string };
@@ -647,6 +674,13 @@ export type Database = {
       save_daily_count: { Args: { p_day: string; p_counted: number; p_deposited: number; p_note: string | null; p_snapshot: Json; p_close?: boolean }; Returns: undefined };
       // 0116 — مضافة يدوياً إلى الملف المولَّد حتى يُعاد توليده
       sales_epoch: { Args: Record<string, never>; Returns: string };
+      // 0120 — كذلك
+      gen_coupon_code: { Args: Record<string, never>; Returns: string };
+      coupon_check: { Args: { p_code: string; p_subtotal: number; p_phone?: string | null }; Returns: Json };
+      redeem_coupon: {
+        Args: { p_code: string; p_subtotal: number; p_order?: string | null; p_phone?: string | null };
+        Returns: Json;
+      };
       // 0117 — كذلك
       partner_opening: {
         Args: { p_before: string };

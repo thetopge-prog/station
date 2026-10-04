@@ -19,6 +19,9 @@ import { cashierCheckout, type PayMethod } from "@/lib/cafe/cashier-actions";
 import type { Partner } from "@/lib/cafe/partner-actions";
 import { buildOrderJobs, buildReceiptJob } from "@/lib/cafe/printer-actions";
 import { PagerQrPanel } from "./PagerQrPanel";
+import { CouponPanel } from "./CouponPanel";
+import { redeemCoupon } from "@/lib/cafe/coupon-actions";
+import { normaliseCode } from "@/lib/cafe/coupon";
 import {
   printJobs,
   kickDrawer as kickDrawerAgent,
@@ -143,6 +146,11 @@ export function CashierClient({
   const [discountPct, setDiscountPct] = useState(0);
   const [discountMode, setDiscountMode] = useState<"iqd" | "pct">("iqd");
   const [customer, setCustomer] = useState<Card | null>(null);
+  // رمز الكوبون: يُستبدل فيزيد على خانة الخصم بالدينار — نفس مسار استبدال
+  // النقاط بالضبط، فلا يتغيّر place_order ولا الإيصال.
+  const [couponCode, setCouponCode] = useState("");
+  const [couponMsg, setCouponMsg] = useState<string | null>(null);
+  const [couponBusy, setCouponBusy] = useState(false);
   const [loyaltyMsg, setLoyaltyMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -430,6 +438,26 @@ export function CashierClient({
     setCustPhone((p) => p || phone);
     if (cust.name_ar) setCustName((n) => n || cust.name_ar!);
     if (cust.address) setCustAddress((a) => a || cust.address!);
+  }
+
+  async function applyCoupon() {
+    const code = normaliseCode(couponCode);
+    if (!code || couponBusy) return;
+    setCouponBusy(true);
+    setCouponMsg(null);
+    const res = await redeemCoupon(code, total, custPhone || null);
+    setCouponBusy(false);
+    if (!res.ok) {
+      setCouponMsg(res.error);
+      return;
+    }
+    // ponytail: يُعدّ الاستخدام لحظة التطبيق لا لحظة الدفع — بيعةٌ أُلغيت
+    // تترك استخداماً محروقاً. نفس سقف استبدال النقاط أعلاه، ومقبول.
+    setDiscountMode("iqd");
+    setDiscountPct(0);
+    setDiscountIqd((d) => d + res.discount);
+    setCouponCode("");
+    setCouponMsg(`تم — خصم ${formatIqdLabel(res.discount)}`);
   }
 
   async function redeem() {
@@ -1081,6 +1109,29 @@ export function CashierClient({
               </span>
             </div>
           )}
+          {/* رمز الكوبون — يُستبدل فيزيد على الخصم بالدينار. والرمز ستّة
+              أحرف تُقال بالهاتف، والقاعدة هي التي تَعدّ الاستخدامات. */}
+          <div className="flex items-center gap-2">
+            <input
+              value={couponCode}
+              onChange={(e) => setCouponCode(normaliseCode(e.target.value))}
+              onKeyDown={(e) => { if (e.key === "Enter") void applyCoupon(); }}
+              placeholder="رمز خصم"
+              dir="ltr"
+              className="min-h-11 w-full rounded-lg border border-input bg-background px-3 text-center text-sm font-black tracking-widest outline-none focus:ring-2 focus:ring-ring"
+            />
+            <button
+              onClick={() => void applyCoupon()}
+              disabled={couponBusy || !couponCode}
+              className="min-h-11 shrink-0 rounded-lg border-2 border-primary px-3 text-sm font-black text-primary disabled:opacity-40"
+            >
+              {couponBusy ? "…" : "طبّق"}
+            </button>
+          </div>
+          {couponMsg && (
+            <p className="text-xs font-black text-muted-foreground">{couponMsg}</p>
+          )}
+
           <div className="flex items-center justify-between border-t border-border pt-2 text-base font-bold">
             <span>الإجمالي</span>
             <span>{formatIqdLabel(total)}</span>
@@ -1395,6 +1446,11 @@ export function CashierClient({
               {receipt?.orderId && (
                 <div className="col-span-2">
                   <PagerQrPanel orderId={receipt.orderId} orderNumber={receipt.orderNumber} />
+                </div>
+              )}
+              {receipt && (
+                <div className="col-span-2">
+                  <CouponPanel phone={receipt.customerPhone ?? null} name={receipt.customerName ?? null} />
                 </div>
               )}
             </div>

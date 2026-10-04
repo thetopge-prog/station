@@ -5,6 +5,7 @@ import { InstallPrompt } from "@/components/cafe/InstallPrompt";
 import { toFulfilmentMode } from "@/lib/cafe/fulfilment";
 import type { Metadata } from "next";
 import { BRAND } from "@/lib/brand";
+import { recallCustomer } from "@/lib/cafe/remember-me";
 import { isShopOpen } from "@/lib/cafe/shop-open";
 import { ShopClosed } from "@/components/cafe/ShopClosed";
 
@@ -35,10 +36,12 @@ export const metadata: Metadata = {
 export default async function MenuPage({ searchParams }: { searchParams: Promise<{ t?: string; mode?: string; phone?: string }> }) {
   const sp = await searchParams;
   if (!(await isShopOpen())) return <ShopClosed />;
+  // ما حفظه جهازه بعد طلبه السابق — يُملأ قبل أن يكتب شيئاً
+  const me = await recallCustomer();
   const [menu, offers] = await Promise.all([getPublicMenu(), getActiveItemOffers().catch(() => ({}))]);
   return (
     <>
-      <MenuClient menu={menu} table={sp.t ?? null} channel="qr" offers={offers} initialMode={toFulfilmentMode(sp.mode)} initialPhone={sp.phone ?? null} layout="tiles" />
+      <MenuClient menu={menu} table={sp.t ?? null} channel="qr" offers={offers} initialMode={toFulfilmentMode(sp.mode)} initialPhone={sp.phone ?? me.phone ?? null} initialName={me.name ?? null} initialAddress={me.address ?? null} layout="tiles" />
       {/* رابط المنيو يصل في واتساب فيُفتح ويُنسى. اللافتة تعرض التثبيت مرّةً
           واحدة بعد أن يكون الزبون قد تصفّح — ولا تظهر لمن ثبّته أو أغلقها. */}
       <InstallPrompt />
