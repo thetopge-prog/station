@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   CODE_ALPHABET,
@@ -141,5 +142,26 @@ describe("النصّ", () => {
   it("ولا حرف «گ» في شيءٍ يخرج من هنا", () => {
     expect(msg).not.toContain("گ");
     expect(couponLabel({ kind: "percent", value: 20 })).not.toContain("گ");
+  });
+});
+
+describe("البوّابة", () => {
+  const proxy = readFileSync(new URL("../../proxy.ts", import.meta.url), "utf8");
+
+  /** صفحة الكوبون للزبون — بلا هذا رأى شاشة دخول الموظفين (نفس فخّ البيجر) */
+  it("‏/coupon مفتوح للزبون", () => {
+    expect(proxy).toContain('"/coupon"');
+  });
+
+  /*
+   * وشاشة الموظفين تبقى مقفلة. والمطابقة تشترط `/` بعد السابقة، فـ«/coupons»
+   * لا يفتحها «/coupon» — واختبارٌ هنا لأن تغييراً في تلك المطابقة يفتح
+   * قائمة كوبونات الزبائن للعالم بلا أن يرفع أحدٌ خطأً.
+   */
+  it("و‏/coupons للموظفين يبقى مقفلاً", () => {
+    const isPublic = (p: string) =>
+      ["/coupon"].some((x) => p === x || p.startsWith(`${x}/`));
+    expect(isPublic("/coupon/ABC234")).toBe(true);
+    expect(isPublic("/coupons")).toBe(false);
   });
 });
