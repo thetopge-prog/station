@@ -21,6 +21,7 @@ import { buildOrderJobs, buildReceiptJob } from "@/lib/cafe/printer-actions";
 import { PagerQrPanel } from "./PagerQrPanel";
 import { CouponPanel } from "./CouponPanel";
 import { PrintFixPanel } from "./PrintFixPanel";
+import { MorePanel } from "./MorePanel";
 import { redeemCoupon } from "@/lib/cafe/coupon-actions";
 import { normaliseCode } from "@/lib/cafe/coupon";
 import {
@@ -797,7 +798,14 @@ export function CashierClient({
 
       {/* order panel */}
       <aside className="h-fit min-w-0 space-y-4 rounded-2xl border border-border bg-card p-4 lg:sticky lg:top-20">
-        <h2 className="text-lg font-bold">الطلب الحالي</h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-lg font-bold">الطلب الحالي</h2>
+          {/* ثابت لا يظهر بعد العطل — من يعرف أن الطابعة واقفة يريد
+              إصلاحها قبل أن يقف زبون ينتظر إيصاله */}
+          <div className="w-28 shrink-0">
+            <MorePanel />
+          </div>
+        </div>
 
         {lines.length === 0 ? (
           <p className="rounded-lg border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
