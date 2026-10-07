@@ -7,6 +7,7 @@ import { listOrdersByDay, type HistoryOrder } from "@/lib/cafe/history-actions";
 import { buildReceiptJob } from "@/lib/cafe/printer-actions";
 import { printJobs } from "@/lib/cafe/print-client";
 import { formatIqdLabel } from "@/lib/cafe/money";
+import { CouponPanel } from "./CouponPanel";
 import { PartnerLogo } from "./PartnerLogo";
 
 /**
@@ -291,6 +292,18 @@ export function HistoryClient({
                     <Printer className="size-4" />
                     إعادة طباعة
                   </button>
+                  {/* الزبون يشتكي بعد ما يستلم — فالتعويض مكانه هنا، حيث
+                      يبحث الكاشير عن طلبه، لا في شاشة دفعٍ انتهت. ويُعرض
+                      لمن عندنا رقمه: بلا رقم لا تُفتح رسالة. */}
+                  {o.customer_phone && o.status !== "cancelled" && (
+                    <CouponPanel
+                      phone={o.customer_phone}
+                      name={o.customer_name ?? null}
+                      orderId={o.id}
+                      orderNumber={o.order_seq}
+                      compact
+                    />
+                  )}
                 </div>
               </div>
               {cancelId === o.id && (

@@ -19,9 +19,17 @@ import { SITE_URL } from "@/lib/site/url";
 export function CouponPanel({
   phone,
   name,
+  orderId = null,
+  orderNumber = null,
+  compact = false,
 }: {
   phone: string | null;
   name: string | null;
+  /** الطلب الذي سبّب التعويض (0121) — يُحفظ مع الكوبون ويُذكر في الرسالة */
+  orderId?: string | null;
+  orderNumber?: number | string | null;
+  /** زرٌّ صغير في صفّ السجلّ بدل زرٍّ عريض في لوحة الدفع */
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<CouponKind>("amount");
@@ -45,6 +53,7 @@ export function CouponPanel({
       uses,
       minOrder: minOrder > 0 ? minOrder : null,
       days,
+      orderId,
     });
     setBusy(false);
     if (!res.ok) {
@@ -60,6 +69,7 @@ export function CouponPanel({
     // نفس دورة الضغطة. نفس القاعدة الموثّقة في ReviewsClient.
     const text = couponMessage({
       name,
+      about: orderNumber ? String(orderNumber).padStart(3, "0") : null,
       label: couponLabel({ kind, value }),
       code: made.code,
       url: `${SITE_URL}/coupon/${made.code}`,
@@ -74,10 +84,14 @@ export function CouponPanel({
     return (
       <button
         onClick={() => setOpen(true)}
-        className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl border-2 border-primary px-3 text-sm font-black text-primary transition hover:bg-primary hover:text-primary-foreground"
+        className={
+          compact
+            ? "touch-pos flex items-center gap-1.5 rounded-lg border border-primary px-3 py-1.5 text-sm font-bold text-primary hover:bg-primary/10"
+            : "flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl border-2 border-primary px-3 text-sm font-black text-primary transition hover:bg-primary hover:text-primary-foreground"
+        }
       >
         <Gift className="size-4" />
-        كوبون تعويض للزبون
+        كوبون تعويض
       </button>
     );
   }
@@ -87,7 +101,9 @@ export function CouponPanel({
       <div className="max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-3xl bg-card p-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between">
           <div className="text-right">
-            <p className="text-lg font-black">كوبون للزبون</p>
+            <p className="text-lg font-black">
+              كوبون تعويض{orderNumber ? ` — طلب ${String(orderNumber).padStart(3, "0")}` : ""}
+            </p>
             <p className="text-xs font-bold text-muted-foreground">
               {name || "بلا اسم"} {phone ? `· ${phone}` : "· بلا رقم"}
             </p>

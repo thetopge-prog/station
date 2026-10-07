@@ -113,12 +113,17 @@ export function couponMessage(input: {
   expiresOn?: string | null;
   minOrder?: number | null;
   uses?: number;
+  /** رقم الطلب الذي سبّب التعويض — تعويضٌ يسمّي سببه يُصدَّق */
+  about?: string | null;
 }): string {
   const name = (input.name ?? "").trim();
   const uses = Math.max(1, input.uses ?? 1);
   return [
     name ? `هلا ${name} 🧡` : "هلا بيك 🧡",
-    "انت من زبائننا المميّزين، وحبّينا نقدّم إلك هدية صغيرة من مطعم المحطة:",
+    input.about
+      ? `وصلتنا ملاحظتك على طلبك رقم ${input.about}، وآسفين عليها بصراحة.`
+      : "انت من زبائننا المميّزين، وحبّينا نقدّم إلك هدية صغيرة من مطعم المحطة:",
+    ...(input.about ? ["وحبّينا نعوّضك:"] : []),
     "",
     `🎁 *${input.label}*`,
     `الرمز: *${input.code}*`,

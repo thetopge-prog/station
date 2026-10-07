@@ -230,12 +230,14 @@ export type Database = {
         Row: Timestamped & {
           code: string; kind: string; value: number; item_id: string | null; customer_id: string | null;
           phone: string | null; max_uses: number; used_count: number; min_order: number | null;
+          order_id: string | null;
           expires_on: string | null; note: string | null; created_by: string | null; is_active: boolean;
         };
         Insert: {
           id?: string; code: string; kind: string; value: number; item_id?: string | null;
           customer_id?: string | null; phone?: string | null; max_uses?: number; used_count?: number;
           min_order?: number | null; expires_on?: string | null; note?: string | null;
+          order_id?: string | null;
           created_by?: string | null; is_active?: boolean; created_at?: string;
         };
         Update: Partial<{ is_active: boolean; note: string | null; max_uses: number; expires_on: string | null }>;

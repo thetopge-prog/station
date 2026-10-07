@@ -97,6 +97,8 @@ export type NewCoupon = {
   minOrder?: number | null;
   days?: number;
   note?: string | null;
+  /** الطلب الذي سبّب التعويض — لا الذي سيُستعمل فيه الكوبون */
+  orderId?: string | null;
 };
 
 export type CreatedCoupon = { ok: true; code: string; expiresOn: string } | { ok: false; error: string };
@@ -148,6 +150,7 @@ export async function createCoupon(input: NewCoupon): Promise<CreatedCoupon> {
     min_order: input.minOrder && input.minOrder > 0 ? Math.round(input.minOrder) : null,
     expires_on: expiresOn,
     note: input.note?.trim() || null,
+    order_id: input.orderId ?? null,
     created_by: staff.employeeId,
   });
   if (error) return { ok: false, error: error.message };
