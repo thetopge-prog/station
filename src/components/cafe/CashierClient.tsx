@@ -20,6 +20,7 @@ import type { Partner } from "@/lib/cafe/partner-actions";
 import { buildOrderJobs, buildReceiptJob } from "@/lib/cafe/printer-actions";
 import { PagerQrPanel } from "./PagerQrPanel";
 import { CouponPanel } from "./CouponPanel";
+import { PrintFixPanel } from "./PrintFixPanel";
 import { redeemCoupon } from "@/lib/cafe/coupon-actions";
 import { normaliseCode } from "@/lib/cafe/coupon";
 import {
@@ -1396,9 +1397,14 @@ export function CashierClient({
               </p>
             )}
             {printWarn && (
-              <p className="mt-2 rounded-xl border-2 border-destructive bg-destructive/10 px-3 py-2 text-sm font-bold text-destructive">
-                {printWarn}
-              </p>
+              <>
+                <p className="mt-2 rounded-xl border-2 border-destructive bg-destructive/10 px-3 py-2 text-sm font-bold text-destructive">
+                  {printWarn}
+                </p>
+                {/* الوكيل برنامجٌ على هذا الجهاز ولا يُشغَّل عن بُعد — فالزرّ
+                    هنا، ليصلحها من يقف أمام الشاشة بلا أن ينتظر أحداً. */}
+                <PrintFixPanel />
+              </>
             )}
             <div className="mt-4 flex items-center justify-center gap-2">
               <span className="text-sm font-semibold text-muted-foreground">
