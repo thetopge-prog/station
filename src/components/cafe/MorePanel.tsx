@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AlertTriangle, MoreHorizontal, Printer, X } from "lucide-react";
 import { PrintFixPanel } from "./PrintFixPanel";
+import { EmergencyCommands } from "./EmergencyCommands";
 
 /**
  * «المزيد» — ما لا يُستعمل كل يوم، ولا يجوز أن يختفي يوم يُحتاج.
@@ -55,6 +56,8 @@ export function MorePanel() {
           {/* نفس اللوحة التي تظهر مع تحذير الطباعة — واحدةٌ لا اثنتان، فلا
               يتحسّن مسارٌ ويبقى الآخر قديماً */}
           <PrintFixPanel />
+
+          <EmergencyCommands />
 
           <p className="mt-4 text-xs font-bold leading-relaxed text-muted-foreground">
             وما يضيع شيء: كل طلب محفوظ، والإيصالات تنطبع من «سجلّ الطلبات» ←
