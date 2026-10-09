@@ -60,6 +60,7 @@ export function SignInForm({ redirectTo, stale = false }: { redirectTo: string; 
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [staleBuild, setStaleBuild] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function onSubmit(e: FormEvent) {
@@ -118,7 +119,23 @@ export function SignInForm({ redirectTo, stale = false }: { redirectTo: string; 
       // ويُقال السبب لا «فشل» وحدها: رسالةٌ بلا سبب لا تُشخَّص، وقد كلّفتنا
       // ليلةً كاملة من التخمين
       const m = e instanceof Error ? e.message : String(e);
-      setError(`${t("auth.error")}${m ? ` (${m.slice(0, 80)})` : ""}`);
+      /*
+       * نسخةٌ قديمة محفوظة في هذا الجهاز.
+       *
+       * المتغيّرات تصل المتصفّح بطريقين — محقونةً في ملفّات البناء، ومحقونةً
+       * في الصفحة وقت تقديمها. وسقوطُهما معاً معناه أن الصفحة التي بين يدي
+       * المستخدم ليست من الخادم الحيّ بل من ذاكرة جهازه.
+       *
+       * ورأى المالك هذه الرسالة بالإنكليزية على هاتفه ليلاً، وفيها كلامٌ عن
+       * «متغيّرات بيئة» لا يفيد من يقرؤه ولا يقول له ماذا يفعل. فالعلاج هنا
+       * لا شرحُ العطل: زرٌّ يمسح المحفوظ ويحمّل من جديد.
+       */
+      if (/Missing Supabase env/i.test(m)) {
+        setStaleBuild(true);
+        setError("النسخة المحفوظة على هذا الجهاز قديمة. اضغط «حدّث التطبيق» تحت.");
+      } else {
+        setError(`${t("auth.error")}${m ? ` (${m.slice(0, 80)})` : ""}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -164,6 +181,29 @@ export function SignInForm({ redirectTo, stale = false }: { redirectTo: string; 
 
       {notice && <p className="rounded-lg bg-secondary px-3 py-2 text-sm font-bold">{notice}</p>}
       {error && <p className="text-sm text-destructive">{error}</p>}
+
+      {/* يمسح عامل الخدمة وكل ما خزّنه، ثم يحمّل من الخادم متجاوزاً الذاكرة.
+          وبعده تصل المتغيّرات بطريقَيها، ويدخل. */}
+      {staleBuild && (
+        <button
+          type="button"
+          onClick={async () => {
+            try {
+              const regs = await navigator.serviceWorker?.getRegistrations?.();
+              await Promise.all((regs ?? []).map((r) => r.unregister()));
+              const keys = await caches?.keys?.();
+              await Promise.all((keys ?? []).map((k) => caches.delete(k)));
+            } catch {
+              // جهازٌ يمنع المسح: إعادة التحميل وحدها تنفع غالباً
+            }
+            // طابعٌ زمني يكسر ذاكرة المتصفّح نفسها، لا عامل الخدمة وحده
+            window.location.replace(`${window.location.pathname}?fresh=${Date.now()}`);
+          }}
+          className="w-full rounded-lg bg-destructive px-4 py-2.5 font-black text-white"
+        >
+          حدّث التطبيق
+        </button>
+      )}
 
       <button
         type="submit"
